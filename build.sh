@@ -1,13 +1,8 @@
 #!/bin/bash
-# Music Player Build Script for macOS and Linux
-# This script builds the music player into an executable
+# Music Player Build Script for Linux/macOS
+# This script provides easy access to common build configurations
 
-set -e  # Exit on any error
-
-echo "===================================="
-echo "Music Player Build Script (Unix)"
-echo "===================================="
-echo
+set -e  # Exit on error
 
 # Colors for output
 RED='\033[0;31m'
@@ -15,139 +10,146 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Default values
+BUILD_TYPE="release"
+CONFIG_FILE="build_config.yaml"
+CLEAN_ONLY=0
+PACKAGE=0
+
 # Function to print colored output
 print_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+# Function to show help
+show_help() {
+    echo "Music Player Build Script"
+    echo "========================"
+    echo
+    echo "Usage: $0 [OPTIONS]"
+    echo
+    echo "Options:"
+    echo "  --dev       Build development version (debug, console, no UPX)"
+    echo "  --debug     Build debug version (debug, console)"
+    echo "  --clean     Clean build artifacts only"
+    echo "  --package   Create installer package after building"
+    echo "  --help      Show this help message"
+    echo
+    echo "Examples:"
+    echo "  $0                    # Build release version"
+    echo "  $0 --dev              # Build development version"
+    echo "  $0 --clean            # Clean build artifacts"
+    echo "  $0 --dev --package    # Build dev version and create package"
 }
 
-# Check if Python is installed
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dev)
+            BUILD_TYPE="dev"
+            shift
+            ;;
+        --debug)
+            BUILD_TYPE="debug"
+            shift
+            ;;
+        --clean)
+            CLEAN_ONLY=1
+            shift
+            ;;
+        --package)
+            PACKAGE=1
+            shift
+            ;;
+        --help)
+            show_help
+            exit 0
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+# Check Python
 if ! command -v python3 &> /dev/null; then
-    print_error "Python 3 is not installed"
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "Please install Python 3 from https://python.org or using Homebrew: brew install python"
+    if ! command -v python &> /dev/null; then
+        print_error "Python is not installed or not in PATH"
+        exit 1
     else
-        echo "Please install Python 3 using your package manager:"
-        echo "  Ubuntu/Debian: sudo apt install python3 python3-pip python3-venv"
-        echo "  Fedora: sudo dnf install python3 python3-pip"
-        echo "  Arch: sudo pacman -S python python-pip"
-    fi
-    exit 1
-fi
-
-# Check Python version
-PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-if ! python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
-    print_error "Python 3.8 or higher is required (found $PYTHON_VERSION)"
-    exit 1
-fi
-print_info "Using Python $PYTHON_VERSION"
-
-# Check if we're in the correct directory
-if [ ! -f "src/main.py" ]; then
-    print_error "src/main.py not found"
-    echo "Please run this script from the project root directory"
-    exit 1
-fi
-
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    print_info "Creating virtual environment..."
-    python3 -m venv venv
-    if [ $? -ne 0 ]; then
-        print_error "Failed to create virtual environment"
-        exit 1
-    fi
-fi
-
-# Activate virtual environment
-print_info "Activating virtual environment..."
-source venv/bin/activate
-
-# Upgrade pip
-print_info "Upgrading pip..."
-pip install --upgrade pip
-
-# Install requirements
-print_info "Installing dependencies..."
-pip install -r requirements.txt
-
-# Install PyInstaller
-print_info "Installing PyInstaller..."
-pip install pyinstaller
-
-# Install Pillow for icon creation
-pip install Pillow
-
-# Create assets directory if it doesn't exist
-mkdir -p assets
-
-# Platform-specific setup
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS specific settings
-    export PYTHONOPTIMIZE=1
-    print_info "Detected macOS"
-
-    # Check if Xcode command line tools are installed
-    if ! xcode-select -p &> /dev/null; then
-        print_error "Xcode Command Line Tools are not installed"
-        echo "Run: xcode-select --install"
-        exit 1
+        PYTHON_CMD="python"
     fi
 else
-    # Linux specific settings
-    print_info "Detected Linux"
-
-    # Check for necessary system packages
-    if ! dpkg -l | grep -q libsdl2-2.0-0 2>/dev/null && ! rpm -qa | grep -q SDL2 2>/dev/null; then
-        print_info "SDL2 not found. Installing may be required for pygame:"
-        echo "  Ubuntu/Debian: sudo apt install libsdl2-2.0-0"
-        echo "  Fedora: sudo dnf install SDL2"
-        echo "  Arch: sudo pacman -S sdl2"
-    fi
+    PYTHON_CMD="python3"
 fi
 
-# Run the build script
-print_info "Running build script..."
-python build.py
+# Show build information
+echo "Music Player Build Script"
+echo "========================"
+echo
+print_info "Build Type: $BUILD_TYPE"
+print_info "Config File: $CONFIG_FILE"
+print_info "Python Command: $PYTHON_CMD"
+echo
 
-# Check if build was successful
-EXECUTABLE_NAME="MusicPlayer"
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    EXECUTABLE_PATH="dist/$EXECUTABLE_NAME"
-else
-    EXECUTABLE_PATH="dist/$EXECUTABLE_NAME"
+# Build command
+CMD="$PYTHON_CMD build.py --config $CONFIG_FILE"
+
+# Apply build type specific settings
+case $BUILD_TYPE in
+    dev)
+        CMD="$CMD --debug --console --no-upx"
+        ;;
+    debug)
+        CMD="$CMD --debug --console"
+        ;;
+esac
+
+# Add package flag if requested
+if [ $PACKAGE -eq 1 ]; then
+    CMD="$CMD --package"
 fi
 
-if [ -f "$EXECUTABLE_PATH" ]; then
-    print_success "Build completed successfully!"
-    echo "Executable location: $EXECUTABLE_PATH"
+# Handle clean only
+if [ $CLEAN_ONLY -eq 1 ]; then
+    print_info "Cleaning build artifacts..."
+    $PYTHON_CMD build.py --clean-only
+    exit 0
+fi
 
-    # Show file size
-    if command -v du &> /dev/null; then
-        FILE_SIZE=$(du -h "$EXECUTABLE_PATH" | cut -f1)
-        echo "File size: $FILE_SIZE"
-    fi
+# Execute build
+print_info "Executing: $CMD"
+echo
+$CMD
 
+if [ $? -eq 0 ]; then
     echo
-    # Ask if user wants to run the application
-    read -p "Do you want to run the application now? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Launching application..."
-        "$EXECUTABLE_PATH"
+    print_info "Build completed successfully!"
+
+    # Ask if user wants to open dist folder (only on macOS and Linux with GUI)
+    if command -v xdg-open &> /dev/null || command -v open &> /dev/null; then
+        read -p "Open output directory? (Y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            if command -v open &> /dev/null; then
+                open dist
+            elif command -v xdg-open &> /dev/null; then
+                xdg-open dist
+            fi
+        fi
     fi
 else
+    echo
     print_error "Build failed!"
-    echo "Check the error messages above for details"
     exit 1
 fi
-
-print_success "Script completed!"
