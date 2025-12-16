@@ -80,6 +80,8 @@ class ConfigService:
                 'default_volume': 0.8,
                 'fade_duration': 500,
                 'remember_position': True,
+                'persist_queue': True,
+                'persist_queue_max_items': 500,
             },
             'library': {
                 'directories': [],
@@ -115,6 +117,12 @@ class ConfigService:
                     'max_tokens': 512,
                     'temperature': 0.2,
                     'json_mode': True,      # 尝试使用 response_format=json_object
+                    'cache': {
+                        'enabled': True,
+                        'ttl_days': 30,
+                        'max_history': 80,
+                        'max_items': 200,
+                    },
                     'semantic_fallback': {
                         'max_catalog_items': 1500,   # 语义筛选时最多遍历的库曲目数量（按简要信息分页发送）
                         'batch_size': 250,           # 每次发送给 LLM 的候选曲目数量
