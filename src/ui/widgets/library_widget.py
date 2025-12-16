@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from models.track import Track
 from services.library_service import LibraryService
 from services.player_service import PlayerService
+from services.playlist_service import PlaylistService
 from services.tag_service import TagService
 from core.event_bus import EventBus, EventType
 from core.database import DatabaseManager
@@ -36,10 +37,13 @@ class LibraryWidget(QWidget):
     add_to_queue = pyqtSignal(Track)
     
     def __init__(self, library_service: LibraryService,
-                 player_service: PlayerService, parent=None):
+                 player_service: PlayerService, 
+                 playlist_service: PlaylistService = None,
+                 parent=None):
         super().__init__(parent)
         self.library = library_service
         self.player = player_service
+        self._playlist_service = playlist_service
         self.event_bus = EventBus()
         
         self.all_tracks: List[Track] = []
@@ -231,6 +235,24 @@ class LibraryWidget(QWidget):
         add_to_queue.triggered.connect(lambda: self._add_tracks_to_queue(selected_tracks))
         menu.addAction(add_to_queue)
         
+        # 添加到歌单子菜单
+        if self._playlist_service:
+            playlist_menu = menu.addMenu(f"添加到歌单 ({len(selected_tracks)}首)")
+            playlists = self._playlist_service.get_all()
+            
+            if playlists:
+                for playlist in playlists:
+                    action = QAction(f"🎵 {playlist.name}", self)
+                    # 使用闭包捕获 playlist.id
+                    action.triggered.connect(
+                        lambda checked, pid=playlist.id: self._add_to_playlist(pid, selected_tracks)
+                    )
+                    playlist_menu.addAction(action)
+            else:
+                no_playlist = QAction("(暂无歌单)", self)
+                no_playlist.setEnabled(False)
+                playlist_menu.addAction(no_playlist)
+        
         menu.addSeparator()
         
         # 管理标签
@@ -253,6 +275,14 @@ class LibraryWidget(QWidget):
         for track in tracks:
             self.player.add_to_queue(track)
             self.add_to_queue.emit(track)
+    
+    def _add_to_playlist(self, playlist_id: str, tracks: List[Track]):
+        """添加曲目到歌单"""
+        if not self._playlist_service:
+            return
+        
+        for track in tracks:
+            self._playlist_service.add_track(playlist_id, track)
     
     def _show_tag_dialog(self, tracks: List[Track]):
         """显示标签管理对话框"""

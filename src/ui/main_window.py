@@ -20,8 +20,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ui.widgets.player_controls import PlayerControls
 from ui.widgets.playlist_widget import PlaylistWidget
 from ui.widgets.library_widget import LibraryWidget
+from ui.widgets.playlist_manager_widget import PlaylistManagerWidget
+from ui.widgets.playlist_detail_widget import PlaylistDetailWidget
+from ui.widgets.system_tray import SystemTray
+from ui.mini_player import MiniPlayer
 from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
 from ui.dialogs.llm_queue_chat_dialog import LLMQueueChatDialog
+from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
 from services.player_service import PlayerService
 from services.playlist_service import PlaylistService
 from services.library_service import LibraryService
@@ -64,6 +69,9 @@ class MainWindow(QMainWindow):
         
         # 连接事件
         self._connect_events()
+        
+        # 初始化系统托盘
+        self._setup_system_tray()
         
         # 恢复窗口状态
         self._restore_state()
@@ -108,14 +116,31 @@ class MainWindow(QMainWindow):
         # 主内容区
         self.content_stack = QStackedWidget()
         
+        # 页面索引：0=媒体库, 1=播放队列, 2=歌单管理, 3=歌单详情
+        
         # 媒体库页面
-        self.library_widget = LibraryWidget(self.library, self.player)
+        self.library_widget = LibraryWidget(
+            self.library, self.player, self.playlist_service
+        )
         self.content_stack.addWidget(self.library_widget)
         
         # 播放队列页面
         self.playlist_widget = PlaylistWidget(self.player)
         self.playlist_widget.llm_chat_requested.connect(self._open_llm_queue_assistant)
         self.content_stack.addWidget(self.playlist_widget)
+        
+        # 歌单管理页面
+        self.playlist_manager = PlaylistManagerWidget(self.playlist_service)
+        self.playlist_manager.create_requested.connect(self._on_create_playlist)
+        self.playlist_manager.playlist_selected.connect(self._on_playlist_selected)
+        self.content_stack.addWidget(self.playlist_manager)
+        
+        # 歌单详情页面
+        self.playlist_detail = PlaylistDetailWidget(
+            self.playlist_service, self.player
+        )
+        self.playlist_detail.back_requested.connect(lambda: self._switch_page(2))
+        self.content_stack.addWidget(self.playlist_detail)
         
         content_layout.addWidget(self.content_stack, 1)
         
@@ -173,6 +198,22 @@ class MainWindow(QMainWindow):
         self.nav_queue.setCheckable(True)
         self.nav_queue.clicked.connect(lambda: self._switch_page(1))
         layout.addWidget(self.nav_queue)
+        
+        layout.addSpacing(24)
+        
+        # 我的歌单分组
+        header_playlist = QLabel("我的歌单")
+        header_playlist.setObjectName("sidebarHeader")
+        layout.addWidget(header_playlist)
+        
+        self.nav_playlists = QPushButton("📁  全部歌单")
+        self.nav_playlists.setCheckable(True)
+        self.nav_playlists.clicked.connect(lambda: self._switch_page(2))
+        layout.addWidget(self.nav_playlists)
+        
+        self.add_playlist_btn = QPushButton("＋  新建歌单")
+        self.add_playlist_btn.clicked.connect(self._on_create_playlist)
+        layout.addWidget(self.add_playlist_btn)
         
         layout.addStretch()
         
@@ -246,6 +287,14 @@ class MainWindow(QMainWindow):
         queue_assistant.triggered.connect(self._open_llm_queue_assistant)
         ai_menu.addAction(queue_assistant)
         
+        # 视图菜单
+        view_menu = menubar.addMenu("视图")
+        
+        mini_mode = QAction("迷你模式", self)
+        mini_mode.setShortcut("Ctrl+M")
+        mini_mode.triggered.connect(self._switch_to_mini_mode)
+        view_menu.addAction(mini_mode)
+        
         # 帮助菜单
         help_menu = menubar.addMenu("帮助")
         
@@ -260,6 +309,53 @@ class MainWindow(QMainWindow):
     def _open_llm_queue_assistant(self):
         dlg = LLMQueueChatDialog(self.player, self.library, self.config, self)
         dlg.exec()
+    
+    def _on_create_playlist(self):
+        """新建歌单"""
+        dialog = CreatePlaylistDialog(self)
+        if dialog.exec() == CreatePlaylistDialog.DialogCode.Accepted:
+            name = dialog.get_name()
+            description = dialog.get_description()
+            self.playlist_service.create(name, description)
+            self.playlist_manager.refresh()
+    
+    def _on_playlist_selected(self, playlist):
+        """歌单被选中"""
+        self.playlist_detail.set_playlist(playlist)
+        self._switch_page(3)
+    
+    def _switch_to_mini_mode(self):
+        """切换到迷你模式"""
+        if not hasattr(self, '_mini_player') or self._mini_player is None:
+            self._mini_player = MiniPlayer(self.player)
+            self._mini_player.expand_requested.connect(self._switch_from_mini_mode)
+        
+        # 保存主窗口位置
+        self._main_window_geometry = self.geometry()
+        
+        # 隐藏主窗口，显示迷你播放器
+        self.hide()
+        self._mini_player.show()
+        
+        # 将迷你播放器放在屏幕右下角
+        from PyQt6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().geometry()
+        self._mini_player.move(
+            screen.width() - self._mini_player.width() - 20,
+            screen.height() - self._mini_player.height() - 100
+        )
+    
+    def _switch_from_mini_mode(self):
+        """从迷你模式返回主窗口"""
+        if hasattr(self, '_mini_player') and self._mini_player:
+            self._mini_player.hide()
+        
+        # 恢复主窗口
+        self.show()
+        if hasattr(self, '_main_window_geometry'):
+            self.setGeometry(self._main_window_geometry)
+        self.activateWindow()
+        self.raise_()
     
     def _connect_events(self):
         """连接事件"""
@@ -277,10 +373,13 @@ class MainWindow(QMainWindow):
         # 更新导航按钮状态
         self.nav_library.setChecked(index == 0)
         self.nav_queue.setChecked(index == 1)
+        self.nav_playlists.setChecked(index in (2, 3))
         
-        # 更新播放列表
+        # 根据页面刷新内容
         if index == 1:
             self.playlist_widget.update_list()
+        elif index == 2:
+            self.playlist_manager.refresh()
     
     def _on_scan_clicked(self):
         """扫描媒体库"""
@@ -357,7 +456,20 @@ class MainWindow(QMainWindow):
         )
     
     def closeEvent(self, event):
-        """关闭事件"""
+        """关闭事件 - 隐藏到托盘而非退出"""
+        # 检查是否应该隐藏到托盘
+        minimize_to_tray = self.config.get("ui.minimize_to_tray", True)
+        
+        if minimize_to_tray and self._system_tray.is_visible():
+            # 隐藏到托盘
+            event.ignore()
+            self.hide()
+        else:
+            # 真正退出
+            self._do_cleanup_and_exit(event)
+    
+    def _do_cleanup_and_exit(self, event=None):
+        """清理资源并退出"""
         # 保存窗口大小
         self.config.set("ui.window_width", self.width())
         self.config.set("ui.window_height", self.height())
@@ -369,9 +481,38 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         
+        # 隐藏托盘
+        self._system_tray.hide()
+        
         # 清理资源
         self.player.cleanup()
         self.event_bus.shutdown()
         self.db.close()
         
-        event.accept()
+        if event:
+            event.accept()
+    
+    def _setup_system_tray(self):
+        """初始化系统托盘"""
+        self._system_tray = SystemTray(self.player, self)
+        self._system_tray.show_window_requested.connect(self._show_from_tray)
+        self._system_tray.exit_requested.connect(self._exit_application)
+        
+        # 显示托盘图标
+        self._system_tray.show()
+        
+        # 读取通知设置
+        show_notifications = self.config.get("ui.show_tray_notifications", True)
+        self._system_tray.set_show_notifications(show_notifications)
+    
+    def _show_from_tray(self):
+        """从托盘显示窗口"""
+        self.show()
+        self.activateWindow()
+        self.raise_()
+    
+    def _exit_application(self):
+        """从托盘菜单退出应用"""
+        self._do_cleanup_and_exit()
+        from PyQt6.QtWidgets import QApplication
+        QApplication.quit()
