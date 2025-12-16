@@ -1,0 +1,71 @@
+"""
+集成测试 - 使用真实音乐库测试
+"""
+
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+
+def test_library_scan():
+    """测试媒体库扫描（使用真实音乐库）"""
+    from core.database import DatabaseManager
+    from services.library_service import LibraryService
+    
+    # 使用临时数据库
+    DatabaseManager.reset_instance()
+    db = DatabaseManager("test_integration.db")
+    
+    try:
+        service = LibraryService(db)
+        
+        # 扫描真实音乐库
+        music_dir = r"D:\User\music\music"
+        
+        if os.path.exists(music_dir):
+            print(f"\n扫描目录: {music_dir}")
+            
+            def progress(current, total, path):
+                if current % 10 == 0:
+                    print(f"  进度: {current}/{total}")
+            
+            added = service.scan([music_dir], progress_callback=progress)
+            
+            print(f"\n扫描完成!")
+            print(f"  添加曲目: {added}")
+            print(f"  库中总数: {service.get_track_count()}")
+            
+            # 获取一些曲目信息
+            tracks = service.get_all_tracks()[:5]
+            print(f"\n前5首曲目:")
+            for t in tracks:
+                print(f"  - {t.display_name} ({t.duration_str})")
+            
+            # 获取艺术家
+            artists = service.get_artists()
+            print(f"\n艺术家数量: {len(artists)}")
+            if artists:
+                for a in artists[:5]:
+                    print(f"  - {a.name} ({a.track_count}首)")
+            
+            # 获取专辑
+            albums = service.get_albums()
+            print(f"\n专辑数量: {len(albums)}")
+            if albums:
+                for al in albums[:5]:
+                    print(f"  - {al.title}")
+            
+            assert added > 0 or service.get_track_count() > 0
+        else:
+            print(f"音乐目录不存在: {music_dir}")
+            print("跳过真实库扫描测试")
+    
+    finally:
+        DatabaseManager.reset_instance()
+        if os.path.exists("test_integration.db"):
+            os.remove("test_integration.db")
+
+
+if __name__ == "__main__":
+    test_library_scan()
