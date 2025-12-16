@@ -219,8 +219,13 @@ class PlayerControls(QWidget):
         self._slider_dragging = False
     
     def _update_position(self):
-        """更新播放位置"""
+        """更新播放位置并检测播放结束"""
         if self._slider_dragging:
+            return
+        
+        # 检测播放是否结束（主线程安全）
+        if self.player.check_playback_ended():
+            self._update_play_button()
             return
         
         if self.player.is_playing:

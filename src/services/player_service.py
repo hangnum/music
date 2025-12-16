@@ -72,10 +72,22 @@ class PlayerService:
         
         # 历史记录（用于上一曲）
         self._history: List[int] = []
+    
+    def check_playback_ended(self) -> bool:
+        """
+        检查播放是否结束，如果结束则自动播放下一曲
         
-        # 绑定引擎回调
-        self._engine.set_on_end(self._on_track_end)
-        self._engine.set_on_error(self._on_error)
+        由主线程定期调用（如Qt定时器），确保线程安全。
+        
+        Returns:
+            bool: 是否检测到播放结束
+        """
+        if self._engine.check_if_ended():
+            self._event_bus.publish_sync(EventType.TRACK_ENDED, self.current_track)
+            # 自动播放下一曲
+            self.next_track()
+            return True
+        return False
     
     @property
     def state(self) -> PlaybackState:

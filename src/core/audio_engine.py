@@ -128,6 +128,16 @@ class AudioEngineBase(ABC):
         """
         pass
     
+    @abstractmethod
+    def check_if_ended(self) -> bool:
+        """
+        检查播放是否结束（由主线程定期调用）
+        
+        Returns:
+            bool: 是否播放结束
+        """
+        pass
+    
     def set_on_end(self, callback: Callable) -> None:
         """设置播放结束回调"""
         self._on_end_callback = callback
@@ -145,26 +155,27 @@ class PygameAudioEngine(AudioEngineBase):
     """
     
     _initialized = False
+    _lock = threading.Lock()
     
     def __init__(self):
         super().__init__()
         self._duration_ms: int = 0
-        self._monitor_thread: Optional[threading.Thread] = None
-        self._stop_monitor = threading.Event()
+        self._playback_started = False
         
         # 初始化pygame mixer
         self._init_mixer()
     
     def _init_mixer(self) -> None:
         """初始化pygame mixer"""
-        if not PygameAudioEngine._initialized:
-            try:
-                import pygame
-                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
-                PygameAudioEngine._initialized = True
-            except Exception as e:
-                print(f"[AudioEngine] pygame初始化失败: {e}")
-                self._state = PlayerState.ERROR
+        with PygameAudioEngine._lock:
+            if not PygameAudioEngine._initialized:
+                try:
+                    import pygame
+                    pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
+                    PygameAudioEngine._initialized = True
+                except Exception as e:
+                    print(f"[AudioEngine] pygame初始化失败: {e}")
+                    self._state = PlayerState.ERROR
     
     def load(self, file_path: str) -> bool:
         """加载音频文件"""
@@ -179,6 +190,7 @@ class PygameAudioEngine(AudioEngineBase):
             pygame.mixer.music.load(file_path)
             self._current_file = file_path
             self._state = PlayerState.STOPPED
+            self._playback_started = False
             
             # 获取时长
             self._duration_ms = self._get_duration_from_file(file_path)
@@ -212,7 +224,7 @@ class PygameAudioEngine(AudioEngineBase):
             
             pygame.mixer.music.play()
             self._state = PlayerState.PLAYING
-            self._start_end_monitor()
+            self._playback_started = True
             return True
             
         except Exception as e:
@@ -241,9 +253,9 @@ class PygameAudioEngine(AudioEngineBase):
         """停止播放"""
         import pygame
         
-        self._stop_monitor.set()
         pygame.mixer.music.stop()
         self._state = PlayerState.STOPPED
+        self._playback_started = False
     
     def seek(self, position_ms: int) -> None:
         """跳转到指定位置"""
@@ -267,36 +279,36 @@ class PygameAudioEngine(AudioEngineBase):
         import pygame
         
         if self._state in (PlayerState.PLAYING, PlayerState.PAUSED):
-            return pygame.mixer.music.get_pos()
+            pos = pygame.mixer.music.get_pos()
+            return max(0, pos)  # 返回非负值
         return 0
     
     def get_duration(self) -> int:
         """获取音频总时长"""
         return self._duration_ms
     
-    def _start_end_monitor(self) -> None:
-        """启动播放结束监控线程"""
-        self._stop_monitor.clear()
+    def check_if_ended(self) -> bool:
+        """
+        检查播放是否结束
         
-        def monitor():
-            import pygame
-            
-            while not self._stop_monitor.is_set():
-                if not pygame.mixer.music.get_busy() and self._state == PlayerState.PLAYING:
-                    self._state = PlayerState.STOPPED
-                    if self._on_end_callback:
-                        self._on_end_callback()
-                    return
-                self._stop_monitor.wait(0.1)
+        由主线程定期调用，确保线程安全。
+        """
+        import pygame
         
-        self._monitor_thread = threading.Thread(target=monitor, daemon=True)
-        self._monitor_thread.start()
+        if self._playback_started and self._state == PlayerState.PLAYING:
+            if not pygame.mixer.music.get_busy():
+                self._state = PlayerState.STOPPED
+                self._playback_started = False
+                return True
+        return False
     
     def cleanup(self) -> None:
         """清理资源"""
         import pygame
         
-        self._stop_monitor.set()
-        pygame.mixer.music.stop()
-        pygame.mixer.quit()
+        try:
+            pygame.mixer.music.stop()
+            pygame.mixer.quit()
+        except Exception:
+            pass
         PygameAudioEngine._initialized = False
