@@ -189,6 +189,39 @@ class TestPlayerService:
         
         assert player.get_play_mode() != initial_mode
 
+    def test_track_started_published_synchronously(self):
+        """TRACK_STARTED 应在 play() 返回前触发（避免跨线程 UI 崩溃）"""
+        from services.player_service import PlayerService
+        from core.event_bus import EventBus, EventType
+        from core.audio_engine import PlayerState
+        from models.track import Track
+        from unittest.mock import MagicMock
+
+        EventBus.reset_instance()
+        try:
+            mock_engine = MagicMock()
+            mock_engine.load.return_value = True
+            mock_engine.play.return_value = True
+            mock_engine.get_position.return_value = 0
+            mock_engine.get_duration.return_value = 0
+            mock_engine.state = PlayerState.PLAYING
+            mock_engine.volume = 1.0
+
+            player = PlayerService(audio_engine=mock_engine)
+
+            fired = {"value": False}
+
+            def on_started(_track):
+                fired["value"] = True
+
+            EventBus().subscribe(EventType.TRACK_STARTED, on_started)
+
+            track = Track(title="Song", file_path="song.mp3")
+            assert player.play(track) is True
+            assert fired["value"] is True
+        finally:
+            EventBus.reset_instance()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

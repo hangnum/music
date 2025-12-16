@@ -10,6 +10,14 @@ import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
+try:
+    from PyQt6.QtCore import QObject, pyqtSignal, Qt, QCoreApplication
+except Exception:  # PyQt6 may be unavailable in non-UI environments
+    QObject = None  # type: ignore[assignment]
+    pyqtSignal = None  # type: ignore[assignment]
+    Qt = None  # type: ignore[assignment]
+    QCoreApplication = None  # type: ignore[assignment]
+
 
 class EventType(Enum):
     """事件类型枚举"""
@@ -82,7 +90,37 @@ class EventBus:
         self._subscribers: Dict[EventType, Dict[str, Callable]] = {}
         self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="EventBus")
         self._lock = threading.Lock()
+
+        # If a Qt application exists, dispatch callbacks onto the Qt main thread.
+        # This prevents crashes/hangs caused by updating Qt widgets from worker threads.
+        self._qt_dispatcher = None
+        self._qt_thread = None
+        self._ensure_qt_dispatcher()
+
         self._initialized = True
+
+    def _ensure_qt_dispatcher(self) -> None:
+        """Initialize Qt dispatcher if a Qt app is running."""
+        if self._qt_dispatcher is not None:
+            return
+        if QCoreApplication is None or QObject is None or pyqtSignal is None:
+            return
+        app = QCoreApplication.instance()
+        if app is None:
+            return
+
+        try:
+            dispatcher = _QtDispatcher()
+            qt_thread = app.thread()
+            try:
+                dispatcher.moveToThread(qt_thread)
+            except Exception:
+                pass
+            self._qt_dispatcher = dispatcher
+            self._qt_thread = qt_thread
+        except Exception:
+            self._qt_dispatcher = None
+            self._qt_thread = None
     
     def subscribe(self, event_type: EventType, 
                   callback: Callable[[Any], None]) -> str:
@@ -132,9 +170,13 @@ class EventBus:
         """
         with self._lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
-        
+
+        self._ensure_qt_dispatcher()
         for callback in callbacks:
-            self._executor.submit(self._safe_call, callback, data)
+            if self._qt_dispatcher is not None:
+                self._qt_dispatcher.dispatch.emit(callback, data)
+            else:
+                self._executor.submit(self._safe_call, callback, data)
     
     def publish_sync(self, event_type: EventType, data: Any = None) -> None:
         """
@@ -146,9 +188,27 @@ class EventBus:
         """
         with self._lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
-        
+
+        self._ensure_qt_dispatcher()
         for callback in callbacks:
-            self._safe_call(callback, data)
+            if self._qt_dispatcher is not None and self._qt_thread is not None:
+                # If we're not on the Qt thread, queue and block until done.
+                current_qt_thread = None
+                if Qt is not None:
+                    try:
+                        from PyQt6.QtCore import QThread
+                        current_qt_thread = QThread.currentThread()
+                    except Exception:
+                        current_qt_thread = None
+
+                if current_qt_thread is not None and current_qt_thread != self._qt_thread:
+                    done = threading.Event()
+                    self._qt_dispatcher.dispatch_sync.emit(callback, data, done)
+                    done.wait(timeout=5)
+                else:
+                    self._safe_call(callback, data)
+            else:
+                self._safe_call(callback, data)
     
     def _safe_call(self, callback: Callable, data: Any) -> None:
         """安全调用回调函数"""
@@ -174,3 +234,31 @@ class EventBus:
             if cls._instance is not None:
                 cls._instance.shutdown()
                 cls._instance = None
+
+
+if QObject is not None and pyqtSignal is not None:
+    class _QtDispatcher(QObject):
+        dispatch = pyqtSignal(object, object)           # callback, data
+        dispatch_sync = pyqtSignal(object, object, object)  # callback, data, threading.Event
+
+        def __init__(self):
+            super().__init__()
+            self.dispatch.connect(self._on_dispatch, Qt.ConnectionType.QueuedConnection)
+            self.dispatch_sync.connect(self._on_dispatch_sync, Qt.ConnectionType.QueuedConnection)
+
+        def _on_dispatch(self, callback: Callable, data: Any) -> None:
+            try:
+                callback(data)
+            except Exception as e:
+                print(f"[EventBus] 回调执行错误: {e}")
+
+        def _on_dispatch_sync(self, callback: Callable, data: Any, done: threading.Event) -> None:
+            try:
+                callback(data)
+            except Exception as e:
+                print(f"[EventBus] 回调执行错误: {e}")
+            finally:
+                try:
+                    done.set()
+                except Exception:
+                    pass

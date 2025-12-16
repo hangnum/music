@@ -62,21 +62,33 @@ class LibraryService:
         self._stop_scan.clear()
         total_added = 0
         
-        # 收集所有音频文件
-        all_files = []
+        # 收集所有音频文件（单次遍历，避免按扩展名重复扫描目录）
+        supported_exts = set(MetadataParser.get_supported_formats())
+        all_files: List[Path] = []
         for directory in directories:
             dir_path = Path(directory)
             if not dir_path.exists():
                 continue
-            
-            for ext in MetadataParser.get_supported_formats():
-                all_files.extend(dir_path.rglob(f"*{ext}"))
+
+            for file_path in dir_path.rglob("*"):
+                if self._stop_scan.is_set():
+                    break
+                if file_path.is_file() and file_path.suffix.lower() in supported_exts:
+                    all_files.append(file_path)
         
         total_files = len(all_files)
         self._event_bus.publish(EventType.LIBRARY_SCAN_STARTED, {
             "total": total_files,
             "directories": directories
         })
+
+        # 预加载已索引的文件路径，减少每个文件一次的SELECT查询
+        existing_paths = set()
+        try:
+            rows = self._db.fetch_all("SELECT file_path FROM tracks")
+            existing_paths = {row["file_path"] for row in rows if row.get("file_path")}
+        except Exception:
+            existing_paths = set()
         
         for i, file_path in enumerate(all_files):
             if self._stop_scan.is_set():
@@ -85,15 +97,11 @@ class LibraryService:
             file_str = str(file_path)
             
             # 检查是否已存在
-            existing = self._db.fetch_one(
-                "SELECT id FROM tracks WHERE file_path = ?",
-                (file_str,)
-            )
-            
-            if not existing:
+            if file_str not in existing_paths:
                 track = self._add_track_from_file(file_str)
                 if track:
                     total_added += 1
+                    existing_paths.add(file_str)
             
             # 进度回调
             if progress_callback:

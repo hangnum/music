@@ -1,19 +1,14 @@
 /* Apple Music 风格高雅黑主题样式表 */
 
-/* 全局变量定义 (通过具体值实现)
-   背景色: #000000 (纯黑), #1C1C1E (深灰), #2C2C2E (浮层)
-   强调色: #FA233B (Apple Red)
-   文字色: #FFFFFF (主), #8E8E93 (次), #48484A (三)
-*/
-
-/* 全局样式 */
+/* 全局设置 */
 QWidget {
-    background-color: #000000;
+    background-color: #121212; /* 主背景更深，接近纯黑 */
     color: #FFFFFF;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
     font-size: 13px;
-    selection-background-color: #FA233B;
+    selection-background-color: #FA2D48; /* Apple Red */
     selection-color: #FFFFFF;
+    outline: none;
 }
 
 /* 主窗口 */
@@ -23,181 +18,176 @@ QMainWindow {
 
 /* 按钮基础样式 */
 QPushButton {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: transparent;
     border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
+    border-radius: 6px;
+    padding: 6px 12px;
     color: #FFFFFF;
-    min-height: 20px;
     font-weight: 500;
+    text-align: left;
 }
 
 QPushButton:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 QPushButton:pressed {
     background-color: rgba(255, 255, 255, 0.05);
+    color: #FA2D48;
 }
 
 QPushButton:disabled {
-    background-color: rgba(255, 255, 255, 0.05);
-    color: #8E8E93;
+    color: #555555;
 }
 
-/* 主要按钮 (如：播放) */
+/* 主要操作按钮 (圆角矩形，强调色) */
 QPushButton#primaryButton {
-    background-color: #FA233B;
+    background-color: #FA2D48;
     color: #FFFFFF;
+    text-align: center;
     font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 8px;
 }
 
 QPushButton#primaryButton:hover {
     background-color: #D41E32;
 }
 
-/* 播放控制按钮 (播放/暂停) */
+/* 播放控制按钮 (圆形/图标) */
 QPushButton#playButton {
     background-color: #FFFFFF;
     color: #000000;
-    border-radius: 24px;
-    min-width: 48px;
-    min-height: 48px;
-    max-width: 48px;
-    max-height: 48px;
-    font-size: 20px;
+    border-radius: 28px; /* 稍微加大圆角 */
+    min-width: 56px;
+    min-height: 56px;
+    max-width: 56px;
+    max-height: 56px;
+    qproperty-iconSize: 24px 24px;
 }
 
 QPushButton#playButton:hover {
-    background-color: #E5E5E5;
+    background-color: #F2F2F2;
 }
 
-/* 控制栏图标按钮 */
+QPushButton#playButton:pressed {
+    background-color: #D1D1D1;
+}
+
+/* 控制栏普通图标按钮 */
 QPushButton#controlButton {
     background-color: transparent;
-    color: #FFFFFF;
+    border-radius: 4px;
     min-width: 32px;
     min-height: 32px;
-    border-radius: 16px;
+    padding: 4px;
+    qproperty-iconSize: 20px 20px;
 }
 
 QPushButton#controlButton:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-QPushButton#controlButton:pressed {
-    background-color: rgba(255, 255, 255, 0.05);
-    color: #FA233B;
+QPushButton#controlButton:checked {
+    color: #FA2D48;
+    background-color: rgba(250, 45, 72, 0.15); 
 }
 
-/* 滑块样式 - 仿 Apple Music */
+/* 滑块样式 */
 QSlider::groove:horizontal {
     border: none;
-    height: 4px;
-    background: #3A3A3C;
+    height: 4px; /* 轨道更细 */
+    background: #333333;
     border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background: #AAAAAA; /* 默认灰色，播放时可能需要代码控制颜色，或者统一为灰色/白色 */
+    border-radius: 2px;
+}
+
+/* 悬停时轨道变亮 */
+QSlider::sub-page:horizontal:hover {
+    background: #FA2D48;
 }
 
 QSlider::handle:horizontal {
     background: #FFFFFF;
     border: none;
+    width: 12px;
+    height: 12px;
+    margin: -4px 0;
+    border-radius: 6px;
+}
+
+QSlider::handle:horizontal:hover {
     width: 14px;
     height: 14px;
     margin: -5px 0;
     border-radius: 7px;
 }
 
-QSlider::handle:horizontal:hover {
-    transform: scale(1.2);
-}
-
-QSlider::sub-page:horizontal {
-    background: #FA233B;
-    border-radius: 2px;
-}
-
-/* 进度条 */
-QProgressBar {
-    border: none;
-    background: #3A3A3C;
-    height: 4px;
-    border-radius: 2px;
-}
-
-QProgressBar::chunk {
-    background: #FA233B;
-    border-radius: 2px;
-}
-
-/* 列表控件 */
+/* 列表/表格控件 */
 QListWidget, QTableWidget, QTreeWidget {
-    background-color: #000000;
+    background-color: #121212;
     border: none;
-    outline: none;
+    gridline-color: transparent;
 }
 
 QListWidget::item, QTableWidget::item {
-    padding: 10px 8px;
-    border-bottom: 1px solid #1C1C1E;
-    color: #FFFFFF;
+    padding: 8px 12px;
+    border-bottom: 1px solid #1C1C1E; /* 极细分割线 */
+    color: #DDDDDD;
 }
 
 QListWidget::item:hover, QTableWidget::item:hover {
     background-color: #1C1C1E;
-    border-radius: 8px;
+    border: none;
+    border-radius: 6px;
 }
 
 QListWidget::item:selected, QTableWidget::item:selected {
     background-color: #2C2C2E;
-    color: #FA233B;
-    border-radius: 8px;
+    color: #FA2D48;
+    border: none;
+    border-radius: 6px;
 }
 
 /* 表头 */
 QHeaderView::section {
-    background-color: #000000;
+    background-color: #121212;
     color: #8E8E93;
-    padding: 8px;
+    padding: 8px 12px;
     border: none;
     border-bottom: 1px solid #333333;
-    font-weight: 600;
-    text-transform: uppercase;
     font-size: 11px;
-    letter-spacing: 1px;
+    font-weight: 600;
 }
 
-/* 滚动条 */
+/* 滚动条 - 极简 */
 QScrollBar:vertical {
     background: transparent;
-    width: 6px;
-    border: none;
+    width: 10px;
     margin: 0;
 }
 
 QScrollBar::handle:vertical {
-    background: #48484A;
+    background: #444444;
     min-height: 40px;
-    border-radius: 3px;
+    border-radius: 5px;
+    border: 2px solid #121212; /* 创建padding效果 */
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #636366;
+    background: #666666;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0;
 }
 
-QScrollBar:horizontal {
+QScrollBar:add-page:vertical, QScrollBar::sub-page:vertical {
     background: transparent;
-    height: 6px;
-    border: none;
-}
-
-QScrollBar::handle:horizontal {
-    background: #48484A;
-    min-width: 40px;
-    border-radius: 3px;
 }
 
 /* 输入框 */
@@ -205,18 +195,15 @@ QLineEdit {
     background-color: #1C1C1E;
     border: 1px solid transparent;
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 8px 30px 8px 12px; /* 留出右侧图标位置 */
     color: #FFFFFF;
     font-size: 13px;
+    selection-background-color: #FA2D48;
 }
 
 QLineEdit:focus {
-    border: 1px solid #FA233B;
-    background-color: #2C2C2E;
-}
-
-QLineEdit::placeholder {
-    color: #8E8E93;
+    background-color: #252525;
+    border: 1px solid #3A3A3C;
 }
 
 /* 标签 */
@@ -225,87 +212,82 @@ QLabel {
 }
 
 QLabel#secondaryLabel {
-    color: #8E8E93;
+    color: #8E8E93; /* 次要文字颜色 */
 }
 
 QLabel#titleLabel {
-    font-size: 32px;
+    font-size: 30px;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
 }
 
 /* 侧边栏 */
 QWidget#sidebar {
-    background-color: #121212;
+    background-color: #161616; /* 侧边栏稍亮于主背景 */
+    border-right: 1px solid #1C1C1E;
 }
 
 /* 侧边栏按钮 */
 QWidget#sidebar QPushButton {
-    background-color: transparent;
-    text-align: left;
-    padding: 10px 12px;
+    color: #AAAAAA;
+    padding: 10px 16px;
     border-radius: 8px;
-    color: #D1D1D6;
+    margin: 2px 12px;
+    background-color: transparent;
     font-size: 14px;
-    margin: 2px 8px;
-    border: none;
+    text-align: left;
 }
 
 QWidget#sidebar QPushButton:hover {
-    background-color: #1C1C1E;
     color: #FFFFFF;
+    background-color: rgba(255,255,255, 0.05);
 }
 
 QWidget#sidebar QPushButton:checked {
-    background-color: #2C2C2E;
-    color: #FA233B;
+    color: #FA2D48;
+    background-color: rgba(250, 45, 72, 0.1);
     font-weight: 600;
 }
 
 /* 侧边栏标题 */
 QLabel#sidebarHeader {
     color: #8E8E93;
-    font-size: 12px;
+    padding: 18px 24px 8px 24px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 16px 20px 8px 20px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
 }
 
 /* 播放栏 */
 QWidget#playerBar {
-    background-color: rgba(28, 28, 30, 0.95);
+    background-color: rgba(28, 28, 30, 0.98); /* 毛玻璃效果背景色 */
     border-top: 1px solid #2C2C2E;
 }
 
-/* 分割线 */
-QFrame#separator {
-    background-color: #2C2C2E;
-    max-height: 1px;
-}
-
-/* Menu & Tooltip */
+/* 菜单 */
 QMenu {
-    background-color: #1C1C1E;
+    background-color: #252525;
     border: 1px solid #333333;
     border-radius: 8px;
     padding: 6px 0;
 }
 
 QMenu::item {
-    padding: 8px 20px;
+    padding: 6px 24px;
+    color: #FFFFFF;
 }
 
 QMenu::item:selected {
-    background-color: #FA233B;
+    background-color: #FA2D48;
     color: #FFFFFF;
 }
 
 QToolTip {
-    background-color: #2C2C2E;
+    background-color: #333333;
     color: #FFFFFF;
-    border: 1px solid #48484A;
-    padding: 6px 10px;
-    border-radius: 6px;
+    border: 1px solid #111111;
+    padding: 4px 8px;
+    border-radius: 4px;
     font-size: 12px;
 }
+

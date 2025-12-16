@@ -140,13 +140,13 @@ class PlayerService:
             self._shuffle_position = 0
         
         self._history.clear()
-        self._event_bus.publish(EventType.QUEUE_CHANGED, self._queue)
+        self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
     def add_to_queue(self, track: Track) -> None:
         """添加曲目到队列末尾"""
         self._queue.append(track)
         self._shuffle_indices.append(len(self._queue) - 1)
-        self._event_bus.publish(EventType.QUEUE_CHANGED, self._queue)
+        self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
     def insert_next(self, track: Track) -> None:
         """插入曲目到当前曲目之后"""
@@ -158,7 +158,7 @@ class PlayerService:
         if self._play_mode == PlayMode.SHUFFLE:
             random.shuffle(self._shuffle_indices)
         
-        self._event_bus.publish(EventType.QUEUE_CHANGED, self._queue)
+        self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
     def remove_from_queue(self, index: int) -> bool:
         """
@@ -185,7 +185,7 @@ class PlayerService:
             if self._play_mode == PlayMode.SHUFFLE:
                 random.shuffle(self._shuffle_indices)
             
-            self._event_bus.publish(EventType.QUEUE_CHANGED, self._queue)
+            self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
             return True
         return False
     
@@ -196,7 +196,7 @@ class PlayerService:
         self._current_index = -1
         self._shuffle_indices.clear()
         self._history.clear()
-        self._event_bus.publish(EventType.QUEUE_CHANGED, self._queue)
+        self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
     def play(self, track: Optional[Track] = None) -> bool:
         """
@@ -229,7 +229,7 @@ class PlayerService:
                 if len(self._history) > 100:  # 限制历史长度
                     self._history.pop(0)
                 
-                self._event_bus.publish(EventType.TRACK_STARTED, current)
+                self._event_bus.publish_sync(EventType.TRACK_STARTED, current)
                 return True
         
         return False
@@ -238,13 +238,13 @@ class PlayerService:
         """暂停播放"""
         if self._engine.state == PlayerState.PLAYING:
             self._engine.pause()
-            self._event_bus.publish(EventType.TRACK_PAUSED)
+            self._event_bus.publish_sync(EventType.TRACK_PAUSED)
     
     def resume(self) -> None:
         """恢复播放"""
         if self._engine.state == PlayerState.PAUSED:
             self._engine.resume()
-            self._event_bus.publish(EventType.TRACK_RESUMED)
+            self._event_bus.publish_sync(EventType.TRACK_RESUMED)
     
     def toggle_play(self) -> None:
         """切换播放/暂停"""
@@ -258,7 +258,7 @@ class PlayerService:
     def stop(self) -> None:
         """停止播放"""
         self._engine.stop()
-        self._event_bus.publish(EventType.TRACK_ENDED)
+        self._event_bus.publish_sync(EventType.TRACK_ENDED)
     
     def next_track(self) -> Optional[Track]:
         """
@@ -346,7 +346,7 @@ class PlayerService:
             position_ms: 目标位置（毫秒）
         """
         self._engine.seek(position_ms)
-        self._event_bus.publish(EventType.POSITION_CHANGED, position_ms)
+        self._event_bus.publish_sync(EventType.POSITION_CHANGED, position_ms)
     
     def set_volume(self, volume: float) -> None:
         """
@@ -356,7 +356,7 @@ class PlayerService:
             volume: 音量值 (0.0 - 1.0)
         """
         self._engine.set_volume(volume)
-        self._event_bus.publish(EventType.VOLUME_CHANGED, volume)
+        self._event_bus.publish_sync(EventType.VOLUME_CHANGED, volume)
     
     def get_volume(self) -> float:
         """获取音量"""
@@ -389,14 +389,14 @@ class PlayerService:
     
     def _on_track_end(self) -> None:
         """曲目播放结束回调"""
-        self._event_bus.publish(EventType.TRACK_ENDED, self.current_track)
+        self._event_bus.publish_sync(EventType.TRACK_ENDED, self.current_track)
         
         # 自动播放下一曲（单曲循环在_get_next_index中处理）
         self.next_track()
     
     def _on_error(self, error: str) -> None:
         """错误回调"""
-        self._event_bus.publish(EventType.ERROR_OCCURRED, {
+        self._event_bus.publish_sync(EventType.ERROR_OCCURRED, {
             "source": "PlayerService",
             "error": error
         })
