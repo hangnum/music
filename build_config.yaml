@@ -1,121 +1,237 @@
-# Music Player Build Configuration
+# Music Player Build Configuration v2.0
 # This file contains settings for building executable packages
 
 build:
   # Application information
   app_name: "MusicPlayer"
   app_version: "1.0.0"
-  app_description: "Python Music Player with PyQt6"
+  app_description: "Python Music Player with PyQt6 and AI-powered queue management"
   app_copyright: "Copyright (C) 2024 Music Player Team"
+  app_author: "Music Player Team"
+  app_url: "https://github.com/yourusername/music-player"
 
   # Build settings
   single_file: true          # Create single executable or directory
   console: false             # Show console window (for debugging)
   upx_compression: true      # Use UPX compression to reduce size
+  debug: false               # Enable debug mode
+  strip: true                # Strip debugging symbols
+  clean_build: true          # Clean previous build artifacts
+
+  # Build paths
+  src_dir: "src"             # Source code directory
+  main_script: "main.py"     # Main entry point
+  dist_dir: "dist"           # Output directory
+  build_dir: "build"         # Temporary build directory
+
+  # Data files to include in the package
+  data_files:
+    - source: "config/default_config.yaml"
+      destination: "config"
+    - source: "src/ui/styles"
+      destination: "ui/styles"
+    - source: "src/ui/resources"
+      destination: "ui/resources"
+    - source: "assets/icon.ico"
+      destination: "."  # For Windows
+    - source: "README.md"
+      destination: "."
+    - source: "LICENSE"
+      destination: "."
+
+  # Hidden imports (modules that need to be explicitly included)
+  hidden_imports:
+    # Pygame
+    - "pygame.sdl2_video"
+    - "pygame.mixer_music"
+    - "pygame.mixer"
+    - "pygame._sdl2.video"
+
+    # PyQt6
+    - "PyQt6.QtCore"
+    - "PyQt6.QtGui"
+    - "PyQt6.QtWidgets"
+    - "PyQt6.QtSvg"
+    - "PyQt6.QtNetwork"
+    - "PyQt6.QtXml"
+
+    # Audio format support
+    - "mutagen.mp3"
+    - "mutagen.flac"
+    - "mutagen.wavpack"
+    - "mutagen.oggvorbis"
+    - "mutagen.mp4"
+    - "mutagen.m4a"
+    - "mutagen.wma"
+    - "mutagen.apev2"
+    - "mutagen.aiff"
+    - "mutagen.dsf"
+    - "mutagen.dsdiff"
+
+    # LLM Queue dependencies
+    - "requests"
+    - "openai"
+    - "anthropic"
+    - "tiktoken"
+    - "httpx"
+    - "urllib3"
+
+    # YAML and config
+    - "yaml"
+    - "yaml.scanner"
+    - "yaml.parser"
+    - "yaml.serializer"
+    - "yaml.resolver"
+    - "yaml.composer"
+    - "yaml.constructor"
+    - "yaml.loader"
+
+    # SSL (for LLM API calls)
+    - "ssl"
+    - "_ssl"
+    - "certifi"
+    - "cryptography"
+
+    # Database
+    - "sqlite3"
+    - "sqlite3.dump"
+
+    # Other dependencies
+    - "asyncio"
+    - "concurrent.futures"
+    - "threading"
+    - "queue"
+    - "json"
+    - "pathlib"
+    - "typing"
+    - "dataclasses"
+    - "enum"
+
+  # Exclude modules to reduce size
+  excludes:
+    # Test frameworks
+    - "tkinter"
+    - "unittest"
+    - "test"
+    - "tests"
+    - "doctest"
+    - "pdb"
+    - "pdb.doc"
+
+    # Scientific computing
+    - "matplotlib"
+    - "numpy"
+    - "scipy"
+    - "pandas"
+    - "sklearn"
+
+    # Jupyter/IPython
+    - "IPython"
+    - "jupyter"
+    - "notebook"
+    - "jupyter_client"
+    - "ipykernel"
+
+    # ML/AI frameworks
+    - "tensorflow"
+    - "torch"
+    - "torchvision"
+    - "keras"
+    - "cv2"
+    - "PIL.ImageQt"
+
+    # Web frameworks
+    - "django"
+    - "flask"
+    - "fastapi"
+    - "tornado"
+
+    # Other
+    - "email"
+    - "smtplib"
+    - "poplib"
+    - "imaplib"
+    - "urllib.request"
+    - "urllib.parse"
+    - "urllib.error"
+    - "xmlrpc"
+    - "xml"
 
   # Platform-specific settings
   platforms:
     windows:
       icon: "assets/icon.ico"
       version_info: "version_info.txt"
-      installer_script: "installer.nsi"
       manifest: "app.manifest"
+      upx_exclude:
+        - "vcruntime140.dll"
+        - "msvcp140.dll"
+        - "python*.dll"
+        - "PyQt6*.dll"
 
     darwin:
       icon: "assets/icon.icns"
       bundle_id: "com.musicplayer.app"
       category: "public.app-category.music"
       min_system_version: "10.15"
+      codesign_identity: "-"
+      entitlements_file: ""
 
     linux:
       icon: "assets/icon.png"
       desktop_file: "musicplayer.desktop"
       appimage: true
+      portable: true
 
-# Include data files
-data_files:
-  - source: "src/config/default_config.yaml"
-    destination: "config"
-  - source: "src/ui/styles"
-    destination: "ui/styles"
-  - source: "README.md"
-    destination: "."
-  - source: "LICENSE"
-    destination: "."
-
-# Hidden imports (modules that need to be explicitly included)
-hidden_imports:
-  # Pygame
-  - "pygame.sdl2_video"
-  - "pygame.mixer_music"
-  - "pygame.mixer"
-
-  # PyQt6
-  - "PyQt6.QtCore"
-  - "PyQt6.QtGui"
-  - "PyQt6.QtWidgets"
-  - "PyQt6.QtSvg"
-
-  # Audio format support
-  - "mutagen.mp3"
-  - "mutagen.flac"
-  - "mutagen.wavpack"
-  - "mutagen.oggvorbis"
-  - "mutagen.mp4"
-  - "mutagen.m4a"
-  - "mutagen.wma"
-  - "mutagen.apev2"
-
-  # LLM Queue dependencies
-  - "requests"
-  - "openai"
-  - "anthropic"
-  - "tiktoken"
-
-  # YAML and config
-  - "yaml"
-  - "yaml.scanner"
-  - "yaml.parser"
-  - "yaml.serializer"
-  - "yaml.resolver"
-
-  # SSL (for LLM API calls)
-  - "ssl"
-  - "_ssl"
-  - "certifi"
-
-# Exclude modules to reduce size
-excludes:
-  - "tkinter"
-  - "unittest"
-  - "test"
-  - "tests"
-  - "doctest"
-  - "pdb"
-  - "pdb.doc"
-  - "matplotlib"
-  - "numpy"
-  - "scipy"
-  - "pandas"
-  - "IPython"
-  - "jupyter"
-  - "notebook"
-  - "tensorflow"
-  - "torch"
-  - "cv2"
-  - "PIL.ImageQt"
-  - "matplotlib.pyplot"
-
-# UPX compression settings
-upx:
-  enabled: true
-  exclude:
+  # UPX compression settings
+  upx_exclude:
     - "vcruntime140.dll"
     - "msvcp140.dll"
     - "python*.dll"
+    - "PyQt6*.dll"
+    - "Qt6*.dll"
 
-# Splash screen (optional)
-splash:
-  enabled: false
-  image: "assets/splash.png"
-  duration: 3000  # milliseconds
+  # Splash screen (optional)
+  splash:
+    enabled: false
+    image: "assets/splash.png"
+    duration: 3000  # milliseconds
+    text: "Music Player Loading..."
+
+# Development build options (override build settings)
+dev:
+  debug: true
+  console: true
+  strip: false
+  single_file: false  # Faster startup during development
+
+# Release build options (override build settings)
+release:
+  debug: false
+  console: false
+  strip: true
+  single_file: true
+  upx_compression: true
+
+# Advanced options
+advanced:
+  # PyInstaller hook paths
+  hookspath: []
+
+  # Custom runtime hooks
+  runtime_hooks: []
+
+  # Additional excludes per platform
+  platform_excludes:
+    windows: ["gtk", "gobject", "gio", "PyObjCTools"]
+    darwin: ["gtk", "gobject", "gio", "win32gui"]
+    linux: ["win32gui", "win32con", "win32file", "PyObjCTools"]
+
+  # Custom PyInstaller arguments
+  pyinstaller_args: []
+
+  # Post-build commands
+  post_build_commands: []
+
+  # Bundle additional files
+  additional_files: []
