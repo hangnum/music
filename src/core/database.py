@@ -222,13 +222,37 @@ class DatabaseManager:
                 FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
             )
             """,
-            
+
+            # 应用状态（键值存储）
+            """
+            CREATE TABLE IF NOT EXISTS app_state (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+
+            # LLM 队列生成历史（也可作为缓存命中来源）
+            """
+            CREATE TABLE IF NOT EXISTS llm_queue_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                instruction TEXT NOT NULL,
+                normalized_instruction TEXT NOT NULL,
+                label TEXT NOT NULL,
+                track_ids_json TEXT NOT NULL,
+                start_index INTEGER NOT NULL DEFAULT 0,
+                plan_json TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+             
             # 索引
             "CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id)",
             "CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id)",
             "CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title)",
             "CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id)",
             "CREATE INDEX IF NOT EXISTS idx_playlist_tracks_pos ON playlist_tracks(playlist_id, position)",
+            "CREATE INDEX IF NOT EXISTS idx_llm_queue_history_norm_id ON llm_queue_history(normalized_instruction, id DESC)",
         ]
         
         for statement in schema_statements:
