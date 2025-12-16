@@ -20,7 +20,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from models.track import Track
 from services.library_service import LibraryService
 from services.player_service import PlayerService
+from services.tag_service import TagService
 from core.event_bus import EventBus, EventType
+from core.database import DatabaseManager
 
 
 class LibraryWidget(QWidget):
@@ -229,6 +231,13 @@ class LibraryWidget(QWidget):
         add_to_queue.triggered.connect(lambda: self._add_tracks_to_queue(selected_tracks))
         menu.addAction(add_to_queue)
         
+        menu.addSeparator()
+        
+        # 管理标签
+        manage_tags = QAction(f"管理标签 ({len(selected_tracks)}首)", self)
+        manage_tags.triggered.connect(lambda: self._show_tag_dialog(selected_tracks))
+        menu.addAction(manage_tags)
+        
         menu.exec(self.table.viewport().mapToGlobal(pos))
     
     def _play_track(self, track: Track):
@@ -245,6 +254,14 @@ class LibraryWidget(QWidget):
             self.player.add_to_queue(track)
             self.add_to_queue.emit(track)
     
+    def _show_tag_dialog(self, tracks: List[Track]):
+        """显示标签管理对话框"""
+        from ui.dialogs.tag_dialog import TagDialog
+        
+        tag_service = TagService(DatabaseManager())
+        dialog = TagDialog(tracks, tag_service, self)
+        dialog.exec()
+    
     def _on_scan_completed(self, data):
         """扫描完成"""
         self._load_tracks()
@@ -252,3 +269,4 @@ class LibraryWidget(QWidget):
     def _on_track_added(self, track):
         """新曲目添加"""
         pass  # 可以增量更新
+

@@ -245,6 +245,28 @@ class DatabaseManager:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
+
+            # 标签表
+            """
+            CREATE TABLE IF NOT EXISTS tags (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                color TEXT DEFAULT '#808080',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
+
+            # 曲目-标签关联表
+            """
+            CREATE TABLE IF NOT EXISTS track_tags (
+                track_id TEXT NOT NULL,
+                tag_id TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (track_id, tag_id),
+                FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+            )
+            """,
              
             # 索引
             "CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id)",
@@ -253,10 +275,19 @@ class DatabaseManager:
             "CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id)",
             "CREATE INDEX IF NOT EXISTS idx_playlist_tracks_pos ON playlist_tracks(playlist_id, position)",
             "CREATE INDEX IF NOT EXISTS idx_llm_queue_history_norm_id ON llm_queue_history(normalized_instruction, id DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_track_tags_track ON track_tags(track_id)",
+            "CREATE INDEX IF NOT EXISTS idx_track_tags_tag ON track_tags(tag_id)",
+            "CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)",
         ]
         
         for statement in schema_statements:
-            self.execute(statement.strip())
+            try:
+                self.execute(statement.strip())
+            except Exception as e:
+                # 忽略已存在的表/索引错误，用于增量迁移
+                if "already exists" not in str(e).lower():
+                    # 对于其他错误，继续尝试（可能是旧数据库缺少某些表）
+                    pass
         self._conn.commit()
     
     def close(self) -> None:

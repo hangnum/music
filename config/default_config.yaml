@@ -51,5 +51,5 @@ shortcuts:
 ui:
   show_album_art: true
   sidebar_width: 240
-  window_height: 800
-  window_width: 1200
+  window_height: 1360
+  window_width: 2560

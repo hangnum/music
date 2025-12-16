@@ -9,6 +9,7 @@ from .config_service import ConfigService
 from .llm_queue_service import LLMQueueService, SiliconFlowClient, SiliconFlowSettings, QueueReorderPlan, LLMQueueError
 from .queue_persistence_service import QueuePersistenceService
 from .llm_queue_cache_service import LLMQueueCacheService, LLMQueueHistoryEntry
+from .tag_service import TagService
 
 __all__ = [
     'PlayerService',
@@ -25,4 +26,6 @@ __all__ = [
     'QueuePersistenceService',
     'LLMQueueCacheService',
     'LLMQueueHistoryEntry',
+    'TagService',
 ]
+

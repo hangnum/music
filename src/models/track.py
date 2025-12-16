@@ -3,7 +3,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import uuid
 
@@ -43,6 +43,9 @@ class Track:
     
     # 封面路径
     cover_path: Optional[str] = None
+    
+    # 用户标签（存储标签名列表，便于显示）
+    tags: List[str] = field(default_factory=list)
     
     # 时间戳
     created_at: datetime = field(default_factory=datetime.now)
@@ -104,6 +107,7 @@ class Track:
             'rating': self.rating,
             'cover_path': self.cover_path,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'tags': self.tags.copy() if self.tags else [],
         }
     
     @classmethod
@@ -144,6 +148,7 @@ class Track:
             rating=data.get('rating', 0),
             cover_path=data.get('cover_path'),
             created_at=created_at,
+            tags=list(data.get('tags', [])),
         )
     
     @classmethod
