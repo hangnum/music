@@ -7,6 +7,8 @@ from .playlist_service import PlaylistService
 from .library_service import LibraryService
 from .config_service import ConfigService
 from .llm_queue_service import LLMQueueService, SiliconFlowClient, SiliconFlowSettings, QueueReorderPlan, LLMQueueError
+from .queue_persistence_service import QueuePersistenceService
+from .llm_queue_cache_service import LLMQueueCacheService, LLMQueueHistoryEntry
 
 __all__ = [
     'PlayerService',
@@ -20,4 +22,7 @@ __all__ = [
     'SiliconFlowSettings',
     'QueueReorderPlan',
     'LLMQueueError',
+    'QueuePersistenceService',
+    'LLMQueueCacheService',
+    'LLMQueueHistoryEntry',
 ]
