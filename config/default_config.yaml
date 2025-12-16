@@ -1,0 +1,44 @@
+# 默认配置
+app:
+  name: "Python Music Player"
+  version: "1.0.0"
+  language: "zh_CN"
+  theme: "dark"
+
+audio:
+  backend: "pygame"
+  buffer_size: 2048
+
+playback:
+  default_volume: 0.8
+  fade_duration: 500
+  remember_position: true
+
+library:
+  directories:
+    - "D:\\User\\music\\music"
+  watch_for_changes: true
+  scan_on_startup: true
+  supported_formats:
+    - mp3
+    - flac
+    - wav
+    - ogg
+    - m4a
+    - aac
+    - wma
+    - ape
+
+ui:
+  window_width: 1200
+  window_height: 800
+  sidebar_width: 240
+  show_album_art: true
+
+shortcuts:
+  play_pause: "Space"
+  next_track: "Ctrl+Right"
+  previous_track: "Ctrl+Left"
+  volume_up: "Ctrl+Up"
+  volume_down: "Ctrl+Down"
+  mute: "M"
