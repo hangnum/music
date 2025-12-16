@@ -47,8 +47,8 @@ class PlayerControls(QWidget):
     def _setup_ui(self):
         """设置UI"""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 8, 16, 8)
-        layout.setSpacing(16)
+        layout.setContentsMargins(32, 12, 32, 12)  # 增加边距
+        layout.setSpacing(32)  # 增加组件间距
         
         # 左侧：曲目信息
         self.track_info = self._create_track_info()
@@ -65,32 +65,34 @@ class PlayerControls(QWidget):
     def _create_track_info(self) -> QWidget:
         """创建曲目信息区域"""
         widget = QWidget()
-        widget.setFixedWidth(200)
+        widget.setFixedWidth(240)  # 第一列稍宽
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(16)
         
         # 封面图片
         self.cover_label = QLabel()
         self.cover_label.setFixedSize(56, 56)
         self.cover_label.setStyleSheet("""
-            background-color: #282828;
-            border-radius: 4px;
+            background-color: #2C2C2E;
+            border-radius: 6px;
+            border: 1px solid #3A3A3C;
         """)
         self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.cover_label)
         
         # 曲目文字信息
         info_layout = QVBoxLayout()
-        info_layout.setSpacing(4)
+        info_layout.setSpacing(2)  # 减小行间距
+        info_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         self.title_label = QLabel("未在播放")
-        self.title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.title_label.setStyleSheet("font-weight: 600; font-size: 14px; color: #FFFFFF;")
         self.title_label.setWordWrap(False)
         
-        self.artist_label = QLabel("")
+        self.artist_label = QLabel("Apple Music")
         self.artist_label.setObjectName("secondaryLabel")
-        self.artist_label.setStyleSheet("color: #B3B3B3; font-size: 12px;")
+        self.artist_label.setStyleSheet("color: #8E8E93; font-size: 13px; font-weight: 400;")
         
         info_layout.addWidget(self.title_label)
         info_layout.addWidget(self.artist_label)
@@ -108,7 +110,7 @@ class PlayerControls(QWidget):
         # 控制按钮行
         btn_layout = QHBoxLayout()
         btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        btn_layout.setSpacing(16)
+        btn_layout.setSpacing(24)  # 按钮间距
         
         # 随机播放按钮
         self.shuffle_btn = QPushButton("🔀")
@@ -130,7 +132,7 @@ class PlayerControls(QWidget):
         self.play_btn = QPushButton("▶")
         self.play_btn.setObjectName("playButton")
         self.play_btn.setToolTip("播放")
-        self.play_btn.setFixedSize(40, 40)
+        self.play_btn.setFixedSize(48, 48)  # 加大播放按钮
         self.play_btn.clicked.connect(self._on_play_clicked)
         btn_layout.addWidget(self.play_btn)
         
@@ -154,10 +156,10 @@ class PlayerControls(QWidget):
         
         # 进度条行
         progress_layout = QHBoxLayout()
-        progress_layout.setSpacing(8)
+        progress_layout.setSpacing(12)
         
         self.current_time = QLabel("0:00")
-        self.current_time.setStyleSheet("color: #B3B3B3; font-size: 11px;")
+        self.current_time.setStyleSheet("color: #8E8E93; font-size: 11px; font-weight: 500;")
         self.current_time.setFixedWidth(40)
         self.current_time.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         progress_layout.addWidget(self.current_time)
@@ -166,12 +168,13 @@ class PlayerControls(QWidget):
         self.progress_slider.setMinimum(0)
         self.progress_slider.setMaximum(1000)
         self.progress_slider.setValue(0)
+        self.progress_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         self.progress_slider.sliderPressed.connect(self._on_slider_pressed)
         self.progress_slider.sliderReleased.connect(self._on_slider_released)
         progress_layout.addWidget(self.progress_slider, 1)
         
         self.total_time = QLabel("0:00")
-        self.total_time.setStyleSheet("color: #B3B3B3; font-size: 11px;")
+        self.total_time.setStyleSheet("color: #8E8E93; font-size: 11px; font-weight: 500;")
         self.total_time.setFixedWidth(40)
         progress_layout.addWidget(self.total_time)
         

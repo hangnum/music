@@ -117,69 +117,67 @@ class MainWindow(QMainWindow):
         """创建侧边栏"""
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(200)
+        sidebar.setFixedWidth(220)  # 稍微加宽
         
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(0, 16, 0, 16)
+        layout.setContentsMargins(0, 24, 0, 24)
         layout.setSpacing(4)
         
-        # Logo
-        logo = QLabel("🎵 Music Player")
-        logo.setStyleSheet("""
-            font-size: 16px;
-            font-weight: bold;
-            padding: 16px;
-            color: #FFFFFF;
-        """)
-        layout.addWidget(logo)
-        
-        # 分隔线
-        separator = QFrame()
-        separator.setObjectName("separator")
-        separator.setFixedHeight(1)
-        separator.setStyleSheet("background-color: #282828;")
-        layout.addWidget(separator)
-        
-        layout.addSpacing(16)
+        # Apple Music 分组
+        header_am = QLabel("Apple Music")
+        header_am.setObjectName("sidebarHeader")
+        layout.addWidget(header_am)
         
         # 导航按钮
-        self.nav_library = QPushButton("📚  媒体库")
+        self.nav_library = QPushButton("🎵  现在收听")
         self.nav_library.setCheckable(True)
         self.nav_library.setChecked(True)
         self.nav_library.clicked.connect(lambda: self._switch_page(0))
         layout.addWidget(self.nav_library)
+        
+        self.nav_discover = QPushButton("🌟  浏览")
+        self.nav_discover.setCheckable(True)
+        self.nav_discover.setEnabled(False) # 暂未实现
+        layout.addWidget(self.nav_discover)
+        
+        self.nav_radio = QPushButton("📻  广播")
+        self.nav_radio.setCheckable(True)
+        self.nav_radio.setEnabled(False) # 暂未实现
+        layout.addWidget(self.nav_radio)
+        
+        layout.addSpacing(24)
+        
+        # 资料库分组
+        header_lib = QLabel("资料库")
+        header_lib.setObjectName("sidebarHeader")
+        layout.addWidget(header_lib)
+
+        self.nav_all_music = QPushButton("📚  所有音乐")  # 原“媒体库”
+        self.nav_all_music.setCheckable(True)
+        self.nav_all_music.clicked.connect(lambda: self._switch_page(0))
+        layout.addWidget(self.nav_all_music)
         
         self.nav_queue = QPushButton("📋  播放队列")
         self.nav_queue.setCheckable(True)
         self.nav_queue.clicked.connect(lambda: self._switch_page(1))
         layout.addWidget(self.nav_queue)
         
-        layout.addSpacing(16)
+        layout.addStretch()
         
-        # 分隔线
-        separator2 = QFrame()
-        separator2.setObjectName("separator")
-        separator2.setFixedHeight(1)
-        separator2.setStyleSheet("background-color: #282828;")
-        layout.addWidget(separator2)
-        
-        layout.addSpacing(16)
-        
-        # 扫描按钮
-        self.scan_btn = QPushButton("🔍  扫描媒体库")
+        # 底部工具栏
+        self.scan_btn = QPushButton("🔄  更新资料库")
         self.scan_btn.clicked.connect(self._on_scan_clicked)
         layout.addWidget(self.scan_btn)
         
-        # 添加文件夹按钮
-        self.add_folder_btn = QPushButton("📁  添加文件夹")
+        self.add_folder_btn = QPushButton("📁  添加音乐...")
         self.add_folder_btn.clicked.connect(self._on_add_folder_clicked)
         layout.addWidget(self.add_folder_btn)
         
-        layout.addStretch()
+        layout.addSpacing(16)
         
         # 底部信息
         self.status_label = QLabel()
-        self.status_label.setStyleSheet("color: #666666; padding: 16px; font-size: 11px;")
+        self.status_label.setStyleSheet("color: #8E8E93; padding: 0 20px; font-size: 11px;")
         self._update_status()
         layout.addWidget(self.status_label)
         
