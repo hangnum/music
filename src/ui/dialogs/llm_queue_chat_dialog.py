@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import List, Optional
+import json
 
-from PyQt6.QtCore import QObject, QThread, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, pyqtSignal, Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QPlainTextEdit,
@@ -17,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 from models.track import Track
 from services.config_service import ConfigService
+from services.llm_queue_cache_service import LLMQueueCacheService
 from services.llm_queue_service import LLMQueueError, LLMQueueService, QueueReorderPlan
 from services.library_service import LibraryService
 from services.player_service import PlayerService
@@ -24,19 +29,20 @@ from services.player_service import PlayerService
 from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
 
 
-class _NoopClient:
-    def chat_completions(self, _messages):
-        raise RuntimeError("noop")
-
-
 @dataclass(frozen=True)
 class _QueueSnapshot:
     queue: List[Track]
     current_track_id: Optional[str]
 
+@dataclass(frozen=True)
+class _ResolvedResult:
+    plan: QueueReorderPlan
+    queue: List[Track]
+    start_index: int
+
 
 class _SuggestWorker(QObject):
-    finished = pyqtSignal(object, object)  # plan, error
+    finished = pyqtSignal(object, object)  # result, error
 
     def __init__(
         self,
@@ -44,12 +50,14 @@ class _SuggestWorker(QObject):
         instruction: str,
         snapshot: _QueueSnapshot,
         library_context: dict,
+        library: LibraryService,
     ):
         super().__init__()
         self._config = config
         self._instruction = instruction
         self._snapshot = snapshot
         self._library_context = library_context
+        self._library = library
 
     def run(self) -> None:
         try:
@@ -60,7 +68,13 @@ class _SuggestWorker(QObject):
                 current_track_id=self._snapshot.current_track_id,
                 library_context=self._library_context,
             )
-            self.finished.emit(plan, None)
+            new_queue, new_index = svc.resolve_plan(
+                plan=plan,
+                queue=self._snapshot.queue,
+                current_track_id=self._snapshot.current_track_id,
+                library=self._library,
+            )
+            self.finished.emit(_ResolvedResult(plan=plan, queue=new_queue, start_index=new_index), None)
         except Exception as e:
             self.finished.emit(None, e)
 
@@ -71,13 +85,22 @@ class LLMQueueChatDialog(QDialog):
         self._player = player
         self._library = library
         self._config = config
-        self._apply_service = LLMQueueService(config=self._config, client=_NoopClient())
+        self._cache = LLMQueueCacheService(config=self._config)
+        self._pending_instruction: Optional[str] = None
 
         self.setWindowTitle("队列助手（LLM）")
         self.setMinimumSize(720, 520)
 
         self._chat = QTextEdit()
         self._chat.setReadOnly(True)
+
+        self._history_list = QListWidget()
+        self._history_list.setMinimumWidth(220)
+        self._history_list.itemDoubleClicked.connect(self._on_history_item_activated)
+
+        self._history_filter = QLineEdit()
+        self._history_filter.setPlaceholderText("过滤历史…")
+        self._history_filter.textChanged.connect(self._apply_history_filter)
 
         self._input = QPlainTextEdit()
         self._input.setPlaceholderText("例如：把节奏慢的放后面；去掉重复的；清空队列；把当前类似风格的放前面…")
@@ -102,13 +125,24 @@ class LLMQueueChatDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addLayout(top)
-        layout.addWidget(self._chat, 1)
+
+        center = QHBoxLayout()
+        center.addWidget(self._chat, 3)
+
+        history_box = QVBoxLayout()
+        history_box.addWidget(QLabel("历史（双击加载）"))
+        history_box.addWidget(self._history_filter)
+        history_box.addWidget(self._history_list, 1)
+        center.addLayout(history_box, 1)
+
+        layout.addLayout(center, 1)
         layout.addLayout(bottom)
 
         self._thread: Optional[QThread] = None
         self._worker: Optional[_SuggestWorker] = None
 
         self._append_system("你可以用自然语言描述想要的队列操作，我会调用 LLM 给出重排计划并应用到当前队列。")
+        self._refresh_history()
 
     def _append_system(self, text: str) -> None:
         self._chat.append(f"[系统] {text}")
@@ -157,16 +191,37 @@ class LLMQueueChatDialog(QDialog):
         if not instruction:
             return
 
+        self._pending_instruction = instruction
         snapshot = self._make_snapshot()
         if not snapshot.queue:
             self._append_system("当前队列为空，将尝试按你的指令从音乐库调取/生成队列。")
 
         self._append_user(instruction)
         self._input.clear()
+
+        # 缓存命中：直接加载历史队列，避免重复调用 LLM
+        try:
+            cached = self._cache.load_cached_queue(instruction, self._library) if self._cache.enabled() else None
+        except Exception:
+            cached = None
+
+        if cached is not None:
+            queue, start_index, entry = cached
+            try:
+                self._player.set_queue(queue, start_index if queue else -1)
+                self._append_assistant(f"命中缓存：{entry.label}（{len(queue)}首，{entry.created_at}）")
+            except Exception as e:
+                QMessageBox.critical(self, "错误", str(e))
+                return
+            finally:
+                self._pending_instruction = None
+            self._refresh_history()
+            return
+
         self._set_busy(True)
 
         self._thread = QThread(self)
-        self._worker = _SuggestWorker(self._config, instruction, snapshot, self._build_library_context())
+        self._worker = _SuggestWorker(self._config, instruction, snapshot, self._build_library_context(), self._library)
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._worker.run)
@@ -183,7 +238,7 @@ class LLMQueueChatDialog(QDialog):
         self._worker = None
         self._thread = None
 
-    def _on_worker_finished(self, plan: Optional[QueueReorderPlan], error: Optional[BaseException]) -> None:
+    def _on_worker_finished(self, result: Optional[_ResolvedResult], error: Optional[BaseException]) -> None:
         self._set_busy(False)
 
         if error:
@@ -200,17 +255,38 @@ class LLMQueueChatDialog(QDialog):
                 QMessageBox.critical(self, "错误", str(error))
             return
 
-        if not plan:
+        if not result:
             QMessageBox.critical(self, "错误", "未获取到 LLM 结果")
             return
 
         try:
-            self._apply_service.apply_plan(self._player, plan, library=self._library)
+            if result.plan.clear_queue and hasattr(self._player, "clear_queue"):
+                self._player.clear_queue()
+            self._player.set_queue(result.queue, result.start_index if result.queue else -1)
         except Exception as e:
             QMessageBox.critical(self, "错误", str(e))
             return
 
-        if plan.clear_queue and plan.library_request is None:
+        # 保存到查询历史（也作为后续缓存来源）
+        try:
+            instruction = result.plan.instruction or (self._pending_instruction or "")
+            if instruction and result.queue:
+                plan_json = json.dumps(asdict(result.plan), ensure_ascii=False)
+                self._cache.save_history(
+                    instruction=instruction,
+                    track_ids=[t.id for t in result.queue if getattr(t, "id", None)],
+                    start_index=result.start_index,
+                    label=instruction,
+                    plan_json=plan_json,
+                )
+        except Exception:
+            pass
+        finally:
+            self._pending_instruction = None
+            self._refresh_history()
+
+        plan = result.plan
+        if plan.clear_queue and plan.library_request is None and not plan.ordered_track_ids:
             self._append_assistant("已清空队列。")
             return
 
@@ -221,3 +297,64 @@ class LLMQueueChatDialog(QDialog):
             return
 
         self._append_assistant(plan.reason or "已应用队列变更。")
+
+    def _refresh_history(self) -> None:
+        self._history_list.clear()
+        if not self._cache.enabled():
+            item = QListWidgetItem("（缓存已关闭）")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self._history_list.addItem(item)
+            return
+
+        try:
+            entries = self._cache.list_history(limit=30)
+        except Exception:
+            entries = []
+
+        if not entries:
+            item = QListWidgetItem("（暂无）")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self._history_list.addItem(item)
+            return
+
+        for entry in entries:
+            text = f"{entry.label} · {len(entry.track_ids)}首"
+            item = QListWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, entry.id)
+            self._history_list.addItem(item)
+
+        self._apply_history_filter(self._history_filter.text())
+
+    def _apply_history_filter(self, text: str) -> None:
+        needle = (text or "").strip().lower()
+        for i in range(self._history_list.count()):
+            item = self._history_list.item(i)
+            entry_id = item.data(Qt.ItemDataRole.UserRole)
+            if entry_id is None:
+                item.setHidden(False)
+                continue
+            item.setHidden(bool(needle) and needle not in item.text().lower())
+
+    def _on_history_item_activated(self, item: QListWidgetItem) -> None:
+        entry_id = item.data(Qt.ItemDataRole.UserRole)
+        if entry_id is None:
+            return
+
+        try:
+            loaded = self._cache.load_entry_queue(int(entry_id), self._library)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", str(e))
+            return
+
+        if not loaded:
+            QMessageBox.information(self, "提示", "该历史队列已不可用（曲目可能已被移除）。")
+            return
+
+        queue, start_index = loaded
+        try:
+            self._player.set_queue(queue, start_index if queue else -1)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", str(e))
+            return
+
+        self._append_assistant(f"已从历史加载：{item.text()}")

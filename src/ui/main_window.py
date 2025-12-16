@@ -26,6 +26,7 @@ from services.player_service import PlayerService
 from services.playlist_service import PlaylistService
 from services.library_service import LibraryService
 from services.config_service import ConfigService
+from services.queue_persistence_service import QueuePersistenceService
 from core.database import DatabaseManager
 from core.event_bus import EventBus, EventType
 
@@ -51,6 +52,12 @@ class MainWindow(QMainWindow):
         
         # 设置UI
         self._setup_ui()
+
+        # 恢复上一次播放队列（需在 UI 创建后触发 QUEUE_CHANGED 刷新界面）
+        try:
+            self.queue_persistence.restore_last_queue(self.player, self.library)
+        except Exception:
+            pass
         
         # 设置菜单
         self._setup_menu()
@@ -69,6 +76,8 @@ class MainWindow(QMainWindow):
         self.playlist_service = PlaylistService(self.db)
         self.library = LibraryService(self.db)
         self.event_bus = EventBus()
+        self.queue_persistence = QueuePersistenceService(db=self.db, config=self.config, event_bus=self.event_bus)
+        self.queue_persistence.attach(self.player)
     
     def _load_styles(self):
         """加载样式表"""
@@ -353,6 +362,12 @@ class MainWindow(QMainWindow):
         self.config.set("ui.window_width", self.width())
         self.config.set("ui.window_height", self.height())
         self.config.save()
+
+        try:
+            self.queue_persistence.persist_from_player()
+            self.queue_persistence.shutdown()
+        except Exception:
+            pass
         
         # 清理资源
         self.player.cleanup()

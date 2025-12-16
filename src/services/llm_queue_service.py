@@ -250,12 +250,49 @@ class LLMQueueService:
         """
         current = getattr(player, "current_track", None)
         current_id = getattr(current, "id", None) if current else None
+        queue: List[Track] = list(getattr(player, "queue", []))
 
-        if plan.clear_queue:
+        # clear_queue 可以与后续 library_request 组合：先停止/清空，再设置新队列。
+        # 纯清空（且没有其他动作）直接快速返回，避免额外 set_queue。
+        if plan.clear_queue and plan.library_request is None and not plan.ordered_track_ids:
             if hasattr(player, "clear_queue"):
                 player.clear_queue()
             else:
                 player.set_queue([], 0)
+            return [], -1
+
+        new_queue, new_index = self.resolve_plan(
+            plan=plan,
+            queue=queue,
+            current_track_id=current_id,
+            library=library,
+        )
+
+        if plan.clear_queue and hasattr(player, "clear_queue"):
+            player.clear_queue()
+
+        player.set_queue(new_queue, new_index if new_queue else -1)
+        return new_queue, new_index if new_queue else -1
+
+    def resolve_plan(
+        self,
+        plan: QueueReorderPlan,
+        queue: Sequence[Track],
+        current_track_id: Optional[str] = None,
+        library: Any = None,
+    ) -> Tuple[List[Track], int]:
+        """
+        将计划解析为具体队列，不直接修改 PlayerService。
+
+        - 可能会查询 LibraryService
+        - 当启用 semantic_fallback 时，可能会再次调用 LLM 做语义筛选
+        """
+        base_queue: List[Track] = list(queue)
+        current_id = current_track_id
+
+        if plan.clear_queue:
+            base_queue = []
+            current_id = None
 
         if plan.library_request is not None:
             if library is None or not hasattr(library, "query_tracks"):
@@ -292,10 +329,8 @@ class LLMQueueService:
                 mode = "replace"
 
             if mode == "replace":
-                player.set_queue(tracks, 0)
                 return tracks, 0 if tracks else -1
 
-            base_queue: List[Track] = list(getattr(player, "queue", []))
             seen = {t.id for t in base_queue}
             merged = base_queue + [t for t in tracks if t.id not in seen]
 
@@ -305,13 +340,39 @@ class LLMQueueService:
                     if t.id == current_id:
                         new_index = i
                         break
-            player.set_queue(merged, new_index if merged else -1)
             return merged, new_index if merged else -1
 
         if plan.ordered_track_ids:
-            return self.apply_reorder_plan(player, plan)
+            id_to_track = {t.id: t for t in base_queue}
+            ordered_ids = list(plan.ordered_track_ids)
+            ordered_set = set(ordered_ids)
 
-        return list(getattr(player, "queue", [])), 0
+            new_queue: List[Track] = []
+            for track_id in ordered_ids:
+                track = id_to_track.get(track_id)
+                if track:
+                    new_queue.append(track)
+
+            for t in base_queue:
+                if t.id not in ordered_set:
+                    new_queue.append(t)
+
+            new_index = 0
+            if current_id:
+                for i, t in enumerate(new_queue):
+                    if t.id == current_id:
+                        new_index = i
+                        break
+            return new_queue, new_index if new_queue else -1
+
+        # No-op：保持原队列。
+        new_index = 0
+        if current_id:
+            for i, t in enumerate(base_queue):
+                if t.id == current_id:
+                    new_index = i
+                    break
+        return base_queue, new_index if base_queue else -1
 
     def _semantic_select_tracks_from_library(
         self,

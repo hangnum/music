@@ -207,3 +207,30 @@ def test_apply_plan_semantic_fallback_selects_tracks_when_no_genre_tags():
         assert new_index == 0
     finally:
         ConfigService.reset_instance()
+
+
+def test_resolve_plan_semantic_fallback_works_without_player_mutation():
+    ConfigService.reset_instance()
+    try:
+        t1 = Track(id="t1", title="Back In Black", artist_name="AC/DC", album_name="Back In Black")
+        t2 = Track(id="t2", title="Numb", artist_name="Linkin Park", album_name="Meteora")
+        library = _DummyLibrary([t1, t2])
+
+        # resolve_plan 会在 query_tracks 为空时触发语义筛选（需要 LLM 响应 selected_track_ids）
+        client = _FakeClientSeq(['{"selected_track_ids":["t1","t2"],"reason":"rock"}'])
+        svc = LLMQueueService(config=ConfigService("config/does_not_exist.yaml"), client=client)
+
+        plan = QueueReorderPlan(
+            ordered_track_ids=[],
+            library_request=svc._parse_reorder_plan(
+                '{"library_request":{"mode":"replace","genre":"摇滚","limit":2,"semantic_fallback":true},"ordered_track_ids":[]}',
+                known_ids=set(),
+            ).library_request,
+            instruction="给我生成一个摇滚队列",
+        )
+
+        resolved_queue, resolved_index = svc.resolve_plan(plan, queue=[], current_track_id=None, library=library)
+        assert [t.id for t in resolved_queue] == ["t1", "t2"]
+        assert resolved_index == 0
+    finally:
+        ConfigService.reset_instance()
