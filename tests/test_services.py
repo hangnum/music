@@ -142,6 +142,40 @@ class TestLibraryService:
         
         assert count == 0
 
+    def test_query_tracks_by_genre(self):
+        from services.library_service import LibraryService
+
+        service = LibraryService(self.db)
+
+        # 插入一些曲目（不依赖扫描/元数据）
+        self.db.insert(
+            "tracks",
+            {
+                "id": "t1",
+                "title": "Rock Song",
+                "file_path": "rock1.mp3",
+                "genre": "摇滚",
+                "artist_name": "A",
+                "album_name": "X",
+                "track_number": 1,
+            },
+        )
+        self.db.insert(
+            "tracks",
+            {
+                "id": "t2",
+                "title": "Pop Song",
+                "file_path": "pop1.mp3",
+                "genre": "流行",
+                "artist_name": "B",
+                "album_name": "Y",
+                "track_number": 1,
+            },
+        )
+
+        tracks = service.query_tracks(genre="摇滚", limit=10, shuffle=False)
+        assert [t.id for t in tracks] == ["t1"]
+
 
 class TestPlayerService:
     """播放服务测试"""

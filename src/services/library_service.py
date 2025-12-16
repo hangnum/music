@@ -4,7 +4,7 @@
 管理媒体库的扫描、索引和搜索功能。
 """
 
-from typing import List, Optional, Callable
+from typing import Iterator, List, Optional, Callable, Dict, Any
 from pathlib import Path
 from datetime import datetime
 import uuid
@@ -390,6 +390,79 @@ class LibraryService:
                 track_count=row["track_count"],
             ) for row in artist_rows],
         }
+
+    def get_top_genres(self, limit: int = 30) -> List[str]:
+        """获取出现次数最多的流派列表（用于提示/LLM 上下文）"""
+        try:
+            limit = int(limit)
+        except Exception:
+            limit = 30
+        limit = max(1, min(200, limit))
+
+        rows = self._db.fetch_all(
+            """SELECT genre, COUNT(*) as c
+               FROM tracks
+               WHERE genre IS NOT NULL AND TRIM(genre) <> ''
+               GROUP BY genre
+               ORDER BY c DESC
+               LIMIT ?""",
+            (limit,),
+        )
+        return [str(r.get("genre", "")).strip() for r in rows if str(r.get("genre", "")).strip()]
+
+    def query_tracks(
+        self,
+        query: str = "",
+        genre: str = "",
+        artist: str = "",
+        album: str = "",
+        limit: int = 50,
+        shuffle: bool = True,
+    ) -> List[Track]:
+        """
+        按条件从音乐库选取曲目（支持按流派/歌手/专辑/关键词筛选）。
+
+        query 会匹配：title/artist_name/album_name/genre
+        """
+        try:
+            limit = int(limit)
+        except Exception:
+            limit = 50
+        limit = max(1, min(200, limit))
+
+        where_parts: List[str] = []
+        params: List[object] = []
+
+        q = (query or "").strip()
+        if q:
+            term = f"%{q}%"
+            where_parts.append("(title LIKE ? OR artist_name LIKE ? OR album_name LIKE ? OR genre LIKE ?)")
+            params.extend([term, term, term, term])
+
+        g = (genre or "").strip()
+        if g:
+            where_parts.append("genre LIKE ?")
+            params.append(f"%{g}%")
+
+        a = (artist or "").strip()
+        if a:
+            where_parts.append("artist_name LIKE ?")
+            params.append(f"%{a}%")
+
+        al = (album or "").strip()
+        if al:
+            where_parts.append("album_name LIKE ?")
+            params.append(f"%{al}%")
+
+        sql = "SELECT * FROM tracks"
+        if where_parts:
+            sql += " WHERE " + " AND ".join(where_parts)
+        sql += " ORDER BY RANDOM()" if shuffle else " ORDER BY artist_name, album_name, track_number"
+        sql += " LIMIT ?"
+        params.append(limit)
+
+        rows = self._db.fetch_all(sql, tuple(params))
+        return [Track.from_dict(row) for row in rows]
     
     def get_recent_tracks(self, limit: int = 20) -> List[Track]:
         """获取最近播放的曲目"""
@@ -434,3 +507,64 @@ class LibraryService:
         """获取曲目总数"""
         result = self._db.fetch_one("SELECT COUNT(*) as count FROM tracks")
         return result["count"] if result else 0
+
+    def iter_tracks_brief(self, batch_size: int = 250, limit: Optional[int] = None) -> Iterator[List[Dict[str, Any]]]:
+        """
+        以分页方式遍历音乐库的简要曲目信息（用于 LLM 语义筛选，避免一次性加载过多数据）。
+
+        返回的 dict 字段包含：id/title/artist_name/album_name
+        """
+        try:
+            batch_size = int(batch_size)
+        except Exception:
+            batch_size = 250
+        batch_size = max(50, min(800, batch_size))
+
+        remaining = None
+        if limit is not None:
+            try:
+                remaining = int(limit)
+            except Exception:
+                remaining = None
+            if remaining is not None:
+                remaining = max(1, remaining)
+
+        offset = 0
+        while True:
+            if remaining is None:
+                size = batch_size
+            else:
+                if remaining <= 0:
+                    break
+                size = min(batch_size, remaining)
+
+            rows = self._db.fetch_all(
+                """SELECT id, title, artist_name, album_name
+                   FROM tracks
+                   ORDER BY artist_name, album_name, title
+                   LIMIT ? OFFSET ?""",
+                (size, offset),
+            )
+            if not rows:
+                break
+
+            yield rows
+            offset += len(rows)
+            if remaining is not None:
+                remaining -= len(rows)
+
+    def get_tracks_by_ids(self, track_ids: List[str]) -> List[Track]:
+        """按给定 id 列表批量获取曲目（返回顺序不保证，调用方可自行按 id 重新排序）。"""
+        ids = [t for t in track_ids if isinstance(t, str) and t]
+        if not ids:
+            return []
+
+        out: List[Track] = []
+        # sqlite 参数上限可能较小，分块查询
+        chunk_size = 400
+        for i in range(0, len(ids), chunk_size):
+            chunk = ids[i : i + chunk_size]
+            placeholders = ",".join(["?"] * len(chunk))
+            rows = self._db.fetch_all(f"SELECT * FROM tracks WHERE id IN ({placeholders})", tuple(chunk))
+            out.extend([Track.from_dict(r) for r in rows])
+        return out

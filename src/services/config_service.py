@@ -101,6 +101,27 @@ class ConfigService:
                 'volume_down': 'Ctrl+Down',
                 'mute': 'M',
             },
+            'llm': {
+                'provider': 'siliconflow',
+                'siliconflow': {
+                    'base_url': 'https://api.siliconflow.cn/v1',
+                    'model': 'Qwen/Qwen2.5-7B-Instruct',
+                    'api_key_env': 'SILICONFLOW_API_KEY',
+                    'api_key': '',
+                    'timeout_seconds': 20.0,
+                },
+                'queue_manager': {
+                    'max_items': 50,        # 发送给 LLM 的队列条目上限
+                    'max_tokens': 512,
+                    'temperature': 0.2,
+                    'json_mode': True,      # 尝试使用 response_format=json_object
+                    'semantic_fallback': {
+                        'max_catalog_items': 1500,   # 语义筛选时最多遍历的库曲目数量（按简要信息分页发送）
+                        'batch_size': 250,           # 每次发送给 LLM 的候选曲目数量
+                        'per_batch_pick': 8,         # 每批最多挑选的曲目数量
+                    },
+                },
+            },
         }
     
     def get(self, key: str, default: Any = None) -> Any:

@@ -20,6 +20,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ui.widgets.player_controls import PlayerControls
 from ui.widgets.playlist_widget import PlaylistWidget
 from ui.widgets.library_widget import LibraryWidget
+from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
+from ui.dialogs.llm_queue_chat_dialog import LLMQueueChatDialog
 from services.player_service import PlayerService
 from services.playlist_service import PlaylistService
 from services.library_service import LibraryService
@@ -103,6 +105,7 @@ class MainWindow(QMainWindow):
         
         # 播放队列页面
         self.playlist_widget = PlaylistWidget(self.player)
+        self.playlist_widget.llm_chat_requested.connect(self._open_llm_queue_assistant)
         self.content_stack.addWidget(self.playlist_widget)
         
         content_layout.addWidget(self.content_stack, 1)
@@ -221,6 +224,18 @@ class MainWindow(QMainWindow):
         prev_track.setShortcut("Ctrl+Left")
         prev_track.triggered.connect(self.player.previous_track)
         play_menu.addAction(prev_track)
+
+        # AI 菜单
+        ai_menu = menubar.addMenu("AI")
+
+        llm_settings = QAction("LLM 设置…", self)
+        llm_settings.triggered.connect(self._open_llm_settings)
+        ai_menu.addAction(llm_settings)
+
+        queue_assistant = QAction("队列助手…", self)
+        queue_assistant.setShortcut("Ctrl+L")
+        queue_assistant.triggered.connect(self._open_llm_queue_assistant)
+        ai_menu.addAction(queue_assistant)
         
         # 帮助菜单
         help_menu = menubar.addMenu("帮助")
@@ -228,6 +243,14 @@ class MainWindow(QMainWindow):
         about = QAction("关于", self)
         about.triggered.connect(self._show_about)
         help_menu.addAction(about)
+
+    def _open_llm_settings(self):
+        dlg = LLMSettingsDialog(self.config, self)
+        dlg.exec()
+
+    def _open_llm_queue_assistant(self):
+        dlg = LLMQueueChatDialog(self.player, self.library, self.config, self)
+        dlg.exec()
     
     def _connect_events(self):
         """连接事件"""

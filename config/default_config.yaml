@@ -15,8 +15,7 @@ playback:
   remember_position: true
 
 library:
-  directories:
-    - "D:\\User\\music\\music"
+  directories: []
   watch_for_changes: true
   scan_on_startup: true
   supported_formats:
@@ -28,6 +27,24 @@ library:
     - aac
     - wma
     - ape
+
+llm:
+  provider: siliconflow
+  siliconflow:
+    base_url: https://api.siliconflow.cn/v1
+    model: Qwen/Qwen2.5-7B-Instruct
+    api_key_env: SILICONFLOW_API_KEY
+    api_key: ''
+    timeout_seconds: 20.0
+  queue_manager:
+    max_items: 50
+    max_tokens: 512
+    temperature: 0.2
+    json_mode: true
+    semantic_fallback:
+      max_catalog_items: 1500
+      batch_size: 250
+      per_batch_pick: 8
 
 ui:
   window_width: 1200

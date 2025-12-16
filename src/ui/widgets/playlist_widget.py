@@ -28,6 +28,7 @@ class PlaylistWidget(QWidget):
     """
     
     track_double_clicked = pyqtSignal(Track)
+    llm_chat_requested = pyqtSignal()
     
     def __init__(self, player_service: PlayerService, parent=None):
         super().__init__(parent)
@@ -51,6 +52,11 @@ class PlaylistWidget(QWidget):
         header.addWidget(title)
         
         header.addStretch()
+
+        self.llm_btn = QPushButton("队列助手…")
+        self.llm_btn.setFixedWidth(90)
+        self.llm_btn.clicked.connect(self.llm_chat_requested.emit)
+        header.addWidget(self.llm_btn)
         
         self.clear_btn = QPushButton("清空")
         self.clear_btn.setFixedWidth(60)
