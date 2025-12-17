@@ -8,17 +8,13 @@ from typing import List, Optional
 from datetime import datetime
 import uuid
 import logging
-import sys
-import os
-
-logger = logging.getLogger(__name__)
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from core.database import DatabaseManager
 from core.event_bus import EventBus, EventType
 from models.playlist import Playlist
 from models.track import Track
+
+logger = logging.getLogger(__name__)
 
 
 class PlaylistService:

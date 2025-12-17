@@ -8,11 +8,6 @@ from typing import List, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
 import random
-import sys
-import os
-
-# 添加src到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from core.audio_engine import AudioEngineBase, PygameAudioEngine, PlayerState
 from core.event_bus import EventBus, EventType

@@ -14,11 +14,6 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor
 from typing import List, Optional
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-
 from models.track import Track
 from models.tag import Tag
 from services.tag_service import TagService

@@ -109,3 +109,5 @@ tests/              # Unit and Integration tests
 | 配置文件 | `config/` | `config/default_config.yaml` |
 
 禁止在项目根目录或其他非标准位置创建源代码或测试文件。
+
+细化任务，序列化任务，每次在jie'shou

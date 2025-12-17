@@ -11,10 +11,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint
 from PyQt6.QtGui import QPixmap, QMouseEvent
 from pathlib import Path
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from services.player_service import PlayerService
 from models.track import Track

@@ -10,12 +10,6 @@ from datetime import datetime
 import uuid
 import threading
 import logging
-import sys
-import os
-
-logger = logging.getLogger(__name__)
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from core.database import DatabaseManager
 from core.event_bus import EventBus, EventType
@@ -23,6 +17,8 @@ from core.metadata import MetadataParser, AudioMetadata
 from models.track import Track
 from models.album import Album
 from models.artist import Artist
+
+logger = logging.getLogger(__name__)
 
 
 class LibraryService:

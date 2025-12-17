@@ -8,10 +8,6 @@ from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import pyqtSignal, QObject
 from pathlib import Path
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from services.player_service import PlayerService
 from core.event_bus import EventBus, EventType

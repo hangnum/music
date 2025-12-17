@@ -12,10 +12,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction
 from pathlib import Path
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from ui.widgets.player_controls import PlayerControls
 from ui.widgets.playlist_widget import PlaylistWidget

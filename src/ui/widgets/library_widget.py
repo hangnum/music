@@ -12,10 +12,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
 from typing import List
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from models.track import Track
 from services.library_service import LibraryService

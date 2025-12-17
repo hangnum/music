@@ -10,10 +10,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QIcon, QPixmap
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from services.player_service import PlayerService, PlayMode
 from core.event_bus import EventBus, EventType
