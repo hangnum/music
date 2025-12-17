@@ -278,6 +278,10 @@ class DatabaseManager:
             "CREATE INDEX IF NOT EXISTS idx_track_tags_track ON track_tags(track_id)",
             "CREATE INDEX IF NOT EXISTS idx_track_tags_tag ON track_tags(tag_id)",
             "CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)",
+            # 新增索引: 加速按流派、歌手名、文件路径的查询
+            "CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre)",
+            "CREATE INDEX IF NOT EXISTS idx_tracks_artist_name ON tracks(artist_name)",
+            "CREATE INDEX IF NOT EXISTS idx_tracks_file_path ON tracks(file_path)",
         ]
         
         for statement in schema_statements:
