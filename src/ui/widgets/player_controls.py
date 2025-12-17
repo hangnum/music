@@ -36,6 +36,7 @@ class PlayerControls(QWidget):
         super().__init__(parent)
         self.player = player_service
         self.event_bus = EventBus()
+        self._subscriptions: list = []  # 跟踪事件订阅ID
         
         self.setObjectName("playerBar")
         self.setFixedHeight(90)
@@ -209,10 +210,24 @@ class PlayerControls(QWidget):
     
     def _connect_signals(self):
         """连接事件信号"""
-        self.event_bus.subscribe(EventType.TRACK_STARTED, self._on_track_started)
-        self.event_bus.subscribe(EventType.TRACK_PAUSED, self._on_track_paused)
-        self.event_bus.subscribe(EventType.TRACK_RESUMED, self._on_track_resumed)
-        self.event_bus.subscribe(EventType.TRACK_ENDED, self._on_track_ended)
+        self._subscriptions.append(
+            self.event_bus.subscribe(EventType.TRACK_STARTED, self._on_track_started)
+        )
+        self._subscriptions.append(
+            self.event_bus.subscribe(EventType.TRACK_PAUSED, self._on_track_paused)
+        )
+        self._subscriptions.append(
+            self.event_bus.subscribe(EventType.TRACK_RESUMED, self._on_track_resumed)
+        )
+        self._subscriptions.append(
+            self.event_bus.subscribe(EventType.TRACK_ENDED, self._on_track_ended)
+        )
+    
+    def cleanup(self):
+        """清理事件订阅（应在组件销毁前调用）"""
+        for sub_id in self._subscriptions:
+            self.event_bus.unsubscribe(sub_id)
+        self._subscriptions.clear()
     
     def _start_position_timer(self):
         """启动位置更新定时器"""
