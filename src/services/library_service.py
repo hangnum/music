@@ -46,6 +46,9 @@ class LibraryService:
         self._event_bus = EventBus()
         self._scan_thread: Optional[threading.Thread] = None
         self._stop_scan = threading.Event()
+        # 扫描时的缓存（减少重复查询）
+        self._artist_cache: Dict[str, str] = {}
+        self._album_cache: Dict[str, str] = {}
     
     def scan(self, directories: List[str], 
              progress_callback: Optional[Callable[[int, int, str], None]] = None) -> int:
@@ -90,6 +93,10 @@ class LibraryService:
         except Exception:
             existing_paths = set()
         
+        # 批量提交阈值
+        batch_size = 50
+        pending_count = 0
+        
         for i, file_path in enumerate(all_files):
             if self._stop_scan.is_set():
                 break
@@ -98,10 +105,16 @@ class LibraryService:
             
             # 检查是否已存在
             if file_str not in existing_paths:
-                track = self._add_track_from_file(file_str)
+                track = self._add_track_from_file(file_str, commit=False)
                 if track:
                     total_added += 1
+                    pending_count += 1
                     existing_paths.add(file_str)
+                    
+                    # 批量提交
+                    if pending_count >= batch_size:
+                        self._db._conn.commit()
+                        pending_count = 0
             
             # 进度回调
             if progress_callback:
@@ -113,6 +126,14 @@ class LibraryService:
                 "file": file_str,
                 "added": total_added
             })
+        
+        # 提交剩余记录
+        if pending_count > 0:
+            self._db._conn.commit()
+        
+        # 清理扫描缓存
+        self._artist_cache.clear()
+        self._album_cache.clear()
         
         self._event_bus.publish(EventType.LIBRARY_SCAN_COMPLETED, {
             "total_scanned": total_files,
@@ -142,8 +163,13 @@ class LibraryService:
         """停止扫描"""
         self._stop_scan.set()
     
-    def _add_track_from_file(self, file_path: str) -> Optional[Track]:
-        """从文件添加曲目到数据库"""
+    def _add_track_from_file(self, file_path: str, commit: bool = True) -> Optional[Track]:
+        """从文件添加曲目到数据库
+        
+        Args:
+            file_path: 音频文件路径
+            commit: 是否立即提交（批量扫描时设为False）
+        """
         metadata = MetadataParser.parse(file_path)
         if not metadata:
             return None
@@ -151,7 +177,7 @@ class LibraryService:
         # 处理艺术家
         artist_id = None
         if metadata.artist:
-            artist_id = self._get_or_create_artist(metadata.artist)
+            artist_id = self._get_or_create_artist(metadata.artist, commit=commit)
         
         # 处理专辑
         album_id = None
@@ -159,7 +185,8 @@ class LibraryService:
             album_id = self._get_or_create_album(
                 metadata.album,
                 artist_id,
-                metadata.year
+                metadata.year,
+                commit=commit
             )
         
         # 创建曲目
@@ -183,7 +210,12 @@ class LibraryService:
         }
         
         try:
-            self._db.insert("tracks", track_data)
+            self._db.execute(
+                "INSERT INTO tracks (id, title, file_path, duration_ms, bitrate, sample_rate, format, artist_id, artist_name, album_id, album_name, track_number, genre, year, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                tuple(track_data.values())
+            )
+            if commit:
+                self._db._conn.commit()
             track = Track.from_dict(track_data)
             self._event_bus.publish(EventType.TRACK_ADDED, track)
             return track
@@ -191,28 +223,40 @@ class LibraryService:
             print(f"[LibraryService] 添加曲目失败: {e}")
             return None
     
-    def _get_or_create_artist(self, name: str) -> str:
-        """获取或创建艺术家"""
+    def _get_or_create_artist(self, name: str, commit: bool = True) -> str:
+        """获取或创建艺术家（使用缓存）"""
+        # 先检查缓存
+        if name in self._artist_cache:
+            return self._artist_cache[name]
+        
         existing = self._db.fetch_one(
             "SELECT id FROM artists WHERE name = ?",
             (name,)
         )
         
         if existing:
+            self._artist_cache[name] = existing["id"]
             return existing["id"]
         
         artist_id = str(uuid.uuid4())
-        self._db.insert("artists", {
-            "id": artist_id,
-            "name": name,
-            "created_at": datetime.now().isoformat(),
-        })
+        self._db.execute(
+            "INSERT INTO artists (id, name, created_at) VALUES (?, ?, ?)",
+            (artist_id, name, datetime.now().isoformat())
+        )
+        if commit:
+            self._db._conn.commit()
         
+        self._artist_cache[name] = artist_id
         return artist_id
     
     def _get_or_create_album(self, title: str, artist_id: Optional[str],
-                             year: Optional[int]) -> str:
-        """获取或创建专辑"""
+                             year: Optional[int], commit: bool = True) -> str:
+        """获取或创建专辑（使用缓存）"""
+        # 缓存键: (title, artist_id)
+        cache_key = (title, artist_id)
+        if cache_key in self._album_cache:
+            return self._album_cache[cache_key]
+        
         if artist_id:
             existing = self._db.fetch_one(
                 "SELECT id FROM albums WHERE title = ? AND artist_id = ?",
@@ -225,17 +269,18 @@ class LibraryService:
             )
         
         if existing:
+            self._album_cache[cache_key] = existing["id"]
             return existing["id"]
         
         album_id = str(uuid.uuid4())
-        self._db.insert("albums", {
-            "id": album_id,
-            "title": title,
-            "artist_id": artist_id,
-            "year": year,
-            "created_at": datetime.now().isoformat(),
-        })
+        self._db.execute(
+            "INSERT INTO albums (id, title, artist_id, year, created_at) VALUES (?, ?, ?, ?, ?)",
+            (album_id, title, artist_id, year, datetime.now().isoformat())
+        )
+        if commit:
+            self._db._conn.commit()
         
+        self._album_cache[cache_key] = album_id
         return album_id
     
     def get_all_tracks(self) -> List[Track]:
