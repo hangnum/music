@@ -8,6 +8,9 @@ from typing import Any, Dict, Optional
 from pathlib import Path
 import yaml
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigService:
@@ -58,7 +61,7 @@ class ConfigService:
                 with open(path, 'r', encoding='utf-8') as f:
                     self._config = yaml.safe_load(f) or {}
             except Exception as e:
-                print(f"[ConfigService] 加载配置失败: {e}")
+                logger.warning("加载配置失败: %s", e)
                 self._config = {}
         else:
             self._config = self._get_default_config()
@@ -198,7 +201,7 @@ class ConfigService:
                     yaml.dump(self._config, f, allow_unicode=True, default_flow_style=False)
             return True
         except Exception as e:
-            print(f"[ConfigService] 保存配置失败: {e}")
+            logger.error("保存配置失败: %s", e)
             return False
     
     def reload(self) -> bool:

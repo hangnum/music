@@ -7,8 +7,11 @@
 from typing import List, Optional
 from datetime import datetime
 import uuid
+import logging
 import sys
 import os
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -222,7 +225,7 @@ class PlaylistService:
             self._event_bus.publish(EventType.PLAYLIST_UPDATED, self.get(playlist_id))
             return True
         except Exception as e:
-            print(f"[PlaylistService] 添加曲目失败: {e}")
+            logger.warning("添加曲目到播放列表失败: playlist_id=%s, track_id=%s, error=%s", playlist_id, track.id, e)
             return False
     
     def remove_track(self, playlist_id: str, track_id: str) -> bool:

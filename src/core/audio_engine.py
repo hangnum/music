@@ -9,6 +9,9 @@ from abc import ABC, abstractmethod
 from typing import Optional, Callable
 from enum import Enum
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PlayerState(Enum):
@@ -174,7 +177,7 @@ class PygameAudioEngine(AudioEngineBase):
                     pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
                     PygameAudioEngine._initialized = True
                 except Exception as e:
-                    print(f"[AudioEngine] pygame初始化失败: {e}")
+                    logger.error("pygame初始化失败: %s", e)
                     self._state = PlayerState.ERROR
     
     def load(self, file_path: str) -> bool:
@@ -265,7 +268,7 @@ class PygameAudioEngine(AudioEngineBase):
             # pygame的set_pos接受秒为单位
             pygame.mixer.music.set_pos(position_ms / 1000.0)
         except Exception as e:
-            print(f"[AudioEngine] 跳转失败: {e}")
+            logger.warning("跳转失败: %s", e)
     
     def set_volume(self, volume: float) -> None:
         """设置音量"""

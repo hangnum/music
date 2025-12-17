@@ -8,6 +8,9 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -106,7 +109,7 @@ class MetadataParser:
             return metadata
             
         except Exception as e:
-            print(f"[MetadataParser] 解析失败: {file_path}, 错误: {e}")
+            logger.debug("解析失败: %s, 错误: %s", file_path, e)
             return None
     
     @classmethod
@@ -165,7 +168,7 @@ class MetadataParser:
                     break
                     
         except Exception as e:
-            print(f"[MetadataParser] MP3解析错误: {e}")
+            logger.debug("MP3解析错误: %s", e)
     
     @classmethod
     def _parse_flac(cls, audio, metadata: AudioMetadata) -> None:

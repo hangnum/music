@@ -9,8 +9,11 @@ from pathlib import Path
 from datetime import datetime
 import uuid
 import threading
+import logging
 import sys
 import os
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -220,7 +223,7 @@ class LibraryService:
             self._event_bus.publish(EventType.TRACK_ADDED, track)
             return track
         except Exception as e:
-            print(f"[LibraryService] 添加曲目失败: {e}")
+            logger.warning("添加曲目失败: %s - %s", file_path, e)
             return None
     
     def _get_or_create_artist(self, name: str, commit: bool = True) -> str:

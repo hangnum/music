@@ -8,7 +8,10 @@ from typing import Dict, Callable, Any, Optional
 from enum import Enum
 import threading
 import uuid
+import logging
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 try:
     from PyQt6.QtCore import QObject, pyqtSignal, Qt, QCoreApplication
@@ -61,7 +64,7 @@ class EventBus:
         
         # 订阅事件
         def on_track_started(track):
-            print(f"播放: {track.title}")
+            logger.info("播放: %s", track.title)
         
         sub_id = event_bus.subscribe(EventType.TRACK_STARTED, on_track_started)
         
@@ -216,7 +219,7 @@ class EventBus:
             callback(data)
         except Exception as e:
             # 避免循环：不使用publish发布错误事件
-            print(f"[EventBus] 回调执行错误: {e}")
+            logger.error("回调执行错误: %s", e)
     
     def clear(self) -> None:
         """清除所有订阅"""
@@ -250,13 +253,13 @@ if QObject is not None and pyqtSignal is not None:
             try:
                 callback(data)
             except Exception as e:
-                print(f"[EventBus] 回调执行错误: {e}")
+                logger.error("回调执行错误: %s", e)
 
         def _on_dispatch_sync(self, callback: Callable, data: Any, done: threading.Event) -> None:
             try:
                 callback(data)
             except Exception as e:
-                print(f"[EventBus] 回调执行错误: {e}")
+                logger.error("回调执行错误: %s", e)
             finally:
                 try:
                     done.set()
