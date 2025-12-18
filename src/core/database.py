@@ -52,26 +52,75 @@ class DatabaseManager:
     def _conn(self) -> sqlite3.Connection:
         """获取线程本地连接"""
         if not hasattr(self._local, 'connection') or self._local.connection is None:
-            self._local.connection = sqlite3.connect(self._db_path)
+            # Set timeout to 30 seconds to handle concurrent access better
+            self._local.connection = sqlite3.connect(self._db_path, timeout=30.0)
             self._local.connection.row_factory = sqlite3.Row
+            
+            # Enable WAL mode for better concurrency
+            self._local.connection.execute("PRAGMA journal_mode=WAL")
+            self._local.connection.execute("PRAGMA synchronous=NORMAL")
+            
             # 启用外键
             self._local.connection.execute("PRAGMA foreign_keys = ON")
+            
+            # Initialize transaction tracking flag
+            self._local.in_transaction = False
         return self._local.connection
     
     @contextmanager
     def transaction(self):
-        """事务上下文管理器"""
+        """事务上下文管理器
+        
+        在此上下文内的写操作不会自动提交，而是在上下文结束时统一提交或回滚。
+        """
         conn = self._conn
+        # Mark that we're in an explicit transaction
+        self._local.in_transaction = True
         try:
             yield conn
             conn.commit()
         except Exception as e:
             conn.rollback()
             raise
+        finally:
+            self._local.in_transaction = False
     
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        """执行SQL语句"""
-        return self._conn.execute(sql, params)
+        """执行SQL语句
+        
+        对于写操作(INSERT/UPDATE/DELETE等)，当不在显式事务上下文中时，
+        会自动提交以释放数据库锁，避免并发写入时的死锁问题。
+        在 transaction() 上下文内的写操作不会自动提交。
+        """
+        max_retries = 5
+        retry_delay = 0.1
+        
+        # Detect if this is a write operation that needs auto-commit
+        write_keywords = ('INSERT', 'UPDATE', 'DELETE', 'REPLACE', 
+                          'CREATE', 'DROP', 'ALTER')
+        sql_upper = sql.strip().upper()
+        is_write = sql_upper.startswith(write_keywords)
+        
+        # Check if we're inside an explicit transaction
+        in_transaction = getattr(self._local, 'in_transaction', False)
+        
+        for i in range(max_retries):
+            try:
+                cursor = self._conn.execute(sql, params)
+                # Auto-commit write operations ONLY when not in explicit transaction
+                if is_write and not in_transaction:
+                    self._conn.commit()
+                return cursor
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e).lower() and i < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay * (i + 1))  # Exponential-ish backoff
+                    continue
+                raise
+        cursor = self._conn.execute(sql, params)
+        if is_write and not in_transaction:
+            self._conn.commit()
+        return cursor
     
     def execute_many(self, sql: str, params_list: List[tuple]) -> None:
         """批量执行SQL语句"""
