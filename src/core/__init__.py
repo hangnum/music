@@ -7,6 +7,7 @@ from .audio_engine import AudioEngineBase, PygameAudioEngine, PlayerState
 from .metadata import MetadataParser, AudioMetadata
 from .database import DatabaseManager
 from .llm_provider import LLMProvider, LLMSettings, LLMProviderError
+from .engine_factory import AudioEngineFactory
 
 __all__ = [
     'EventBus',
@@ -20,4 +21,6 @@ __all__ = [
     'LLMProvider',
     'LLMSettings',
     'LLMProviderError',
+    'AudioEngineFactory',
 ]
+

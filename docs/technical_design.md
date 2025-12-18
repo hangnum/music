@@ -8,7 +8,8 @@
 
 - 支持多种音频格式的解码与播放
 - 提供统一的播放控制接口
-- 支持后端切换（pygame/VLC）
+- **支持高级音频特性**：无缝播放 (Gapless)、淡入淡出 (Crossfade)、ReplayGain、10段均衡器 (EQ)
+- **多后端支持**：通过工厂模式支持 Miniaudio (默认/高保真)、VLC (兼容性)、Pygame (基础)
 
 #### 1.1.2 类设计
 
@@ -16,177 +17,92 @@
 # src/core/audio_engine.py
 
 from abc import ABC, abstractmethod
-from typing import Optional, Callable
+from typing import Optional, Callable, List
 from enum import Enum
-import threading
-
-class PlayerState(Enum):
-    IDLE = "idle"
-    LOADING = "loading"
-    PLAYING = "playing"
-    PAUSED = "paused"
-    STOPPED = "stopped"
-    ERROR = "error"
 
 class AudioEngineBase(ABC):
     """音频引擎基类"""
     
-    def __init__(self):
-        self._state: PlayerState = PlayerState.IDLE
-        self._volume: float = 1.0
-        self._current_file: Optional[str] = None
-        self._on_end_callback: Optional[Callable] = None
-        self._on_error_callback: Optional[Callable] = None
+    # ... (原有基础播放控制方法: play, pause, stop, seek, etc.)
     
-    @property
-    def state(self) -> PlayerState:
-        return self._state
-    
-    @property
-    def volume(self) -> float:
-        return self._volume
+    # ===== 高级特性接口 =====
     
     @abstractmethod
-    def load(self, file_path: str) -> bool:
-        """加载音频文件"""
-        pass
-    
-    @abstractmethod
-    def play(self) -> bool:
-        """播放"""
-        pass
-    
-    @abstractmethod
-    def pause(self) -> None:
-        """暂停"""
-        pass
-    
-    @abstractmethod
-    def resume(self) -> None:
-        """恢复播放"""
-        pass
-    
-    @abstractmethod
-    def stop(self) -> None:
-        """停止"""
-        pass
-    
-    @abstractmethod
-    def seek(self, position_ms: int) -> None:
-        """跳转位置"""
-        pass
-    
-    @abstractmethod
-    def set_volume(self, volume: float) -> None:
-        """设置音量 0.0 - 1.0"""
-        pass
-    
-    @abstractmethod
-    def get_position(self) -> int:
-        """获取当前位置（毫秒）"""
-        pass
-    
-    @abstractmethod
-    def get_duration(self) -> int:
-        """获取总时长（毫秒）"""
-        pass
-    
-    def set_on_end(self, callback: Callable) -> None:
-        """设置播放结束回调"""
-        self._on_end_callback = callback
-    
-    def set_on_error(self, callback: Callable) -> None:
-        """设置错误回调"""
-        self._on_error_callback = callback
+    def supports_gapless(self) -> bool:
+        """是否支持无缝播放"""
+        return False
 
+    @abstractmethod
+    def supports_crossfade(self) -> bool:
+        """是否支持淡入淡出"""
+        return False
 
-class PygameAudioEngine(AudioEngineBase):
-    """基于Pygame的音频引擎实现"""
+    @abstractmethod
+    def supports_equalizer(self) -> bool:
+        """是否支持EQ"""
+        return False
+
+    @abstractmethod
+    def supports_replay_gain(self) -> bool:
+        """是否支持ReplayGain"""
+        return False
+
+    @abstractmethod
+    def set_next_track(self, file_path: str) -> bool:
+        """预加载下一曲 (用于Gapless)"""
+        return False
+
+    @abstractmethod
+    def set_crossfade_duration(self, duration_ms: int) -> None:
+        """设置淡入淡出时长"""
+        pass
+
+    @abstractmethod
+    def set_replay_gain(self, gain_db: float, peak: float = 1.0) -> None:
+        """设置ReplayGain"""
+        pass
+
+    @abstractmethod
+    def set_equalizer(self, bands: List[float]) -> None:
+        """设置10段EQ增益"""
+        pass
+
+# src/core/engine_factory.py
+
+class AudioEngineFactory:
+    """音频引擎工厂"""
     
-    def __init__(self):
-        super().__init__()
-        import pygame
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
-        self._end_event = pygame.USEREVENT + 1
-        pygame.mixer.music.set_endevent(self._end_event)
-        self._monitor_thread: Optional[threading.Thread] = None
-    
-    def load(self, file_path: str) -> bool:
-        try:
-            import pygame
-            pygame.mixer.music.load(file_path)
-            self._current_file = file_path
-            self._state = PlayerState.STOPPED
-            return True
-        except Exception as e:
-            self._state = PlayerState.ERROR
-            if self._on_error_callback:
-                self._on_error_callback(str(e))
-            return False
-    
-    def play(self) -> bool:
-        try:
-            import pygame
-            pygame.mixer.music.play()
-            self._state = PlayerState.PLAYING
-            self._start_monitor()
-            return True
-        except Exception as e:
-            self._state = PlayerState.ERROR
-            return False
-    
-    def pause(self) -> None:
-        import pygame
-        pygame.mixer.music.pause()
-        self._state = PlayerState.PAUSED
-    
-    def resume(self) -> None:
-        import pygame
-        pygame.mixer.music.unpause()
-        self._state = PlayerState.PLAYING
-    
-    def stop(self) -> None:
-        import pygame
-        pygame.mixer.music.stop()
-        self._state = PlayerState.STOPPED
-    
-    def seek(self, position_ms: int) -> None:
-        import pygame
-        pygame.mixer.music.set_pos(position_ms / 1000.0)
-    
-    def set_volume(self, volume: float) -> None:
-        import pygame
-        self._volume = max(0.0, min(1.0, volume))
-        pygame.mixer.music.set_volume(self._volume)
-    
-    def get_position(self) -> int:
-        import pygame
-        return int(pygame.mixer.music.get_pos())
-    
-    def get_duration(self) -> int:
-        # pygame不直接提供时长，需要通过mutagen获取
-        if self._current_file:
-            from mutagen import File
-            audio = File(self._current_file)
-            if audio and audio.info:
-                return int(audio.info.length * 1000)
-        return 0
-    
-    def _start_monitor(self) -> None:
-        """启动播放结束监控"""
-        def monitor():
-            import pygame
-            while self._state == PlayerState.PLAYING:
-                for event in pygame.event.get():
-                    if event.type == self._end_event:
-                        self._state = PlayerState.STOPPED
-                        if self._on_end_callback:
-                            self._on_end_callback()
-                        return
-                pygame.time.wait(100)
-        
-        self._monitor_thread = threading.Thread(target=monitor, daemon=True)
-        self._monitor_thread.start()
+    PRIORITY_ORDER = ["miniaudio", "vlc", "pygame"]
+
+    @classmethod
+    def create(cls, backend: str = "miniaudio") -> AudioEngineBase:
+        """创建引擎实例，支持自动降级"""
+        pass
+
+# src/core/miniaudio_engine.py
+
+class MiniaudioEngine(AudioEngineBase):
+    """
+    基于 miniaudio 的高性能音频引擎
+    支持: Gapless, Crossfade, ReplayGain, 10-Band EQ (Biquad Filter)
+    """
+    pass
+```
+
+#### 1.1.3 均衡器模型 (EQPreset)
+
+```python
+# src/models/eq_preset.py
+
+class EQPreset(Enum):
+    FLAT = "flat"
+    ROCK = "rock"
+    POP = "pop"
+    # ... 其他预设
+
+@dataclass
+class EQBands:
+    bands: tuple  # 10个频段的dB值
 ```
 
 ---
@@ -1277,13 +1193,24 @@ app:
   theme: "dark"
 
 audio:
-  backend: "pygame"  # pygame, vlc
+  backend: "miniaudio"  # miniaudio, vlc, pygame
   output_device: "default"
   buffer_size: 2048
+  gapless: true
+  crossfade:
+    enabled: true
+    duration_ms: 500
+  replay_gain:
+    enabled: true
+    mode: "track"
+    preamp_db: 0.0
+    prevent_clipping: true
+  equalizer:
+    enabled: false
+    preset: "flat"
   
 playback:
   default_volume: 0.8
-  fade_duration: 500  # 淡入淡出时长（毫秒）
   remember_position: true
   
 library:
@@ -1303,7 +1230,6 @@ ui:
   window_height: 800
   sidebar_width: 240
   show_album_art: true
-  show_visualizer: false
   
 shortcuts:
   play_pause: "Space"
@@ -1326,6 +1252,8 @@ PyQt6>=6.4.0
 
 # 音频播放
 pygame>=2.5.0
+miniaudio>=1.59       # 高保真音频后端 (Gapless/Crossfade/EQ)
+python-vlc>=3.0.18122 # VLC后端
 
 # 元数据解析
 mutagen>=1.46.0
@@ -1338,7 +1266,6 @@ PyYAML>=6.0
 
 # 工具库
 Pillow>=10.0.0  # 图像处理
-python-vlc>=3.0.0  # VLC后端（可选）
 
 # 开发依赖
 pytest>=7.0.0

@@ -27,6 +27,7 @@ from ui.mini_player import MiniPlayer
 from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
 from ui.dialogs.llm_queue_chat_dialog import LLMQueueChatDialog
 from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
+from ui.dialogs.audio_settings_dialog import AudioSettingsDialog
 from services.player_service import PlayerService
 from services.playlist_service import PlaylistService
 from services.library_service import LibraryService
@@ -287,6 +288,17 @@ class MainWindow(QMainWindow):
         queue_assistant.triggered.connect(self._open_llm_queue_assistant)
         ai_menu.addAction(queue_assistant)
         
+        # 设置菜单
+        settings_menu = menubar.addMenu("设置")
+        
+        audio_settings = QAction("音频设置…", self)
+        audio_settings.triggered.connect(self._open_audio_settings)
+        settings_menu.addAction(audio_settings)
+        
+        llm_settings = QAction("LLM 设置…", self)
+        llm_settings.triggered.connect(self._open_llm_settings)
+        settings_menu.addAction(llm_settings)
+        
         # 视图菜单
         view_menu = menubar.addMenu("视图")
         
@@ -304,6 +316,10 @@ class MainWindow(QMainWindow):
 
     def _open_llm_settings(self):
         dlg = LLMSettingsDialog(self.config, self)
+        dlg.exec()
+
+    def _open_audio_settings(self):
+        dlg = AudioSettingsDialog(self.config, self)
         dlg.exec()
 
     def _open_llm_queue_assistant(self):

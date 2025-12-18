@@ -6,6 +6,10 @@ PyQt6>=6.4.0
 # 音频播放
 pygame>=2.5.0
 
+# 高级音频后端 (可选)
+miniaudio>=1.59       # 推荐：Gapless/Crossfade/EQ 支持
+python-vlc>=3.0.18122 # 备选：ReplayGain 原生支持，需安装 VLC 播放器
+
 # 元数据解析
 mutagen>=1.46.0
 

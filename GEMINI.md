@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project is a modular, high-quality local music player written in Python 3.11+. It features a modern GUI built with **PyQt6**, uses **pygame** for audio playback, **mutagen** for metadata parsing, and **SQLite** for data persistence.
+This project is a modular, high-quality local music player written in Python 3.11+. It features a modern GUI built with **PyQt6**, uses **miniaudio** (default) or **VLC/pygame** for audio playback, **mutagen** for metadata parsing, and **SQLite** for data persistence.
 
 The application follows a strict **Layered Architecture** (UI, Service, Core, Data) and uses an **Event Bus** for decoupled communication between components.
 
@@ -10,7 +10,7 @@ The application follows a strict **Layered Architecture** (UI, Service, Core, Da
 
 * **Language:** Python 3.11+
 * **GUI:** PyQt6
-* **Audio Engine:** pygame (extensible to others like VLC)
+* **Audio Engine:** miniaudio (High Fidelity), VLC, pygame
 * **Metadata:** mutagen
 * **LLM Providers:** SiliconFlow, Google Gemini
 * **Configuration:** PyYAML
@@ -53,14 +53,14 @@ The project adheres to SOLID principles and separates concerns into four main la
 ### 1. UI Layer (`src/ui/`)
 
 * **Responsibility:** Handles user interaction and display.
-* **Components:** `MainWindow`, `PlayerControls`, `LibraryWidget`.
+* **Components:** `MainWindow`, `PlayerControls`, `LibraryWidget`, `AudioSettingsDialog`.
 * **Note:** The UI layer subscribes to events from the `EventBus` to update itself (e.g., progress bar, current track).
 
 ### 2. Service Layer (`src/services/`)
 
 * **Responsibility:** Orchestrates business logic and coordinates between the UI and Core layers.
 * **Key Services:**
-  * `PlayerService`: Manages playback state (playing, paused), queue, and playback modes (shuffle, repeat).
+  * `PlayerService`: Manages playback state, queue, and engine selection (via Factory).
   * `LibraryService`: Handles scanning and indexing music files.
   * `PlaylistService`: Manages user playlists.
   * `TagService`: Manages music tags.
@@ -72,6 +72,7 @@ The project adheres to SOLID principles and separates concerns into four main la
 
 * `EventBus`: A thread-safe, singleton event system that enables decoupled communication. It handles dispatching events to the main Qt thread when necessary.
 * `DatabaseManager`: Handles SQLite connections.
+* `AudioEngineFactory`: Creates audio engine instances (`miniaudio`, `vlc`, `pygame`).
 
 ### 4. Data Layer (`src/models/`, `config/`)
 

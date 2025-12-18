@@ -23,6 +23,14 @@
 | `set_volume(volume)` | `float` | `None` | 设置音量(0.0-1.0) |
 | `get_position()` | - | `int` | 获取当前位置(毫秒) |
 | `get_duration()` | - | `int` | 获取总时长(毫秒) |
+| `supports_gapless()` | - | `bool` | 是否支持无缝播放 |
+| `supports_crossfade()` | - | `bool` | 是否支持淡入淡出 |
+| `supports_equalizer()` | - | `bool` | 是否支持EQ |
+| `supports_replay_gain()` | - | `bool` | 是否支持ReplayGain |
+| `set_next_track(path)` | `str` | `bool` | 预加载下一曲 |
+| `set_crossfade_duration(ms)`| `int` | `None` | 设置淡入淡出时长 |
+| `set_replay_gain(db, peak)`| `float, float`| `None` | 设置ReplayGain |
+| `set_equalizer(bands)` | `List[float]` | `None` | 设置10段EQ增益 |
 
 **属性:**
 
@@ -33,6 +41,17 @@
 
 - `set_on_end(callback)` - 设置播放结束回调
 - `set_on_error(callback)` - 设置错误回调
+
+### 2.1.1 AudioEngineFactory - 音频引擎工厂
+
+用于创建和管理音频引擎实例。
+
+| 方法 (Static) | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `create(backend)` | `str` | `AudioEngineBase` | 创建指定后端的引擎 |
+| `create_best_available()` | - | `AudioEngineBase` | 创建最佳可用引擎 |
+| `get_available_backends()`| - | `List[str]` | 获取可用后端列表 |
+| `get_backend_info(backend)`| `str` | `dict` | 获取后端特性支持 |
 
 ---
 

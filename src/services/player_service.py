@@ -10,7 +10,7 @@ from enum import Enum
 import random
 import logging
 
-from core.audio_engine import AudioEngineBase, PygameAudioEngine, PlayerState
+from core.audio_engine import AudioEngineBase, PlayerState
 from core.event_bus import EventBus, EventType
 from models.track import Track
 
@@ -56,7 +56,22 @@ class PlayerService:
     """
     
     def __init__(self, audio_engine: Optional[AudioEngineBase] = None):
-        self._engine = audio_engine or PygameAudioEngine()
+        if audio_engine:
+            self._engine = audio_engine
+        else:
+            # 使用工厂模式创建引擎
+            from core.engine_factory import AudioEngineFactory
+            try:
+                # 尝试从配置获取后端设置
+                from services.config_service import ConfigService
+                config = ConfigService()
+                backend = config.get("audio.backend", "miniaudio")
+            except Exception:
+                backend = "miniaudio"
+            
+            self._engine = AudioEngineFactory.create(backend)
+            logger.info("PlayerService 使用音频后端: %s", self._engine.get_engine_name())
+        
         self._event_bus = EventBus()
         
         # 播放队列

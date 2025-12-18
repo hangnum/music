@@ -11,6 +11,8 @@
 ### 已实现
 
 - 🎶 **音乐播放** - 支持 MP3、FLAC、WAV、OGG、M4A、AAC 等格式
+- 🎧 **高级音频** - 支持无缝播放 (Gapless)、淡入淡出 (Crossfade)、ReplayGain 音量平衡
+- 🎚️ **均衡器** - 10 段专业均衡器，内置多种预设 (Rock, Pop, Jazz, etc.)
 - 📚 **媒体库管理** - 自动扫描并索引本地音乐文件
 - 🔍 **智能搜索** - 支持按曲目、艺术家、专辑搜索
 - 📋 **播放队列** - 灵活的播放队列管理
@@ -23,7 +25,6 @@
 
 ### 开发中
 
-- 🎚️ 均衡器
 - 📝 歌词显示
 - 🔔 系统托盘
 - ⌨️ 全局快捷键
@@ -33,7 +34,7 @@
 | 组件 | 技术 | 说明 |
 |------|------|------|
 | GUI框架 | PyQt6 | 跨平台图形界面 |
-| 音频引擎 | pygame | 音频解码与播放 |
+| 音频引擎 | miniaudio / vlc / pygame | 多后端音频引擎支持，默认 miniaudio |
 | 元数据解析 | mutagen | 多格式音频标签读取 |
 | 数据库 | SQLite | 本地数据存储 |
 | 配置管理 | PyYAML | YAML格式配置文件 |
@@ -45,6 +46,7 @@
 
 - Python 3.11+
 - Conda (推荐) 或 pip
+- (可选) VLC Player (如果使用 VLC 后端)
 
 ### 使用 Conda
 
@@ -89,16 +91,20 @@ music/
 │   └── api.md               # API接口
 ├── src/                     # 源代码
 │   ├── core/                # 核心模块
-│   │   ├── audio_engine.py  # 音频引擎
-│   │   ├── event_bus.py     # 事件总线
-│   │   ├── metadata.py      # 元数据解析
-│   │   ├── database.py      # 数据库管理
-│   │   └── llm_provider.py  # LLM 提供商抽象
+│   │   ├── audio_engine.py      # 音频引擎基类
+│   │   ├── engine_factory.py    # 音频引擎工厂
+│   │   ├── miniaudio_engine.py  # Miniaudio 后端 (High Quality)
+│   │   ├── vlc_engine.py        # VLC 后端
+│   │   ├── event_bus.py         # 事件总线
+│   │   ├── metadata.py          # 元数据解析
+│   │   ├── database.py          # 数据库管理
+│   │   └── llm_provider.py      # LLM 提供商抽象
 │   ├── models/              # 数据模型
 │   │   ├── track.py         # 曲目
 │   │   ├── album.py         # 专辑
 │   │   ├── artist.py        # 艺术家
-│   │   └── playlist.py      # 播放列表
+│   │   ├── playlist.py      # 播放列表
+│   │   └── eq_preset.py     # 均衡器预设
 │   ├── services/            # 服务层
 │   │   ├── player_service.py      # 播放服务
 │   │   ├── library_service.py     # 媒体库服务
@@ -112,6 +118,9 @@ music/
 │   ├── ui/                  # 界面层
 │   │   ├── main_window.py       # 主窗口
 │   │   ├── widgets/             # UI组件
+│   │   ├── dialogs/             # 对话框
+│   │   │   ├── audio_settings_dialog.py # 音频设置
+│   │   │   └── ...
 │   │   └── styles/              # 样式表
 │   └── main.py              # 程序入口
 ├── tests/                   # 单元测试

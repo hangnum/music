@@ -95,6 +95,7 @@ graph TB
 | PlaylistView | 播放列表展示与操作 | PlaylistService |
 | LibraryView | 媒体库浏览与搜索 | LibraryService |
 | SettingsView | 应用设置界面 | ConfigService |
+| AudioSettingsDialog | 音频参数设置 (Backend/EQ/Crossfade) | ConfigService/PlayerService |
 
 #### 2.2.2 服务层 (Service Layer)
 
@@ -117,7 +118,9 @@ graph TB
 
 | 组件 | 职责 | 特性 |
 |------|------|------|
-| AudioEngine | 音频解码与播放 | 支持多后端切换 |
+| AudioEngineFactory| 音频引擎工厂 | 支持后端自动选择与降级 |
+| MiniaudioEngine | 高保真音频引擎 | Gapless, Crossfade, EQ, ReplayGain |
+| VLCEngine | VLC音频引擎 | 广泛的格式支持 |
 | MetadataParser | 元数据解析与写入 | 支持多格式 |
 | DatabaseManager | SQLite操作封装 | 连接池、事务、并发优化 |
 | EventBus | 事件发布订阅 | 线程安全、解耦 |

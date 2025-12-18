@@ -9,7 +9,7 @@ This is a high-quality desktop music player application built with Python, featu
 **Technology Stack:**
 
 - GUI Framework: PyQt6 (cross-platform desktop interface)
-- Audio Engine: pygame (with VLC backend support)
+- Audio Engine: miniaudio (default), VLC, pygame (multiple backends)
 - Metadata: mutagen (multi-format audio tag parsing)
 - Database: SQLite (local data storage)
 - Configuration: PyYAML (human-readable config files)
@@ -149,7 +149,9 @@ The application follows a strict 4-layer architecture pattern to ensure separati
 - Abstract interfaces for extensibility
 - Thread-safe operations
 - Key modules:
-  - `audio_engine.py` - Audio playback with multiple backends
+  - `audio_engine.py` - Audio playback base and interfaces
+  - `engine_factory.py` - Audio engine creation and fallback logic
+  - `miniaudio_engine.py` - High-fidelity audio backend
   - `event_bus.py` - Publish-subscribe event system
   - `metadata.py` - Audio file metadata extraction
   - `database.py` - SQLite operations with connection pooling
@@ -189,7 +191,7 @@ CREATE INDEX idx_tracks_title ON tracks(title);
 
 #### Singleton Pattern
 
-- `EventBus`, `DatabaseManager`, `AudioEngine` use singleton pattern
+- `EventBus`, `DatabaseManager` use singleton pattern
 - Thread-safe implementation with double-checked locking
 - Instance reset methods available for testing
 
@@ -201,12 +203,13 @@ CREATE INDEX idx_tracks_title ON tracks(title);
 
 #### Strategy Pattern
 
-- Audio engine backends (pygame/VLC)
+- Audio engine backends (miniaudio/VLC/pygame)
 - Metadata parsers for different audio formats
 - Sorting and filtering strategies
 
 #### Factory Pattern
 
+- `AudioEngineFactory` for engine creation
 - Metadata parser creation based on file format
 - UI widget factories for themes
 
@@ -241,7 +244,9 @@ User Action → UI Widget → Service Method → Core Operation → Database
 src/
 ├── main.py              # Application entry point
 ├── core/               # Core capabilities
-│   ├── audio_engine.py # Audio playback with multiple backends
+│   ├── audio_engine.py # Audio playback base
+│   ├── engine_factory.py # Engine factory
+│   ├── miniaudio_engine.py # Miniaudio backend
 │   ├── event_bus.py   # Event system
 │   ├── metadata.py     # Metadata extraction
 │   └── database.py     # Database operations
@@ -292,8 +297,8 @@ src/
 ### Audio Engine Architecture
 
 - Abstract base class for multiple backends
-- Currently implemented: PygameAudioEngine
-- Planned: VLC backend for better format support
+- Implemented backends: Miniaudio (default), VLC, Pygame
+- Factory pattern for backend selection
 - Thread-safe playback control with state management
 
 ### Event System
@@ -376,14 +381,13 @@ src/
 - ✅ Event-driven architecture
 - ✅ Comprehensive test suite
 - ✅ LLM queue assistant with semantic library fetch
+- ✅ High-fidelity audio (Gapless, EQ, ReplayGain)
 
 ### Planned Features
 
-- 🚧 Audio equalizer
 - 🚧 Lyrics display and synchronization
 - 🚧 System tray integration
 - 🚧 Global keyboard shortcuts
-- 🚧 Crossfade playback
 - 🚧 Plugin system for extensibility
 
 ### Performance Targets

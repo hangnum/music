@@ -4,8 +4,21 @@ app:
   theme: dark
   version: 1.0.0
 audio:
-  backend: pygame
+  backend: miniaudio  # Options: miniaudio, vlc, pygame
   buffer_size: 2048
+  gapless: true
+  crossfade:
+    enabled: true
+    duration_ms: 500
+  replay_gain:
+    enabled: true
+    mode: track  # track or album
+    preamp_db: 0.0
+    prevent_clipping: true
+  equalizer:
+    enabled: false
+    preset: flat  # flat, rock, pop, jazz, classical, electronic, hip_hop, acoustic, vocal, bass_boost
+    bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # 10-band custom EQ (dB)
 library:
   directories:
   - D:/User/music/music

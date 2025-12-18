@@ -6,7 +6,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Callable
+from typing import Optional, Callable, List
 from enum import Enum
 import threading
 import logging
@@ -148,6 +148,115 @@ class AudioEngineBase(ABC):
     def set_on_error(self, callback: Callable[[str], None]) -> None:
         """设置错误回调"""
         self._on_error_callback = callback
+
+    # ===== 高级音频特性接口 =====
+
+    def supports_gapless(self) -> bool:
+        """
+        是否支持无缝播放
+
+        Returns:
+            bool: True 表示支持 Gapless Playback
+        """
+        return False
+
+    def supports_crossfade(self) -> bool:
+        """
+        是否支持淡入淡出
+
+        Returns:
+            bool: True 表示支持 Crossfade
+        """
+        return False
+
+    def supports_equalizer(self) -> bool:
+        """
+        是否支持 EQ 均衡器
+
+        Returns:
+            bool: True 表示支持 EQ
+        """
+        return False
+
+    def supports_replay_gain(self) -> bool:
+        """
+        是否支持 ReplayGain
+
+        Returns:
+            bool: True 表示支持 ReplayGain
+        """
+        return False
+
+    def set_next_track(self, file_path: str) -> bool:
+        """
+        预加载下一曲（用于 Gapless Playback）
+
+        子类可覆盖此方法实现无缝过渡。
+
+        Args:
+            file_path: 下一曲的文件路径
+
+        Returns:
+            bool: 是否成功预加载
+        """
+        return False
+
+    def set_crossfade_duration(self, duration_ms: int) -> None:
+        """
+        设置淡入淡出时长
+
+        Args:
+            duration_ms: 淡入淡出时长（毫秒）
+        """
+        pass
+
+    def get_crossfade_duration(self) -> int:
+        """
+        获取当前淡入淡出时长
+
+        Returns:
+            int: 淡入淡出时长（毫秒），不支持时返回 0
+        """
+        return 0
+
+    def set_replay_gain(self, gain_db: float, peak: float = 1.0) -> None:
+        """
+        设置 ReplayGain 增益
+
+        Args:
+            gain_db: 增益值（dB），正值增大音量，负值减小
+            peak: 峰值信息，用于防止削波
+        """
+        pass
+
+    def set_equalizer(self, bands: List[float]) -> None:
+        """
+        设置 EQ 频段增益
+
+        Args:
+            bands: 10 频段增益列表 (dB)，从低频到高频:
+                   [31Hz, 62Hz, 125Hz, 250Hz, 500Hz,
+                    1kHz, 2kHz, 4kHz, 8kHz, 16kHz]
+        """
+        pass
+
+    def set_equalizer_enabled(self, enabled: bool) -> None:
+        """
+        启用/禁用 EQ
+
+        Args:
+            enabled: True 启用，False 禁用
+        """
+        pass
+
+    def get_engine_name(self) -> str:
+        """
+        获取引擎名称
+
+        Returns:
+            str: 引擎标识名称
+        """
+        return "base"
 
 
 class PygameAudioEngine(AudioEngineBase):
@@ -315,3 +424,8 @@ class PygameAudioEngine(AudioEngineBase):
         except Exception as e:
             logger.warning("pygame cleanup 失败: %s", e)
         PygameAudioEngine._initialized = False
+
+    def get_engine_name(self) -> str:
+        """获取引擎名称"""
+        return "pygame"
+
