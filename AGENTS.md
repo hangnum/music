@@ -1,4 +1,4 @@
-# Repository Guidelines
+﻿# Repository Guidelines
 
 ## Project Structure
 
@@ -47,6 +47,7 @@ Keep commands run from the repository root so imports that rely on `src/` behave
 ## Configuration & Secrets
 
 - Default config lives in `config/default_config.yaml`; update docs/tests when defaults change.
+- Treat `config/default_config.yaml` as a read-only template; user/runtime state should be written to a user data directory (e.g., `%APPDATA%`, `~/.config`), not back into the repo.
 - LLM queue management is implemented in `src/services/llm_queue_service.py` and configured under `llm.*`.
 - LLM queue cache/history is configured under `llm.queue_manager.cache.*` (enabled/ttl/history size).
 - Playback queue persistence is configured under `playback.persist_queue` and `playback.persist_queue_max_items`.
@@ -67,3 +68,14 @@ Keep commands run from the repository root so imports that rely on `src/` behave
   - Example: `fix: prevent crash when skipping tracks`
 - PRs should include: a clear description, linked issue (if any), and screenshots/GIFs for UI changes.
 - Update docs/tests when behavior changes (especially for `config/` defaults and library scanning).
+
+## 代码审查（中文）
+
+作为代码审查的默认检查清单：
+
+1. 代码风格：遵循 `docs/code_style.md` 与 PEP 8（以仓库既有风格为准）。
+2. 架构设计：遵循 `docs/architecture.md`，保持 `core -> services -> ui` 分层；跨组件通信优先使用 `core.event_bus.EventBus`。
+3. 异常处理：避免 `except Exception: pass` 吞错；需要记录日志或通过 `EventBus` 上报错误。
+4. 线程与 Qt：后台线程不得直接操作 Qt 控件；使用 `QThread`/worker 时需要可取消，并在窗口/对话框关闭时做清理。
+5. 配置与本地状态：`config/default_config.yaml` 仅作为默认模板；运行时的用户配置/窗口状态/扫描路径应写入用户目录（如 `%APPDATA%`/`~/.config`），不要回写仓库文件。
+6. 安全与隐私：不得提交任何真实 API Key/Token；优先使用环境变量（例如 `SILICONFLOW_API_KEY`）注入密钥；避免提交本机路径/本地工具配置（例如 `.claude/settings.local.json`）。

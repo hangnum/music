@@ -76,7 +76,7 @@ class QueuePersistenceService:
             "INSERT OR REPLACE INTO app_state(key, value, updated_at) VALUES(?, ?, CURRENT_TIMESTAMP)",
             (self.LAST_QUEUE_KEY, raw),
         )
-        self._db._conn.commit()
+        self._db.commit()
 
     def load_last_queue(self) -> Tuple[List[str], Optional[str]]:
         """读取播放队列（track id 列表 + 当前曲目 id）。"""

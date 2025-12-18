@@ -78,6 +78,10 @@ class DatabaseManager:
         self._conn.executemany(sql, params_list)
         self._conn.commit()
     
+    def commit(self) -> None:
+        """提交当前线程的事务（公开方法，供服务层调用）"""
+        self._conn.commit()
+    
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
         """获取单条记录"""
         cursor = self.execute(sql, params)

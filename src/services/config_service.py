@@ -6,6 +6,8 @@
 
 from typing import Any, Dict, Optional
 from pathlib import Path
+import os
+import sys
 import yaml
 import threading
 import logging
@@ -45,26 +47,76 @@ class ConfigService:
         if self._initialized:
             return
         
-        self._config_path = config_path or "config/default_config.yaml"
+        # 判断是否使用自定义配置路径（用于测试/隔离场景）
+        self._use_custom_path = config_path is not None
+        self._default_config_path = "config/default_config.yaml"
+        
+        if self._use_custom_path:
+            # 自定义路径：同时用于加载和保存（支持测试隔离）
+            self._user_config_path = Path(config_path)
+        else:
+            # 默认路径：加载仓库模板，保存到用户目录
+            self._user_config_path = self._get_user_config_path()
+        
         self._config: Dict[str, Any] = {}
         self._lock = threading.Lock()
         self._initialized = True
         
         self._load()
     
-    def _load(self) -> None:
-        """从文件加载配置"""
-        path = Path(self._config_path)
-        
-        if path.exists():
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    self._config = yaml.safe_load(f) or {}
-            except Exception as e:
-                logger.warning("加载配置失败: %s", e)
-                self._config = {}
+    @staticmethod
+    def _get_user_config_path() -> Path:
+        """获取用户配置文件路径（平台相关）"""
+        if sys.platform == "win32":
+            base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+        elif sys.platform == "darwin":
+            base = Path.home() / "Library" / "Application Support"
         else:
-            self._config = self._get_default_config()
+            base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+        return base / "python-music-player" / "config.yaml"
+    
+    def _load(self) -> None:
+        """从默认配置和用户配置加载并合并"""
+        # 1. 加载内置默认配置
+        self._config = self._get_default_config()
+        
+        if self._use_custom_path:
+            # 自定义路径模式：只从该路径加载（不合并仓库模板）
+            if self._user_config_path.exists():
+                try:
+                    with open(self._user_config_path, 'r', encoding='utf-8') as f:
+                        custom_config = yaml.safe_load(f) or {}
+                        self._deep_merge(self._config, custom_config)
+                except Exception as e:
+                    logger.warning("加载自定义配置失败: %s", e)
+        else:
+            # 默认模式：加载仓库模板 + 用户配置
+            # 2. 加载仓库默认配置文件（作为模板）
+            default_path = Path(self._default_config_path)
+            if default_path.exists():
+                try:
+                    with open(default_path, 'r', encoding='utf-8') as f:
+                        default_config = yaml.safe_load(f) or {}
+                        self._deep_merge(self._config, default_config)
+                except Exception as e:
+                    logger.warning("加载默认配置失败: %s", e)
+            
+            # 3. 加载用户配置文件（覆盖默认配置）
+            if self._user_config_path.exists():
+                try:
+                    with open(self._user_config_path, 'r', encoding='utf-8') as f:
+                        user_config = yaml.safe_load(f) or {}
+                        self._deep_merge(self._config, user_config)
+                except Exception as e:
+                    logger.warning("加载用户配置失败: %s", e)
+    
+    def _deep_merge(self, base: Dict, override: Dict) -> None:
+        """深度合并字典，override 覆盖 base"""
+        for key, value in override.items():
+            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                self._deep_merge(base[key], value)
+            else:
+                base[key] = value
     
     def _get_default_config(self) -> Dict[str, Any]:
         """获取默认配置"""
@@ -187,18 +239,20 @@ class ConfigService:
     
     def save(self) -> bool:
         """
-        保存配置到文件
+        保存配置到用户配置文件
+        
+        注意：只保存到用户配置文件，不会修改默认配置模板。
         
         Returns:
             bool: 是否保存成功
         """
         try:
-            path = Path(self._config_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
+            self._user_config_path.parent.mkdir(parents=True, exist_ok=True)
             
             with self._lock:
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(self._user_config_path, 'w', encoding='utf-8') as f:
                     yaml.dump(self._config, f, allow_unicode=True, default_flow_style=False)
+            logger.debug("配置已保存到: %s", self._user_config_path)
             return True
         except Exception as e:
             logger.error("保存配置失败: %s", e)

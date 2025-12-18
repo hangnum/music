@@ -3,9 +3,13 @@
 """
 
 import os
+import pytest
 
 
-
+@pytest.mark.skipif(
+    not os.environ.get("TEST_MUSIC_DIR"),
+    reason="需要设置环境变量 TEST_MUSIC_DIR 指向真实音乐目录"
+)
 def test_library_scan():
     """测试媒体库扫描（使用真实音乐库）"""
     from core.database import DatabaseManager
@@ -18,8 +22,8 @@ def test_library_scan():
     try:
         service = LibraryService(db)
         
-        # 扫描真实音乐库
-        music_dir = r"D:\User\music\music"
+        # 从环境变量获取扫描目录
+        music_dir = os.environ.get("TEST_MUSIC_DIR", "")
         
         if os.path.exists(music_dir):
             print(f"\n扫描目录: {music_dir}")

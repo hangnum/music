@@ -112,7 +112,7 @@ class LLMQueueCacheService:
             "VALUES(?, ?, ?, ?, ?, ?)",
             (instruction or "", normalized, label_text, raw_ids, int(start_index or 0), plan_json),
         )
-        self._db._conn.commit()
+        self._db.commit()
 
         row = self._db.fetch_one("SELECT last_insert_rowid() AS id")
         entry_id = int(row["id"]) if row and row.get("id") is not None else 0
@@ -204,4 +204,4 @@ class LLMQueueCacheService:
 
         placeholders = ",".join(["?"] * len(ids))
         self._db.execute(f"DELETE FROM llm_queue_history WHERE id IN ({placeholders})", tuple(ids))
-        self._db._conn.commit()
+        self._db.commit()

@@ -33,9 +33,10 @@ class TestConfigService:
         
         config = ConfigService()
         
-        # 测试嵌套获取
+        # 测试嵌套获取（只验证返回类型和有效范围，不依赖配置文件内容）
         volume = config.get("playback.default_volume", 0.5)
-        assert volume == 0.8 or volume == 0.5  # 取决于是否有配置文件
+        assert isinstance(volume, (int, float))
+        assert 0.0 <= volume <= 1.0
     
     def test_set_and_get(self):
         """测试设置和获取"""

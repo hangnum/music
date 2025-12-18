@@ -4,6 +4,8 @@
 应用程序的主窗口，包含所有UI组件的布局。
 """
 
+import logging
+
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QStackedWidget, QSplitter, QFrame,
@@ -12,6 +14,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from ui.widgets.player_controls import PlayerControls
 from ui.widgets.playlist_widget import PlaylistWidget
@@ -57,8 +61,8 @@ class MainWindow(QMainWindow):
         # 恢复上一次播放队列（需在 UI 创建后触发 QUEUE_CHANGED 刷新界面）
         try:
             self.queue_persistence.restore_last_queue(self.player, self.library)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("恢复播放队列失败: %s", e)
         
         # 设置菜单
         self._setup_menu()
@@ -474,8 +478,8 @@ class MainWindow(QMainWindow):
         try:
             self.queue_persistence.persist_from_player()
             self.queue_persistence.shutdown()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("保存播放队列失败: %s", e)
         
         # 隐藏托盘
         self._system_tray.hide()

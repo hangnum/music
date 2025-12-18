@@ -312,6 +312,6 @@ class PygameAudioEngine(AudioEngineBase):
         try:
             pygame.mixer.music.stop()
             pygame.mixer.quit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("pygame cleanup 失败: %s", e)
         PygameAudioEngine._initialized = False

@@ -238,6 +238,16 @@ class LLMQueueChatDialog(QDialog):
         self._worker = None
         self._thread = None
 
+    def closeEvent(self, event) -> None:
+        """对话框关闭时安全停止工作线程"""
+        if self._thread and self._thread.isRunning():
+            self._thread.quit()
+            if not self._thread.wait(3000):  # 最多等待3秒
+                self._thread.terminate()  # 强制终止
+                self._thread.wait(500)
+        self._cleanup_thread()
+        event.accept()
+
     def _on_worker_finished(self, result: Optional[_ResolvedResult], error: Optional[BaseException]) -> None:
         self._set_busy(False)
 

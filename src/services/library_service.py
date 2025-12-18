@@ -112,7 +112,7 @@ class LibraryService:
                     
                     # 批量提交
                     if pending_count >= batch_size:
-                        self._db._conn.commit()
+                        self._db.commit()
                         pending_count = 0
             
             # 进度回调
@@ -128,7 +128,7 @@ class LibraryService:
         
         # 提交剩余记录
         if pending_count > 0:
-            self._db._conn.commit()
+            self._db.commit()
         
         # 清理扫描缓存
         self._artist_cache.clear()
@@ -214,7 +214,7 @@ class LibraryService:
                 tuple(track_data.values())
             )
             if commit:
-                self._db._conn.commit()
+                self._db.commit()
             track = Track.from_dict(track_data)
             self._event_bus.publish(EventType.TRACK_ADDED, track)
             return track
@@ -243,7 +243,7 @@ class LibraryService:
             (artist_id, name, datetime.now().isoformat())
         )
         if commit:
-            self._db._conn.commit()
+            self._db.commit()
         
         self._artist_cache[name] = artist_id
         return artist_id
@@ -277,7 +277,7 @@ class LibraryService:
             (album_id, title, artist_id, year, datetime.now().isoformat())
         )
         if commit:
-            self._db._conn.commit()
+            self._db.commit()
         
         self._album_cache[cache_key] = album_id
         return album_id
@@ -537,7 +537,7 @@ class LibraryService:
                WHERE id = ?""",
             (datetime.now().isoformat(), track_id)
         )
-        self._db._conn.commit()
+        self._db.commit()
     
     def remove_track(self, track_id: str) -> bool:
         """从库中移除曲目"""

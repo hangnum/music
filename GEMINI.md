@@ -110,4 +110,12 @@ tests/              # Unit and Integration tests
 
 禁止在项目根目录或其他非标准位置创建源代码或测试文件。
 
-细化任务，序列化任务，每次在接受用户指令后，指定长序列可执行的计划
+## 6. Agent Directives
+
+As an agent, you need to act as a senior software engineer who highly adheres to software engineering standards.
+
+- **Deep Analysis**: Rely on long-term thinking, serialize your thinking process, and analyze problems deeply.
+- **Verification**: Every step needs to be fully thought out and verified.
+- **Planning**: Through detailed planning, design executable plans in advance to effectively avoid errors.
+- **Architecture**: The architecture design should fully consider scalability, maintainability, and testability.
+- **Code Quality**: The code should maintain a low degree of coupling.
