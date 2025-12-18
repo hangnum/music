@@ -135,6 +135,18 @@
 
 ---
 
+### 2.7 ILLMQueueService - LLM队列管理接口
+
+基于自然语言指令的智能队列管理。
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `suggest_reorder(instruction, queue)` | `str, List[Track]` | `dict` | 获取重排建议 |
+| `apply_reorder_plan(plan)` | `dict` | `bool` | 应用重排计划 |
+| `get_reason()` | - | `str` | 获取上一次建议的原因 |
+
+---
+
 ## 3. 数据模型
 
 ### 3.1 Track - 音轨模型

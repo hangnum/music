@@ -128,98 +128,47 @@ graph TB
 
 ### 3.1 目录结构
 
-```
+```text
 music/
-├── docs/                      # 文档目录
-│   ├── architecture.md        # 架构设计文档
-│   ├── technical_design.md    # 技术设计文档
-│   └── api.md                 # API接口文档
-├── src/                       # 源代码目录
-│   ├── __init__.py
+├── scripts/                   # 构建脚本
+│   ├── build.py
+│   ├── build.bat
+│   └── build.sh
+├── src/                       # 源代码
 │   ├── main.py               # 程序入口
-│   ├── app.py                # 应用程序类
-│   │
-│   ├── core/                 # 核心模块
-│   │   ├── __init__.py
-│   │   ├── audio_engine.py   # 音频引擎
-│   │   ├── metadata.py       # 元数据解析
-│   │   ├── database.py       # 数据库管理
-│   │   └── event_bus.py      # 事件总线
-│   │
+│   ├── core/                 # 核心层
+│   │   ├── audio_engine.py
+│   │   ├── database.py
+│   │   ├── event_bus.py
+│   │   └── metadata.py
 │   ├── services/             # 服务层
-│   │   ├── __init__.py
-│   │   ├── player_service.py    # 播放服务
-│   │   ├── playlist_service.py  # 播放列表服务
-│   │   ├── library_service.py   # 媒体库服务
-│   │   └── config_service.py    # 配置服务
-│   │
+│   │   ├── config_service.py
+│   │   ├── library_service.py
+│   │   ├── llm_queue_service.py # LLM 增强服务
+│   │   ├── player_service.py
+│   │   └── playlist_service.py
 │   ├── ui/                   # 界面层
-│   │   ├── __init__.py
-│   │   ├── main_window.py    # 主窗口
-│   │   ├── widgets/          # 自定义组件
-│   │   │   ├── __init__.py
-│   │   │   ├── player_controls.py
-│   │   │   ├── playlist_widget.py
-│   │   │   ├── library_widget.py
-│   │   │   ├── equalizer.py
-│   │   │   └── visualizer.py
-│   │   ├── dialogs/          # 对话框
-│   │   │   ├── __init__.py
-│   │   │   ├── settings_dialog.py
-│   │   │   └── about_dialog.py
-│   │   ├── styles/           # 样式文件
-│   │   │   ├── dark_theme.qss
-│   │   │   └── light_theme.qss
-│   │   └── resources/        # 资源文件
-│   │       ├── icons/
-│   │       └── images/
-│   │
-│   ├── models/               # 数据模型
-│   │   ├── __init__.py
-│   │   ├── track.py          # 音轨模型
-│   │   ├── album.py          # 专辑模型
-│   │   ├── artist.py         # 艺术家模型
-│   │   └── playlist.py       # 播放列表模型
-│   │
-│   ├── utils/                # 工具模块
-│   │   ├── __init__.py
-│   │   ├── logger.py         # 日志工具
-│   │   ├── helpers.py        # 辅助函数
-│   │   └── constants.py      # 常量定义
-│   │
-│   └── plugins/              # 插件目录
-│       ├── __init__.py
-│       └── base_plugin.py    # 插件基类
-│
-├── tests/                    # 测试目录
-│   ├── __init__.py
-│   ├── test_audio_engine.py
-│   ├── test_playlist.py
-│   └── test_library.py
-│
-├── resources/                # 资源文件
-│   ├── icons/
-│   ├── themes/
-│   └── translations/
-│
+│   │   ├── main_window.py
+│   │   ├── models/           # UI 数据模型 (List Virtualization)
+│   │   │   ├── track_list_model.py
+│   │   │   └── track_table_model.py
+│   │   └── widgets/
+│   │       ├── library_widget.py
+│   │       ├── player_controls.py
+│   │       └── playlist_widget.py
+│   └── models/               # 领域模型 (Data Layer)
+│       ├── track.py
+│       ├── album.py
+│       └── artist.py
 ├── config/                   # 配置文件
 │   └── default_config.yaml
-│
-├── requirements.txt          # 依赖列表
-├── setup.py                  # 安装脚本
-└── README.md                 # 项目说明
+└── tests/                    # 单元测试与集成测试
 ```
 
 ### 3.2 模块依赖关系
 
 ```mermaid
 graph LR
-    subgraph Independent
-        U[utils]
-        M[models]
-        C[constants]
-    end
-    
     subgraph Core
         EB[event_bus]
         DB[database]
@@ -228,30 +177,20 @@ graph LR
     end
     
     subgraph Services
-        CS[config_service]
         PS[player_service]
-        PLS[playlist_service]
         LBS[library_service]
+        LLM[llm_queue_service]
     end
     
     subgraph UI
         MW[main_window]
-        W[widgets]
-        D[dialogs]
+        UM[ui_models]
     end
     
-    U --> Core
-    M --> Core
-    EB --> DB & AE & MD
-    
-    CS --> U
-    PS --> AE & EB & M
-    PLS --> DB & EB & M
-    LBS --> DB & MD & M
-    
-    MW --> Services
-    W --> Services
-    D --> Services
+    EB --> Services
+    Services --> AE & DB & MD
+    LLM --> PS & EB
+    MW --> Services & UM
 ```
 
 ---
