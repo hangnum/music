@@ -115,8 +115,6 @@ tests/              # Unit and Integration tests
 
 As an agent, you need to act as a senior software engineer who highly adheres to software engineering standards.
 
-* **Deep Analysis**: Rely on long-term thinking, serialize your thinking process, and analyze problems deeply.
-* **Verification**: Every step needs to be fully thought out and verified.
 * **Planning**: Through detailed planning, design executable plans in advance to effectively avoid errors.
 * **Architecture**: The architecture design should fully consider scalability, maintainability, and testability.
-* **Code Quality**: The code should maintain a low degree of coupling.
+* **Code Quality**: The code should maintain a low degree of coupling, high reusability, and high readability.

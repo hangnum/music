@@ -15,18 +15,20 @@ class Tag:
     """
     标签数据模型
     
-    代表一个用户自定义的标签，可用于分类和筛选音乐。
+    代表一个标签，可用于分类和筛选音乐。
     
     Attributes:
         id: 唯一标识符
         name: 标签名称（不区分大小写唯一）
         color: 标签颜色（十六进制格式，如 #FF5733）
+        source: 标签来源 ("user" 表示用户手动创建, "llm" 表示 LLM 自动标注)
         created_at: 创建时间
     """
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
     color: str = "#808080"
+    source: str = "user"  # "user" | "llm"
     created_at: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> dict:
@@ -35,6 +37,7 @@ class Tag:
             'id': self.id,
             'name': self.name,
             'color': self.color,
+            'source': self.source,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
     
@@ -52,6 +55,7 @@ class Tag:
             id=data.get('id', str(uuid.uuid4())),
             name=data.get('name', ''),
             color=data.get('color', '#808080'),
+            source=data.get('source', 'user'),
             created_at=created_at,
         )
     
@@ -64,3 +68,4 @@ class Tag:
     def __hash__(self) -> int:
         """哈希函数（基于ID）"""
         return hash(self.id)
+

@@ -42,13 +42,15 @@ class TagService:
     
     # ========== 标签 CRUD ==========
     
-    def create_tag(self, name: str, color: str = "#808080") -> Optional[Tag]:
+    def create_tag(self, name: str, color: str = "#808080", 
+                   source: str = "user") -> Optional[Tag]:
         """
         创建新标签
         
         Args:
             name: 标签名称
             color: 标签颜色（十六进制格式）
+            source: 标签来源 ("user" 表示用户创建, "llm" 表示 LLM 标注)
             
         Returns:
             创建的标签对象，如果标签名已存在则返回 None
@@ -62,6 +64,7 @@ class TagService:
             id=str(uuid.uuid4()),
             name=name.strip(),
             color=color,
+            source=source,
             created_at=datetime.now()
         )
         
@@ -69,6 +72,7 @@ class TagService:
             "id": tag.id,
             "name": tag.name,
             "color": tag.color,
+            "source": tag.source,
             "created_at": tag.created_at.isoformat()
         })
         
@@ -352,3 +356,188 @@ class TagService:
             (tag_id,)
         )
         return result['count'] if result else 0
+    
+    # ========== LLM 批量标注支持 ==========
+    
+    def create_tag_if_not_exists(self, name: str, color: str = "#808080",
+                                  source: str = "user") -> Tag:
+        """
+        创建标签（如已存在则返回现有标签）
+        
+        Args:
+            name: 标签名称
+            color: 标签颜色
+            source: 标签来源
+            
+        Returns:
+            标签对象（新创建或已存在的）
+        """
+        existing = self.get_tag_by_name(name)
+        if existing:
+            return existing
+        
+        tag = self.create_tag(name, color, source)
+        if tag is None:
+            # 并发情况下可能刚被创建，再次获取
+            return self.get_tag_by_name(name)  # type: ignore
+        return tag
+    
+    def batch_add_tags_to_track(self, track_id: str, tag_names: List[str],
+                                 source: str = "llm") -> int:
+        """
+        批量为曲目添加标签（自动创建不存在的标签）
+        
+        Args:
+            track_id: 曲目 ID
+            tag_names: 标签名称列表
+            source: 标签来源
+            
+        Returns:
+            成功添加的标签数量
+        """
+        added = 0
+        for name in tag_names:
+            name = name.strip()
+            if not name:
+                continue
+            
+            tag = self.create_tag_if_not_exists(name, source=source)
+            if self.add_tag_to_track(track_id, tag.id):
+                added += 1
+        
+        return added
+    
+    def get_tracks_by_tags(self, tag_names: List[str], 
+                           match_mode: str = "any",
+                           limit: int = 200) -> List[str]:
+        """
+        按标签名称搜索曲目 ID
+        
+        Args:
+            tag_names: 标签名称列表
+            match_mode: 匹配模式
+                - "any": 匹配任一标签（OR）
+                - "all": 匹配所有标签（AND）
+            limit: 结果数量限制
+            
+        Returns:
+            曲目 ID 列表
+        """
+        if not tag_names:
+            return []
+        
+        tag_names = [n.strip() for n in tag_names if n.strip()]
+        if not tag_names:
+            return []
+        
+        if match_mode == "all":
+            # 必须匹配所有标签
+            placeholders = ",".join(["?" for _ in tag_names])
+            query = f"""
+                SELECT tt.track_id
+                FROM track_tags tt
+                INNER JOIN tags t ON tt.tag_id = t.id
+                WHERE t.name IN ({placeholders}) COLLATE NOCASE
+                GROUP BY tt.track_id
+                HAVING COUNT(DISTINCT t.id) = ?
+                LIMIT ?
+            """
+            params = tuple(tag_names) + (len(tag_names), limit)
+        else:
+            # 匹配任一标签
+            placeholders = ",".join(["?" for _ in tag_names])
+            query = f"""
+                SELECT DISTINCT tt.track_id
+                FROM track_tags tt
+                INNER JOIN tags t ON tt.tag_id = t.id
+                WHERE t.name IN ({placeholders}) COLLATE NOCASE
+                LIMIT ?
+            """
+            params = tuple(tag_names) + (limit,)
+        
+        rows = self._db.fetch_all(query, params)
+        return [row['track_id'] for row in rows]
+    
+    def get_untagged_tracks(self, source: str = "llm", 
+                            limit: int = 500) -> List[str]:
+        """
+        获取未被指定来源标注的曲目 ID
+        
+        Args:
+            source: 标签来源（"llm" = 获取未被 LLM 标注的曲目）
+            limit: 结果数量限制
+            
+        Returns:
+            曲目 ID 列表
+        """
+        if source == "llm":
+            # 查找不在 llm_tagged_tracks 表中的曲目
+            query = """
+                SELECT t.id
+                FROM tracks t
+                LEFT JOIN llm_tagged_tracks ltt ON t.id = ltt.track_id
+                WHERE ltt.track_id IS NULL
+                LIMIT ?
+            """
+        else:
+            # 查找没有指定来源标签的曲目
+            query = """
+                SELECT t.id
+                FROM tracks t
+                WHERE t.id NOT IN (
+                    SELECT DISTINCT tt.track_id
+                    FROM track_tags tt
+                    INNER JOIN tags tg ON tt.tag_id = tg.id
+                    WHERE tg.source = ?
+                )
+                LIMIT ?
+            """
+            rows = self._db.fetch_all(query, (source, limit))
+            return [row['id'] for row in rows]
+        
+        rows = self._db.fetch_all(query, (limit,))
+        return [row['id'] for row in rows]
+    
+    def get_all_tag_names(self, source: Optional[str] = None) -> List[str]:
+        """
+        获取所有标签名称
+        
+        Args:
+            source: 筛选特定来源的标签（None = 所有来源）
+            
+        Returns:
+            标签名称列表
+        """
+        if source:
+            rows = self._db.fetch_all(
+                "SELECT name FROM tags WHERE source = ? ORDER BY name COLLATE NOCASE",
+                (source,)
+            )
+        else:
+            rows = self._db.fetch_all(
+                "SELECT name FROM tags ORDER BY name COLLATE NOCASE"
+            )
+        
+        return [row['name'] for row in rows]
+    
+    def mark_track_as_tagged(self, track_id: str, job_id: Optional[str] = None) -> bool:
+        """
+        标记曲目已被 LLM 标注
+        
+        Args:
+            track_id: 曲目 ID
+            job_id: 标注任务 ID（可选）
+            
+        Returns:
+            是否标记成功
+        """
+        try:
+            self._db.insert("llm_tagged_tracks", {
+                "track_id": track_id,
+                "job_id": job_id,
+                "tagged_at": datetime.now().isoformat()
+            })
+            return True
+        except Exception:
+            return False
+

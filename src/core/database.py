@@ -359,6 +359,7 @@ class DatabaseManager:
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 color TEXT DEFAULT '#808080',
+                source TEXT DEFAULT 'user',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
@@ -374,6 +375,30 @@ class DatabaseManager:
                 FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
             )
             """,
+
+            # LLM 批量标注任务追踪表
+            """
+            CREATE TABLE IF NOT EXISTS llm_tagging_jobs (
+                id TEXT PRIMARY KEY,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                total_tracks INTEGER NOT NULL DEFAULT 0,
+                processed_tracks INTEGER NOT NULL DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                error_message TEXT
+            )
+            """,
+
+            # 已被 LLM 标注的曲目记录（防止重复标注）
+            """
+            CREATE TABLE IF NOT EXISTS llm_tagged_tracks (
+                track_id TEXT PRIMARY KEY,
+                tagged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                job_id TEXT,
+                FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                FOREIGN KEY (job_id) REFERENCES llm_tagging_jobs(id) ON DELETE SET NULL
+            )
+            """,
              
             # 索引
             "CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id)",
@@ -385,6 +410,8 @@ class DatabaseManager:
             "CREATE INDEX IF NOT EXISTS idx_track_tags_track ON track_tags(track_id)",
             "CREATE INDEX IF NOT EXISTS idx_track_tags_tag ON track_tags(tag_id)",
             "CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)",
+            "CREATE INDEX IF NOT EXISTS idx_tags_source ON tags(source)",
+            "CREATE INDEX IF NOT EXISTS idx_llm_tagged_tracks_job ON llm_tagged_tracks(job_id)",
             # 新增索引: 加速按流派、歌手名、文件路径的查询
             "CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre)",
             "CREATE INDEX IF NOT EXISTS idx_tracks_artist_name ON tracks(artist_name)",
@@ -399,7 +426,45 @@ class DatabaseManager:
                 if "already exists" not in str(e).lower():
                     # 对于其他错误，继续尝试（可能是旧数据库缺少某些表）
                     pass
+        
+        # 执行迁移（为已存在的表添加新列）
+        self._run_migrations()
+        
         self._conn.commit()
+    
+    def _run_migrations(self) -> None:
+        """
+        执行数据库迁移
+        
+        用于向已存在的表添加新列。使用 ALTER TABLE ADD COLUMN，
+        该语句在 SQLite 中如果列已存在会报错，所以需要先检查。
+        """
+        migrations = [
+            # Migration 1: 为 tags 表添加 source 列
+            {
+                "table": "tags",
+                "column": "source",
+                "sql": "ALTER TABLE tags ADD COLUMN source TEXT DEFAULT 'user'",
+            },
+        ]
+        
+        for migration in migrations:
+            if not self._column_exists(migration["table"], migration["column"]):
+                try:
+                    self.execute(migration["sql"])
+                except Exception as e:
+                    # 忽略迁移错误（列可能已存在于某些边缘情况）
+                    if "duplicate column" not in str(e).lower():
+                        pass
+    
+    def _column_exists(self, table: str, column: str) -> bool:
+        """检查表中是否存在某列"""
+        try:
+            cursor = self.execute(f"PRAGMA table_info({table})")
+            columns = [row[1] for row in cursor.fetchall()]
+            return column in columns
+        except Exception:
+            return False
     
     def close(self) -> None:
         """关闭当前线程的连接"""

@@ -17,6 +17,8 @@ from models.track import Track
 
 if TYPE_CHECKING:
     from core.llm_provider import LLMProvider
+    from services.tag_service import TagService
+    from services.tag_query_parser import TagQueryParser, TagQuery
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +58,18 @@ class LLMQueueService:
         self,
         config: Optional[ConfigService] = None,
         client: Optional["LLMProvider"] = None,
+        tag_service: Optional["TagService"] = None,
     ):
         """初始化 LLM 队列服务
         
         Args:
             config: 配置服务实例
             client: LLM 提供商实例（可选，默认根据配置创建）
+            tag_service: 标签服务实例（可选，用于标签预筛选）
         """
         self._config = config or ConfigService()
+        self._tag_service = tag_service
+        self._tag_query_parser: Optional["TagQueryParser"] = None
         
         if client is not None:
             self._client = client
@@ -238,12 +244,21 @@ class LLMQueueService:
                 )
             )
             if not tracks and bool(req.semantic_fallback):
-                tracks = self._semantic_select_tracks_from_library(
+                # 尝试使用标签预筛选（两阶段优化）
+                tracks = self._try_tag_prefilter(
                     instruction=plan.instruction or "",
                     library=library,
-                    request=req,
                     limit=limit,
                 )
+                
+                # 如果标签预筛选失败，回退到原有的语义筛选
+                if not tracks:
+                    tracks = self._semantic_select_tracks_from_library(
+                        instruction=plan.instruction or "",
+                        library=library,
+                        request=req,
+                        limit=limit,
+                    )
 
             if not tracks:
                 q = req.genre or req.query or req.artist or req.album or "（未指定条件）"
@@ -616,6 +631,143 @@ class LLMQueueService:
             clear_queue=clear_queue,
             library_request=library_request,
         )
+    
+    def _try_tag_prefilter(
+        self,
+        instruction: str,
+        library: Any,
+        limit: int,
+    ) -> List[Track]:
+        """
+        尝试使用标签预筛选获取候选曲目
+        
+        两阶段优化：
+        1. 将用户指令解析为标签查询
+        2. 用标签查询预筛选曲目
+        
+        Args:
+            instruction: 用户自然语言指令
+            library: LibraryService
+            limit: 结果数量限制
+            
+        Returns:
+            候选曲目列表，如果预筛选失败则返回空列表
+        """
+        if not self._tag_service:
+            logger.debug("TagService 未初始化，跳过标签预筛选")
+            return []
+        
+        # 检查是否有足够的 LLM 标签
+        llm_tags = self._tag_service.get_all_tag_names(source="llm")
+        if len(llm_tags) < 5:
+            logger.debug("LLM 标签数量不足 (%d)，跳过标签预筛选", len(llm_tags))
+            return []
+        
+        # 初始化 TagQueryParser（懒加载）
+        if self._tag_query_parser is None:
+            from services.tag_query_parser import TagQueryParser
+            self._tag_query_parser = TagQueryParser(
+                client=self._client,
+                tag_service=self._tag_service,
+            )
+        
+        # 解析指令为标签查询
+        try:
+            tag_query = self._tag_query_parser.parse(instruction, llm_tags)
+        except Exception as e:
+            logger.warning("标签查询解析失败: %s", e)
+            return []
+        
+        if not tag_query.is_valid:
+            logger.debug("未匹配到有效标签: %s", tag_query.reason)
+            return []
+        
+        if tag_query.confidence < 0.5:
+            logger.debug("标签匹配置信度过低 (%.2f)，跳过预筛选", tag_query.confidence)
+            return []
+        
+        logger.info(
+            "标签预筛选: 匹配标签=%s, 模式=%s, 置信度=%.2f",
+            tag_query.tags, tag_query.match_mode, tag_query.confidence
+        )
+        
+        # 用标签查询曲目
+        track_ids = self._tag_service.get_tracks_by_tags(
+            tag_names=tag_query.tags,
+            match_mode=tag_query.match_mode,
+            limit=limit * 2,  # 多取一些以便后续精选
+        )
+        
+        if not track_ids:
+            logger.debug("标签查询无结果")
+            return []
+        
+        # 获取曲目详情
+        if not hasattr(library, "get_tracks_by_ids"):
+            return []
+        
+        tracks = list(library.get_tracks_by_ids(track_ids))
+        
+        if len(tracks) <= limit:
+            return tracks
+        
+        # 如果结果太多，用 LLM 精选
+        return self._llm_select_from_candidates(
+            instruction=instruction,
+            candidates=tracks,
+            limit=limit,
+        )
+    
+    def _llm_select_from_candidates(
+        self,
+        instruction: str,
+        candidates: List[Track],
+        limit: int,
+    ) -> List[Track]:
+        """
+        从候选曲目中用 LLM 精选
+        
+        Args:
+            instruction: 用户指令
+            candidates: 候选曲目列表
+            limit: 结果数量限制
+            
+        Returns:
+            精选后的曲目列表
+        """
+        candidate_briefs = [
+            {
+                "id": t.id,
+                "title": t.title or "",
+                "artist_name": getattr(t, "artist_name", "") or "",
+                "album_name": getattr(t, "album_name", "") or "",
+            }
+            for t in candidates
+        ]
+        
+        known_ids = {c["id"] for c in candidate_briefs}
+        messages = self._build_semantic_finalize_messages(
+            instruction=instruction,
+            request=LibraryQueueRequest(),
+            candidates=candidate_briefs,
+            limit=limit,
+        )
+        
+        try:
+            content = self._client.chat_completions(messages)
+            plan = self._parse_reorder_plan(content, known_ids)
+            if plan.ordered_track_ids:
+                id_to_track = {t.id: t for t in candidates}
+                return [
+                    id_to_track[tid] 
+                    for tid in plan.ordered_track_ids[:limit] 
+                    if tid in id_to_track
+                ]
+        except Exception as e:
+            logger.warning("LLM 精选失败: %s", e)
+        
+        # 失败时返回前 limit 个
+        return candidates[:limit]
 
     @staticmethod
     def _strip_code_fences(text: str) -> str:
@@ -625,3 +777,4 @@ class LLMQueueService:
             if len(lines) >= 3 and lines[0].startswith("```") and lines[-1].startswith("```"):
                 return "\n".join(lines[1:-1])
         return t
+
