@@ -169,7 +169,12 @@ class LibraryService:
             file_path: 音频文件路径
             commit: 是否立即提交（批量扫描时设为False）
         """
-        metadata = MetadataParser.parse(file_path)
+        try:
+            metadata = MetadataParser.parse(file_path)
+        except Exception as e:
+            logger.warning("解析元数据失败: %s - %s", file_path, e)
+            return None
+            
         if not metadata:
             return None
         
