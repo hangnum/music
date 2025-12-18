@@ -146,16 +146,7 @@ build:
     - "fastapi"
     - "tornado"
 
-    # Other
-    - "email"
-    - "smtplib"
-    - "poplib"
-    - "imaplib"
-    - "urllib.request"
-    - "urllib.parse"
-    - "urllib.error"
-    - "xmlrpc"
-    - "xml"
+    # Note: Do NOT exclude 'xml', 'xmlrpc', 'email' - required by pkg_resources
 
   # Platform-specific settings
   platforms:
