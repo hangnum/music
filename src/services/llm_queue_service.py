@@ -1,21 +1,24 @@
 """
 LLM 播放队列管理服务
 
-通过调用 LLM（当前支持硅基流动 SiliconFlow API）对播放队列进行动态管理，
+通过调用 LLM（支持多个服务商）对播放队列进行动态管理，
 例如：根据自然语言指令对队列进行重排、去重、截断等。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 import json
-import os
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
+import logging
 
 from services.config_service import ConfigService
 from models.track import Track
+
+if TYPE_CHECKING:
+    from core.llm_provider import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 class LLMQueueError(RuntimeError):
@@ -42,109 +45,31 @@ class QueueReorderPlan:
     library_request: Optional[LibraryQueueRequest] = None
     instruction: str = ""
 
-
-@dataclass(frozen=True)
-class SiliconFlowSettings:
-    base_url: str
-    model: str
-    api_key: str
-    timeout_seconds: float = 20.0
-    temperature: float = 0.2
-    max_tokens: int = 512
-    json_mode: bool = True
-
-
-class SiliconFlowClient:
-    """
-    SiliconFlow OpenAI-compatible Chat Completions client (minimal).
-
-    Endpoint: {base_url}/chat/completions
-    Auth: Authorization: Bearer <api_key>
-    """
-
-    def __init__(self, settings: SiliconFlowSettings):
-        self._settings = settings
-
-    @staticmethod
-    def from_config(config: ConfigService) -> "SiliconFlowClient":
-        base_url = config.get("llm.siliconflow.base_url", "https://api.siliconflow.cn/v1")
-        model = config.get("llm.siliconflow.model", "Qwen/Qwen2.5-7B-Instruct")
-        api_key_env = config.get("llm.siliconflow.api_key_env", "SILICONFLOW_API_KEY")
-        api_key = config.get("llm.siliconflow.api_key", "") or os.environ.get(api_key_env, "")
-        timeout_seconds = float(config.get("llm.siliconflow.timeout_seconds", 20.0))
-        temperature = float(config.get("llm.queue_manager.temperature", 0.2))
-        max_tokens = int(config.get("llm.queue_manager.max_tokens", 512))
-        json_mode = bool(config.get("llm.queue_manager.json_mode", True))
-
-        if not api_key:
-            raise LLMQueueError(
-                f"缺少 SiliconFlow API Key：请在配置 `llm.siliconflow.api_key` 或环境变量 `{api_key_env}` 中提供"
-            )
-
-        return SiliconFlowClient(
-            SiliconFlowSettings(
-                base_url=str(base_url),
-                model=str(model),
-                api_key=str(api_key),
-                timeout_seconds=timeout_seconds,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                json_mode=json_mode,
-            )
-        )
-
-    def chat_completions(self, messages: Sequence[Dict[str, str]]) -> str:
-        url = self._settings.base_url.rstrip("/") + "/chat/completions"
-
-        payload: Dict[str, Any] = {
-            "model": self._settings.model,
-            "messages": list(messages),
-            "temperature": self._settings.temperature,
-            "max_tokens": self._settings.max_tokens,
-        }
-        if self._settings.json_mode:
-            payload["response_format"] = {"type": "json_object"}
-
-        req = Request(
-            url,
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self._settings.api_key}",
-            },
-            method="POST",
-        )
-
-        try:
-            with urlopen(req, timeout=self._settings.timeout_seconds) as resp:
-                raw = resp.read().decode("utf-8", errors="replace")
-        except HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="replace")
-            except Exception:
-                pass
-            raise LLMQueueError(f"SiliconFlow API HTTP {e.code}: {body or e.reason}") from e
-        except URLError as e:
-            raise LLMQueueError(f"SiliconFlow API 请求失败: {e.reason}") from e
-
-        try:
-            data = json.loads(raw)
-            return data["choices"][0]["message"]["content"]
-        except Exception as e:
-            raise LLMQueueError(f"SiliconFlow 响应解析失败: {raw[:400]}") from e
-
-
 class LLMQueueService:
     """
     将自然语言指令转换为队列变更计划，并应用到播放器队列。
 
-    当前实现：只做“对当前队列的重排/裁剪/去重”（不自动从媒体库新增曲目）。
+    支持多个 LLM 提供商（SiliconFlow、Gemini 等）。
     """
 
-    def __init__(self, config: Optional[ConfigService] = None, client: Optional[SiliconFlowClient] = None):
+    def __init__(
+        self,
+        config: Optional[ConfigService] = None,
+        client: Optional["LLMProvider"] = None,
+    ):
+        """初始化 LLM 队列服务
+        
+        Args:
+            config: 配置服务实例
+            client: LLM 提供商实例（可选，默认根据配置创建）
+        """
         self._config = config or ConfigService()
-        self._client = client or SiliconFlowClient.from_config(self._config)
+        
+        if client is not None:
+            self._client = client
+        else:
+            from services.llm_providers import create_llm_provider
+            self._client = create_llm_provider(self._config)
 
     def suggest_reorder(
         self,

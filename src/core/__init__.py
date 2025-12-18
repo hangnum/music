@@ -6,6 +6,7 @@ from .event_bus import EventBus, EventType
 from .audio_engine import AudioEngineBase, PygameAudioEngine, PlayerState
 from .metadata import MetadataParser, AudioMetadata
 from .database import DatabaseManager
+from .llm_provider import LLMProvider, LLMSettings, LLMProviderError
 
 __all__ = [
     'EventBus',
@@ -16,4 +17,7 @@ __all__ = [
     'MetadataParser',
     'AudioMetadata',
     'DatabaseManager',
+    'LLMProvider',
+    'LLMSettings',
+    'LLMProviderError',
 ]
