@@ -267,18 +267,20 @@ class PygameAudioEngine(AudioEngineBase):
     """
     
     _initialized = False
+    _mixer_refcount = 0
     _lock = threading.Lock()
     
     def __init__(self):
         super().__init__()
         self._duration_ms: int = 0
         self._playback_started = False
+        self._cleaned_up = False
         
         # 初始化pygame mixer
-        self._init_mixer()
+        self._acquire_mixer()
     
-    def _init_mixer(self) -> None:
-        """初始化pygame mixer"""
+    def _acquire_mixer(self) -> None:
+        """初始化全局 pygame mixer，并用引用计数避免误关。"""
         with PygameAudioEngine._lock:
             if not PygameAudioEngine._initialized:
                 try:
@@ -288,6 +290,9 @@ class PygameAudioEngine(AudioEngineBase):
                 except Exception as e:
                     logger.error("pygame初始化失败: %s", e)
                     self._state = PlayerState.ERROR
+                    return
+
+            PygameAudioEngine._mixer_refcount += 1
     
     def load(self, file_path: str) -> bool:
         """加载音频文件"""
@@ -408,7 +413,15 @@ class PygameAudioEngine(AudioEngineBase):
         import pygame
         
         if self._playback_started and self._state == PlayerState.PLAYING:
-            if not pygame.mixer.music.get_busy():
+            try:
+                busy = pygame.mixer.music.get_busy()
+            except Exception as e:
+                logger.warning("pygame mixer 未初始化，无法检查播放状态: %s", e)
+                self._state = PlayerState.ERROR
+                self._playback_started = False
+                return False
+
+            if not busy:
                 self._state = PlayerState.STOPPED
                 self._playback_started = False
                 return True
@@ -417,13 +430,30 @@ class PygameAudioEngine(AudioEngineBase):
     def cleanup(self) -> None:
         """清理资源"""
         import pygame
-        
+
+        with PygameAudioEngine._lock:
+            if self._cleaned_up:
+                return
+            self._cleaned_up = True
+
+            if PygameAudioEngine._mixer_refcount > 0:
+                PygameAudioEngine._mixer_refcount -= 1
+
+            should_quit = PygameAudioEngine._initialized and PygameAudioEngine._mixer_refcount == 0
+
         try:
             pygame.mixer.music.stop()
-            pygame.mixer.quit()
-        except Exception as e:
-            logger.warning("pygame cleanup 失败: %s", e)
-        PygameAudioEngine._initialized = False
+        except Exception:
+            pass
+
+        if should_quit:
+            try:
+                pygame.mixer.quit()
+            except Exception as e:
+                logger.warning("pygame cleanup 失败: %s", e)
+            finally:
+                with PygameAudioEngine._lock:
+                    PygameAudioEngine._initialized = False
 
     def get_engine_name(self) -> str:
         """获取引擎名称"""

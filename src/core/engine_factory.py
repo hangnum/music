@@ -33,13 +33,13 @@ register_engine("pygame", PygameAudioEngine)
 try:
     from core.miniaudio_engine import MiniaudioEngine
     register_engine("miniaudio", MiniaudioEngine)
-except ImportError:
+except Exception:
     logger.debug("miniaudio 后端不可用")
 
 try:
     from core.vlc_engine import VLCEngine
     register_engine("vlc", VLCEngine)
-except ImportError:
+except Exception:
     logger.debug("VLC 后端不可用")
 
 
