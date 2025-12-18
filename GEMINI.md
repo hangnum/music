@@ -65,6 +65,8 @@ The project adheres to SOLID principles and separates concerns into four main la
   * `PlaylistService`: Manages user playlists.
   * `TagService`: Manages music tags.
   * `LLMQueueService`: Orchestrates LLM-based reordering.
+  * `LLMTaggingService`: Manages batch tagging of tracks using LLM.
+  * `TagQueryParser`: Parses natural language into tag queries.
 
 ### 3. Core Layer (`src/core/`)
 

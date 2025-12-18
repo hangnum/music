@@ -153,17 +153,42 @@
 
 | 方法 | 参数 | 返回值 | 说明 |
 |------|------|--------|------|
-| `create_tag(name, color)` | `str, str` | `Tag` | 创建新标签 |
+| `create_tag(name, color, source)` | `str, str, str` | `Tag` | 创建新标签 |
 | `get_all_tags()` | - | `List[Tag]` | 获取所有标签 |
+| `get_all_tag_names(source)` | `str?` | `List[str]` | 获取标签名称列表 |
 | `delete_tag(tag_id)` | `str` | `bool` | 删除标签 |
 | `add_tag_to_track(track_id, tag_id)` | `str, str` | `bool` | 为曲目添加标签 |
+| `batch_add_tags_to_track(track_id, names)` | `str, List[str]` | `int` | 批量添加标签 |
 | `remove_tag_from_track(track_id, tag_id)` | `str, str` | `bool` | 移除曲目的标签 |
 | `get_track_tags(track_id)` | `str` | `List[Tag]` | 获取曲目的所有标签 |
-| `get_tracks_by_tag(tag_id)` | `str` | `List[Track]` | 获取带有特定标签的所有曲目 |
+| `get_tracks_by_tags(names, mode)` | `List[str], str` | `List[str]` | 根据标签获取曲目ID |
+| `get_untagged_tracks(source, limit)` | `str, int` | `List[str]` | 获取未打标曲目 |
 
 ---
 
-### 2.9 ILLMProvider - LLM 提供商接口
+### 2.10 ILLMTaggingService - 智能打标服务接口
+
+批量自动为媒体库曲目生成标签。
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `start_tagging_job(track_ids)` | `List[str]?` | `str` | 启动打标任务 |
+| `stop_tagging_job(job_id)` | `str` | `bool` | 停止任务 |
+| `get_job_status(job_id)` | `str` | `TaggingJobStatus` | 获取任务状态 |
+
+---
+
+### 2.11 TagQueryParser - 标签查询解析器
+
+将自然语言指令解析为结构化的标签查询。
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `parse(instruction, available_tags)` | `str, List[str]?` | `TagQuery` | 解析查询 |
+
+---
+
+### 2.12 ILLMProvider - LLM 提供商接口
 
 底层 LLM 客户端的统一样心接口。
 
@@ -256,10 +281,21 @@ class Tag:
     id: str
     name: str
     color: str
+    source: str          # 'user' | 'llm'
     created_at: datetime
+
+### 3.6 TagQuery - 标签查询模型
+
+```python
+@dataclass
+class TagQuery:
+    tags: List[str]
+    match_mode: str      # 'any' | 'all'
+    confidence: float
+    reason: str
 ```
 
-### 3.5 PlaybackState - 播放状态模型
+### 3.7 PlaybackState - 播放状态模型
 
 ```python
 @dataclass

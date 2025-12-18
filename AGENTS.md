@@ -5,7 +5,7 @@
 - `src/`: application code (Python package)
   - `src/core/`: infrastructure + low-level utilities (`audio_engine.py`, `event_bus.py`, `metadata.py`, `database.py`)
   - `src/models/`: domain models (`Track`, `Album`, `Artist`, `Playlist`)
-  - `src/services/`: orchestration/business logic (`PlayerService`, `LibraryService`, `PlaylistService`, `ConfigService`, `LLMQueueService`)
+  - `src/services/`: orchestration/business logic (`PlayerService`, `LibraryService`, `PlaylistService`, `ConfigService`, `LLMQueueService`, `LLMTaggingService`, `TagQueryParser`)
   - `src/ui/`: PyQt6 UI (`main_window.py`, `widgets/`, `dialogs/`, `styles/`, `resources/`)
   - `src/main.py`: app entry point
 - `config/`: YAML configuration (`config/default_config.yaml`)

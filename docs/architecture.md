@@ -47,6 +47,7 @@ graph TB
         CS[ConfigService<br/>配置服务]
         TS[TagService<br/>标签服务]
         LLM[LLMQueueService<br/>智能队列服务]
+        LTS[LLMTaggingService<br/>智能打标服务]
     end
     
     subgraph Core Layer
@@ -106,6 +107,8 @@ graph TB
 | LibraryService | 媒体库扫描、索引、搜索 | ILibraryService |
 | TagService | 标签CRUD及关联管理 | ITagService |
 | LLMQueueService | 基于自然语言的队列重排 | ILLMQueueService |
+| LLMTaggingService | 批量自动为曲目打标 | ILLMTaggingService |
+| TagQueryParser | 自然语言解析为标签查询 | - |
 | ConfigService | 配置读写、热更新 | IConfigService |
 
 #### 2.2.3 核心层 (Core Layer)
@@ -392,6 +395,8 @@ erDiagram
     ALBUM }o--|| ARTIST : created_by
     TRACK ||--o{ TRACK_TAG : tagged_with
     TAG ||--o{ TRACK_TAG : associated_with
+    LLM_TAGGING_JOB ||--o{ LLM_TAGGED_TRACK : tracks
+    TRACK ||--|| LLM_TAGGED_TRACK : status
     
     TRACK {
         string id PK
@@ -412,6 +417,7 @@ erDiagram
         string id PK
         string name
         string color
+        string source
         datetime created_at
     }
 
@@ -419,6 +425,15 @@ erDiagram
         string track_id FK
         string tag_id FK
         datetime created_at
+    }
+
+    LLM_TAGGING_JOB {
+        string id PK
+        string status
+        int total_tracks
+        int processed_tracks
+        datetime started_at
+        datetime completed_at
     }
     
     ALBUM {

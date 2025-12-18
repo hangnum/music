@@ -593,6 +593,7 @@ CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     color TEXT,
+    source TEXT DEFAULT 'user', -- 'user' or 'llm'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -606,10 +607,32 @@ CREATE TABLE IF NOT EXISTS track_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
+-- LLM 标签任务表
+CREATE TABLE IF NOT EXISTS llm_tagging_jobs (
+    id TEXT PRIMARY KEY,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    total_tracks INTEGER NOT NULL DEFAULT 0,
+    processed_tracks INTEGER NOT NULL DEFAULT 0,
+    status TEXT DEFAULT 'pending',
+    error_message TEXT
+);
+
+-- LLM 已打标曲目记录
+CREATE TABLE IF NOT EXISTS llm_tagged_tracks (
+    track_id TEXT PRIMARY KEY,
+    tagged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    job_id TEXT,
+    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES llm_tagging_jobs(id) ON DELETE SET NULL
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
+CREATE INDEX IF NOT EXISTS idx_tags_source ON tags(source);
+CREATE INDEX IF NOT EXISTS idx_llm_tagged_tracks_job ON llm_tagged_tracks(job_id);
 CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_position ON playlist_tracks(playlist_id, position);
 ```
@@ -860,6 +883,33 @@ class LLMProvider(ABC):
 
 - 提供标签的增删改查。
 - 管理标签与媒体库曲目的多对多关系。
+
+---
+
+### 1.7 LLM 打标服务架构 (LLMTaggingService)
+
+#### 1.7.1 设计目标
+
+- 自动对媒体库中的曲目进行批量打标。
+- 支持断点续传和进度管理。
+- 避免重复对同一首曲目进行打标。
+
+#### 1.7.2 类设计
+
+```python
+class LLMTaggingService:
+    def start_tagging_job(self, track_ids: List[str] = None) -> str:
+        """启动打标任务"""
+        pass
+
+    def stop_tagging_job(self, job_id: str) -> bool:
+        """停止任务"""
+        pass
+        
+    def get_job_status(self, job_id: str) -> TaggingJobStatus:
+        """获取任务状态"""
+        pass
+```
 
 ---
 

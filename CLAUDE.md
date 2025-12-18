@@ -140,6 +140,8 @@ The application follows a strict 4-layer architecture pattern to ensure separati
   - `PlaylistService.py` - Playlist CRUD operations
   - `ConfigService.py` - Configuration management
   - `LLMQueueService.py` - AI-powered queue management with semantic fetch
+  - `LLMTaggingService.py` - Batch tagging of tracks using LLM
+  - `TagQueryParser.py` - Natural language to tag query conversion
 
 #### Core Layer (`src/core/`)
 
@@ -248,7 +250,10 @@ src/
 │   ├── library_service.py
 │   ├── playlist_service.py
 │   ├── config_service.py
-│   └── llm_queue_service.py  # AI queue management
+│   ├── tag_service.py
+│   ├── llm_queue_service.py  # AI queue management
+│   ├── llm_tagging_service.py # AI batch tagging
+│   └── tag_query_parser.py   # NLP for tags
 ├── models/            # Data models
 │   ├── track.py
 │   ├── album.py

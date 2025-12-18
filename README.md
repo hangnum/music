@@ -16,7 +16,8 @@
 - 📋 **播放队列** - 灵活的播放队列管理
 - 🔀 **播放模式** - 顺序播放、随机播放、单曲循环、列表循环
 - 🏷️ **标签管理** - 手动为曲目添加自定义标签
-- 🤖 **智能队列** - 基于 LLM (SiliconFlow/Gemini) 的自然语言队列重排
+- 🏷️ **智能标签** - 基于 LLM 自动分析歌曲风格、情感并批量打标
+- 🤖 **智能队列** - 基于 LLM (SiliconFlow/Gemini) 的自然语言队列重排，支持标签语义过滤
 - 🎨 **深色主题** - 现代化 Spotify 风格界面
 - 📊 **元数据解析** - 自动读取音乐文件标签信息
 
@@ -36,7 +37,7 @@
 | 元数据解析 | mutagen | 多格式音频标签读取 |
 | 数据库 | SQLite | 本地数据存储 |
 | 配置管理 | PyYAML | YAML格式配置文件 |
-| LLM 服务 | SiliconFlow / Gemini | 智能特性支持 |
+| LLM 服务 | SiliconFlow / Gemini | 智能特性支持 (队列重排、自动打标) |
 
 ## 📦 安装
 
@@ -99,13 +100,15 @@ music/
 │   │   ├── artist.py        # 艺术家
 │   │   └── playlist.py      # 播放列表
 │   ├── services/            # 服务层
-│   │   ├── player_service.py    # 播放服务
-│   │   ├── library_service.py   # 媒体库服务
-│   │   ├── playlist_service.py  # 播放列表服务
-│   │   ├── config_service.py    # 配置服务
-│   │   ├── tag_service.py       # 标签服务
-│   │   ├── llm_queue_service.py # 智能队列服务
-│   │   └── llm_providers/       # LLM 适配器 (Gemini/SiliconFlow)
+│   │   ├── player_service.py      # 播放服务
+│   │   ├── library_service.py     # 媒体库服务
+│   │   ├── playlist_service.py    # 播放列表服务
+│   │   ├── config_service.py      # 配置服务
+│   │   ├── tag_service.py         # 标签服务
+│   │   ├── llm_queue_service.py   # 智能队列服务
+│   │   ├── llm_tagging_service.py # 智能打标服务
+│   │   ├── tag_query_parser.py    # 标签查询解析
+│   │   └── llm_providers/         # LLM 适配器 (Gemini/SiliconFlow)
 │   ├── ui/                  # 界面层
 │   │   ├── main_window.py       # 主窗口
 │   │   ├── widgets/             # UI组件
@@ -125,11 +128,11 @@ music/
 ┌─────────────────────────────────────┐
 │            UI Layer                 │  PyQt6 界面
 ├─────────────────────────────────────┤
-│          Service Layer              │  业务逻辑
+│          Service Layer              │  业务逻辑 (Play, Library, LLM...)
 ├─────────────────────────────────────┤
-│           Core Layer                │  核心功能
+│           Core Layer                │  核心功能 (Audio, DB, EventBus)
 ├─────────────────────────────────────┤
-│           Data Layer                │  数据存储
+│           Data Layer                │  数据存储 (SQLite, Config)
 └─────────────────────────────────────┘
 ```
 
