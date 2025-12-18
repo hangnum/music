@@ -5,6 +5,7 @@
 """
 
 import sqlite3
+import re
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 import threading
@@ -45,6 +46,7 @@ class DatabaseManager:
         
         self._db_path = db_path or "music_library.db"
         self._local = threading.local()
+        self._write_lock = threading.RLock()
         self._initialized = True
         self._init_schema()
     
@@ -57,8 +59,9 @@ class DatabaseManager:
             self._local.connection.row_factory = sqlite3.Row
             
             # Enable WAL mode for better concurrency
-            self._local.connection.execute("PRAGMA journal_mode=WAL")
-            self._local.connection.execute("PRAGMA synchronous=NORMAL")
+            with self._write_lock:
+                self._local.connection.execute("PRAGMA journal_mode=WAL")
+                self._local.connection.execute("PRAGMA synchronous=NORMAL")
             
             # 启用外键
             self._local.connection.execute("PRAGMA foreign_keys = ON")
@@ -73,18 +76,60 @@ class DatabaseManager:
         
         在此上下文内的写操作不会自动提交，而是在上下文结束时统一提交或回滚。
         """
-        conn = self._conn
-        # Mark that we're in an explicit transaction
-        self._local.in_transaction = True
-        try:
-            yield conn
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            raise
-        finally:
-            self._local.in_transaction = False
+        with self._write_lock:
+            conn = self._conn
+            self._local.in_transaction = True
+            try:
+                yield conn
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise
+            finally:
+                self._local.in_transaction = False
     
+    @staticmethod
+    def _strip_leading_sql_comments(sql: str) -> str:
+        s = sql.lstrip()
+        while True:
+            if s.startswith("--"):
+                newline_index = s.find("\n")
+                if newline_index == -1:
+                    return ""
+                s = s[newline_index + 1 :].lstrip()
+                continue
+            if s.startswith("/*"):
+                end_index = s.find("*/")
+                if end_index == -1:
+                    return ""
+                s = s[end_index + 2 :].lstrip()
+                continue
+            return s
+
+    @classmethod
+    def _is_write_sql(cls, sql: str) -> bool:
+        write_keywords = ("INSERT", "UPDATE", "DELETE", "REPLACE", "CREATE", "DROP", "ALTER")
+
+        stripped = cls._strip_leading_sql_comments(sql)
+        sql_upper = stripped.lstrip().upper()
+        if not sql_upper:
+            return False
+
+        match = re.match(r"[A-Z]+", sql_upper)
+        first_keyword = match.group(0) if match else ""
+        if first_keyword in write_keywords:
+            return True
+
+        if first_keyword == "WITH":
+            return bool(
+                re.search(r"\bINSERT\s+INTO\b", sql_upper)
+                or re.search(r"\bREPLACE\s+INTO\b", sql_upper)
+                or re.search(r"\bUPDATE\b", sql_upper)
+                or re.search(r"\bDELETE\s+FROM\b", sql_upper)
+            )
+
+        return False
+
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
         """执行SQL语句
         
@@ -95,21 +140,20 @@ class DatabaseManager:
         max_retries = 5
         retry_delay = 0.1
         
-        # Detect if this is a write operation that needs auto-commit
-        write_keywords = ('INSERT', 'UPDATE', 'DELETE', 'REPLACE', 
-                          'CREATE', 'DROP', 'ALTER')
-        sql_upper = sql.strip().upper()
-        is_write = sql_upper.startswith(write_keywords)
+        is_write = self._is_write_sql(sql)
         
         # Check if we're inside an explicit transaction
         in_transaction = getattr(self._local, 'in_transaction', False)
         
         for i in range(max_retries):
             try:
-                cursor = self._conn.execute(sql, params)
-                # Auto-commit write operations ONLY when not in explicit transaction
-                if is_write and not in_transaction:
-                    self._conn.commit()
+                if is_write:
+                    with self._write_lock:
+                        cursor = self._conn.execute(sql, params)
+                        if not in_transaction:
+                            self._conn.commit()
+                else:
+                    cursor = self._conn.execute(sql, params)
                 return cursor
             except sqlite3.OperationalError as e:
                 if "locked" in str(e).lower() and i < max_retries - 1:
@@ -117,15 +161,28 @@ class DatabaseManager:
                     time.sleep(retry_delay * (i + 1))  # Exponential-ish backoff
                     continue
                 raise
-        cursor = self._conn.execute(sql, params)
-        if is_write and not in_transaction:
-            self._conn.commit()
+
+        if is_write:
+            with self._write_lock:
+                cursor = self._conn.execute(sql, params)
+                if not in_transaction:
+                    self._conn.commit()
+        else:
+            cursor = self._conn.execute(sql, params)
         return cursor
     
     def execute_many(self, sql: str, params_list: List[tuple]) -> None:
         """批量执行SQL语句"""
-        self._conn.executemany(sql, params_list)
-        self._conn.commit()
+        is_write = self._is_write_sql(sql)
+        in_transaction = getattr(self._local, "in_transaction", False)
+
+        if is_write:
+            with self._write_lock:
+                self._conn.executemany(sql, params_list)
+                if not in_transaction:
+                    self._conn.commit()
+        else:
+            self._conn.executemany(sql, params_list)
     
     def commit(self) -> None:
         """提交当前线程的事务（公开方法，供服务层调用）"""
@@ -158,7 +215,6 @@ class DatabaseManager:
         sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
         
         cursor = self.execute(sql, tuple(data.values()))
-        self._conn.commit()
         return cursor.lastrowid
     
     def update(self, table: str, data: Dict[str, Any], 
@@ -179,7 +235,6 @@ class DatabaseManager:
         sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
         
         cursor = self.execute(sql, tuple(data.values()) + where_params)
-        self._conn.commit()
         return cursor.rowcount
     
     def delete(self, table: str, where: str, where_params: tuple) -> int:
@@ -196,7 +251,6 @@ class DatabaseManager:
         """
         sql = f"DELETE FROM {table} WHERE {where}"
         cursor = self.execute(sql, where_params)
-        self._conn.commit()
         return cursor.rowcount
     
     def _init_schema(self) -> None:

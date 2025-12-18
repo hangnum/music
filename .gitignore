@@ -110,3 +110,5 @@ venv.bak/
 *.sqlite
 music_library.db
 cache/
+*.db-shm
+*.db-wal
