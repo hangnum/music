@@ -47,13 +47,17 @@ class ConfigService:
         if self._initialized:
             return
         
-        # 判断是否使用自定义配置路径（用于测试/隔离场景）
-        self._use_custom_path = config_path is not None
         self._default_config_path = "config/default_config.yaml"
+        default_path = Path(self._default_config_path)
+        provided_path = Path(config_path) if config_path else None
+
+        # 判断是否使用自定义配置路径（用于测试/隔离场景）
+        # 兼容调用方传入默认模板路径：此时仍应使用“默认模式”（保存到用户目录），避免回写仓库模板文件。
+        self._use_custom_path = provided_path is not None and provided_path != default_path
         
         if self._use_custom_path:
             # 自定义路径：同时用于加载和保存（支持测试隔离）
-            self._user_config_path = Path(config_path)
+            self._user_config_path = provided_path
         else:
             # 默认路径：加载仓库模板，保存到用户目录
             self._user_config_path = self._get_user_config_path()

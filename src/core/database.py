@@ -67,7 +67,7 @@ class DatabaseManager:
             conn.commit()
         except Exception as e:
             conn.rollback()
-            raise e
+            raise
     
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
         """执行SQL语句"""

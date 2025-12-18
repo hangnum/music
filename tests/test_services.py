@@ -14,24 +14,27 @@ class TestConfigService:
     def setup_method(self):
         from services.config_service import ConfigService
         ConfigService.reset_instance()
+        self._tmpdir = tempfile.mkdtemp(prefix="music-config-")
+        self._config_path = os.path.join(self._tmpdir, "config.yaml")
     
     def teardown_method(self):
         from services.config_service import ConfigService
         ConfigService.reset_instance()
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def test_singleton(self):
         """测试单例模式"""
         from services.config_service import ConfigService
         
-        config1 = ConfigService()
-        config2 = ConfigService()
+        config1 = ConfigService(self._config_path)
+        config2 = ConfigService(self._config_path)
         assert config1 is config2
     
     def test_get_default(self):
         """测试获取默认配置"""
         from services.config_service import ConfigService
         
-        config = ConfigService()
+        config = ConfigService(self._config_path)
         
         # 测试嵌套获取（只验证返回类型和有效范围，不依赖配置文件内容）
         volume = config.get("playback.default_volume", 0.5)
@@ -42,7 +45,7 @@ class TestConfigService:
         """测试设置和获取"""
         from services.config_service import ConfigService
         
-        config = ConfigService()
+        config = ConfigService(self._config_path)
         config.set("test.value", 123)
         
         assert config.get("test.value") == 123
@@ -54,13 +57,14 @@ class TestPlaylistService:
     def setup_method(self):
         from core.database import DatabaseManager
         DatabaseManager.reset_instance()
-        self.db = DatabaseManager("test_playlist.db")
+        self._tmpdir = tempfile.mkdtemp(prefix="music-playlist-db-")
+        self._db_path = os.path.join(self._tmpdir, "test_playlist.db")
+        self.db = DatabaseManager(self._db_path)
     
     def teardown_method(self):
         from core.database import DatabaseManager
         DatabaseManager.reset_instance()
-        if os.path.exists("test_playlist.db"):
-            os.remove("test_playlist.db")
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def test_create_playlist(self):
         """测试创建播放列表"""
@@ -103,13 +107,14 @@ class TestLibraryService:
     def setup_method(self):
         from core.database import DatabaseManager
         DatabaseManager.reset_instance()
-        self.db = DatabaseManager("test_library.db")
+        self._tmpdir = tempfile.mkdtemp(prefix="music-library-db-")
+        self._db_path = os.path.join(self._tmpdir, "test_library.db")
+        self.db = DatabaseManager(self._db_path)
     
     def teardown_method(self):
         from core.database import DatabaseManager
         DatabaseManager.reset_instance()
-        if os.path.exists("test_library.db"):
-            os.remove("test_library.db")
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def test_get_all_tracks_empty(self):
         """测试空库获取曲目"""

@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is a high-quality desktop music player application built with Python, featuring a modular architecture, modern UI design inspired by Apple Music, and comprehensive audio format support.
 
 **Technology Stack:**
+
 - GUI Framework: PyQt6 (cross-platform desktop interface)
 - Audio Engine: pygame (with VLC backend support)
 - Metadata: mutagen (multi-format audio tag parsing)
@@ -17,6 +18,7 @@ This is a high-quality desktop music player application built with Python, featu
 ## Key Development Commands
 
 ### Environment Setup
+
 ```bash
 # Create virtual environment (recommended)
 conda create -n music python=3.11
@@ -30,6 +32,7 @@ pip install -r requirements.txt
 ```
 
 ### Running the Application
+
 ```bash
 # Run from project root
 python src/main.py
@@ -39,6 +42,7 @@ cd src && python main.py
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 python -m pytest tests/ -v
@@ -53,6 +57,7 @@ python -m pytest tests/ --cov=src -v
 ```
 
 ### Building Executables
+
 ```bash
 # Build for current platform (automated script)
 python build.py
@@ -69,6 +74,7 @@ python build.py --config build_config.yaml
 ```
 
 ### Code Quality (Development Tools)
+
 ```bash
 # Format code (if black is installed)
 black src/ tests/
@@ -81,6 +87,7 @@ mypy src/
 ```
 
 ### Database Management
+
 ```bash
 # The application creates SQLite database automatically
 # Database file: music_library.db
@@ -97,7 +104,7 @@ sqlite3 music_library.db
 
 The application follows a strict 4-layer architecture pattern to ensure separation of concerns and maintainability:
 
-```
+```text
 ┌─────────────────────────────────────┐
 │            UI Layer                 │  PyQt6 Interface + Widgets
 ├─────────────────────────────────────┤
@@ -111,7 +118,8 @@ The application follows a strict 4-layer architecture pattern to ensure separati
 
 #### Layer Responsibilities
 
-**UI Layer (`src/ui/`)**
+#### UI Layer (`src/ui/`)
+
 - Presentation logic only
 - Event handling and user interaction
 - No business logic embedded
@@ -121,7 +129,8 @@ The application follows a strict 4-layer architecture pattern to ensure separati
   - `styles/` - Theme and styling (dark/light themes)
   - `dialogs/` - Modal dialogs and settings windows
 
-**Service Layer (`src/services/`)**
+#### Service Layer (`src/services/`)
+
 - Business logic coordination
 - Orchestrate core layer components
 - Provide clean interfaces for UI layer
@@ -132,7 +141,8 @@ The application follows a strict 4-layer architecture pattern to ensure separati
   - `ConfigService.py` - Configuration management
   - `LLMQueueService.py` - AI-powered queue management with semantic fetch
 
-**Core Layer (`src/core/`)**
+#### Core Layer (`src/core/`)
+
 - Fundamental capabilities and utilities
 - Abstract interfaces for extensibility
 - Thread-safe operations
@@ -142,7 +152,8 @@ The application follows a strict 4-layer architecture pattern to ensure separati
   - `metadata.py` - Audio file metadata extraction
   - `database.py` - SQLite operations with connection pooling
 
-**Data Layer (`src/models/` & Database)**
+#### Data Layer (`src/models/` & Database)
+
 - Data persistence and modeling
 - SQLite database with proper schema
 - Entity-relationship design
@@ -174,38 +185,45 @@ CREATE INDEX idx_tracks_title ON tracks(title);
 
 ### Design Patterns Implementation
 
-**Singleton Pattern**
+#### Singleton Pattern
+
 - `EventBus`, `DatabaseManager`, `AudioEngine` use singleton pattern
 - Thread-safe implementation with double-checked locking
 - Instance reset methods available for testing
 
-**Observer Pattern**
+#### Observer Pattern
+
 - Event-driven architecture using EventBus
 - Asynchronous event processing with ThreadPoolExecutor
 - Type-safe event types and data structures
 
-**Strategy Pattern**
+#### Strategy Pattern
+
 - Audio engine backends (pygame/VLC)
 - Metadata parsers for different audio formats
 - Sorting and filtering strategies
 
-**Factory Pattern**
+#### Factory Pattern
+
 - Metadata parser creation based on file format
 - UI widget factories for themes
 
 ### Code Organization Patterns
 
-**Dependency Injection**
+#### Dependency Injection
+
 - Services receive dependencies through constructors
 - Abstract base classes for interfaces
 - Easy mocking for testing
 
-**Layer Communication**
+#### Layer Communication
+
 - UI → Services → Core → Data (top-down only)
 - Services communicate via EventBus (horizontal)
 - No circular dependencies allowed
 
-**Data Flow**
+#### Data Flow
+
 ```python
 # Typical data flow
 User Action → UI Widget → Service Method → Core Operation → Database
@@ -215,8 +233,9 @@ User Action → UI Widget → Service Method → Core Operation → Database
 
 ### Conventions
 
-**File Structure**
-```
+#### File Structure
+
+```text
 src/
 ├── main.py              # Application entry point
 ├── core/               # Core capabilities
@@ -243,18 +262,21 @@ src/
     └── resources/    # Icons, images
 ```
 
-**Naming Conventions**
+#### Naming Conventions
+
 - Classes: PascalCase (e.g., `PlayerService`, `AudioEngine`)
 - Methods: snake_case (e.g., `play_track`, `set_volume`)
 - Constants: UPPER_SNAKE_CASE (e.g., `SUPPORTED_FORMATS`)
 - Private members: _leading_underscore (e.g., `_current_index`)
 
-**Error Handling**
+#### Error Handling
+
 - Graceful degradation for audio playback errors
 - Event-based error reporting through EventBus
 - Comprehensive logging for debugging
 
-**Thread Safety**
+#### Thread Safety
+
 - UI operations on main thread
 - Database operations use thread-local connections
 - Event processing in separate thread pool
@@ -263,24 +285,28 @@ src/
 ## Key Technical Features
 
 ### Audio Engine Architecture
+
 - Abstract base class for multiple backends
 - Currently implemented: PygameAudioEngine
 - Planned: VLC backend for better format support
 - Thread-safe playback control with state management
 
 ### Event System
+
 - Type-safe event types using Enum
 - Both synchronous and asynchronous event publishing
 - Automatic cleanup and error handling
 - Support for event filtering and prioritization
 
 ### Configuration Management
+
 - YAML-based configuration files
 - Hot-reload capability for some settings
 - Validation and fallback mechanisms
 - User preferences persistence
 
 ### LLM Queue Service (New Feature)
+
 - AI-powered music queue management
 - Semantic library fetching with configurable providers
 - JSON mode support for structured responses
@@ -288,12 +314,14 @@ src/
 - Integration with existing event system
 
 ### Testing Strategy
+
 - Comprehensive unit tests for all layers
 - Integration tests for service interactions
 - UI tests using pytest-qt
 - Test database isolation and cleanup
 
 ### Performance Optimizations
+
 - Lazy loading for large music libraries
 - Metadata caching to minimize file I/O
 - Database connection pooling
@@ -302,6 +330,7 @@ src/
 ## Development Guidelines
 
 ### Adding New Features
+
 1. **Data Layer**: Define models and database schema
 2. **Core Layer**: Implement core capabilities if needed
 3. **Service Layer**: Add business logic coordination
@@ -309,18 +338,21 @@ src/
 5. **Testing**: Write comprehensive tests
 
 ### Audio Format Support
+
 - Supported formats: MP3, FLAC, WAV, OGG, M4A, AAC, WMA, APE
 - Metadata parsing for each format
 - Cover art extraction where available
 - Fallback to filename when metadata missing
 
 ### UI Development
+
 - Use Qt Designer for complex layouts (if needed)
 - Follow Apple Music-inspired design patterns
 - Implement responsive layouts for different screen sizes
 - Support both dark and light themes
 
 ### Code Quality Standards
+
 - Follow PEP 8 style guidelines
 - Type hints for all public APIs
 - Docstrings for all classes and methods
@@ -330,6 +362,7 @@ src/
 ## Project Status and Roadmap
 
 ### Current Status (v1.0.0)
+
 - ✅ Core playback functionality
 - ✅ Library management and scanning
 - ✅ Playlist creation and management
@@ -340,6 +373,7 @@ src/
 - ✅ LLM queue assistant with semantic library fetch
 
 ### Planned Features
+
 - 🚧 Audio equalizer
 - 🚧 Lyrics display and synchronization
 - 🚧 System tray integration
@@ -348,6 +382,7 @@ src/
 - 🚧 Plugin system for extensibility
 
 ### Performance Targets
+
 - Startup time: < 3 seconds
 - Memory usage: < 200MB (idle)
 - Library scan: 1000 tracks/minute
@@ -357,19 +392,23 @@ src/
 ## Troubleshooting
 
 ### Common Issues
+
 - **Audio playback fails**: Check file format support and pygame installation
 - **Database locked**: Ensure only one instance running
 - **High memory usage**: Check for large music libraries, consider pagination
 - **Slow startup**: Verify library database integrity
 
 ### Debug Mode
+
 Enable debug logging by setting environment variable:
+
 ```bash
 export PYTHONPATH=src
 python -m pytest tests/ -v --log-cli-level=DEBUG
 ```
 
 ### Development Environment Setup
+
 ```bash
 # Ensure all development dependencies
 pip install -r requirements.txt
