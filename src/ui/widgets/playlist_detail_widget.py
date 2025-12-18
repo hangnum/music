@@ -1,29 +1,31 @@
 """
 歌单详情组件
 
-显示歌单内的曲目列表，支持播放、移除曲目等操作。
+显示歌单内的曲目列表，支持播放、移除曲目、拖放排序等操作。
+使用 Model-View 架构实现虚拟化渲染。
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QListWidget, QListWidgetItem, QPushButton, QMenu
+    QListView, QPushButton, QMenu, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
-from typing import List
+from typing import List, Optional
 
 from models.playlist import Playlist
 from models.track import Track
 from services.playlist_service import PlaylistService
 from services.player_service import PlayerService
-from core.event_bus import EventBus, EventType
+from ui.models.track_list_model import TrackListModel
 
 
 class PlaylistDetailWidget(QWidget):
     """
     歌单详情组件
     
-    显示某个歌单的曲目列表，支持播放、移除等操作。
+    显示某个歌单的曲目列表，支持播放、移除、拖放排序等操作。
+    使用 Model-View 架构实现虚拟化渲染。
     
     Signals:
         back_requested: 请求返回歌单列表
@@ -46,8 +48,7 @@ class PlaylistDetailWidget(QWidget):
         super().__init__(parent)
         self._playlist_service = playlist_service
         self._player_service = player_service
-        self._current_playlist: Playlist = None
-        self._tracks: List[Track] = []
+        self._current_playlist: Optional[Playlist] = None
         
         self._setup_ui()
     
@@ -84,12 +85,27 @@ class PlaylistDetailWidget(QWidget):
         self.desc_label.setWordWrap(True)
         layout.addWidget(self.desc_label)
         
-        # 曲目列表
-        self.list_widget = QListWidget()
-        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
-        self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        layout.addWidget(self.list_widget)
+        # 曲目列表 - Model-View 架构
+        self._model = TrackListModel(enable_drag_drop=True)
+        
+        self.list_view = QListView()
+        self.list_view.setModel(self._model)
+        
+        # 启用拖放排序
+        self.list_view.setDragEnabled(True)
+        self.list_view.setAcceptDrops(True)
+        self.list_view.setDropIndicatorShown(True)
+        self.list_view.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.list_view.setDefaultDropAction(Qt.DropAction.MoveAction)
+        
+        # 性能优化：统一项高
+        self.list_view.setUniformItemSizes(True)
+        
+        self.list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.list_view.customContextMenuRequested.connect(self._show_context_menu)
+        self.list_view.doubleClicked.connect(self._on_item_double_clicked)
+        
+        layout.addWidget(self.list_view)
         
         # 底部信息
         self.info_label = QLabel("0 首曲目")
@@ -108,45 +124,34 @@ class PlaylistDetailWidget(QWidget):
     
     def _refresh(self):
         """刷新曲目列表"""
-        self.list_widget.clear()
-        
         if not self._current_playlist:
+            self._model.setTracks([])
             return
         
         self.title_label.setText(self._current_playlist.name)
         self.desc_label.setText(self._current_playlist.description or "")
         self.desc_label.setVisible(bool(self._current_playlist.description))
         
-        # 获取曲目
-        self._tracks = self._playlist_service.get_tracks(self._current_playlist.id)
+        # 获取曲目并设置到模型
+        tracks = self._playlist_service.get_tracks(self._current_playlist.id)
+        self._model.setTracks(tracks)
         
-        for i, track in enumerate(self._tracks):
-            item = QListWidgetItem()
-            item.setData(Qt.ItemDataRole.UserRole, track)
-            
-            # 显示文本
-            text = f"{i + 1}. {track.title}"
-            if track.artist_name:
-                text += f" - {track.artist_name}"
-            text += f"  [{track.duration_str}]"
-            
-            item.setText(text)
-            self.list_widget.addItem(item)
-        
-        count = len(self._tracks)
+        # 更新统计信息
+        count = len(tracks)
         duration = self._current_playlist.duration_str if self._current_playlist.total_duration_ms > 0 else ""
         info = f"{count} 首曲目"
         if duration:
             info += f" · {duration}"
         self.info_label.setText(info)
     
-    def _on_item_double_clicked(self, item: QListWidgetItem):
+    def _on_item_double_clicked(self, index):
         """双击播放曲目"""
-        track = item.data(Qt.ItemDataRole.UserRole)
+        track = self._model.getTrack(index.row())
         if track:
             # 将整个歌单添加到播放队列
+            tracks = self._model.getTracks()
             self._player_service.clear_queue()
-            for t in self._tracks:
+            for t in tracks:
                 self._player_service.add_to_queue(t)
             
             # 播放选中的曲目
@@ -155,22 +160,23 @@ class PlaylistDetailWidget(QWidget):
     
     def _play_all(self):
         """播放全部"""
-        if not self._tracks:
+        tracks = self._model.getTracks()
+        if not tracks:
             return
         
         self._player_service.clear_queue()
-        for track in self._tracks:
+        for track in tracks:
             self._player_service.add_to_queue(track)
         
-        self._player_service.play(self._tracks[0])
+        self._player_service.play(tracks[0])
     
     def _show_context_menu(self, pos):
         """显示右键菜单"""
-        item = self.list_widget.itemAt(pos)
-        if not item:
+        index = self.list_view.indexAt(pos)
+        if not index.isValid():
             return
         
-        track = item.data(Qt.ItemDataRole.UserRole)
+        track = self._model.getTrack(index.row())
         if not track:
             return
         
@@ -193,7 +199,7 @@ class PlaylistDetailWidget(QWidget):
         remove_action.triggered.connect(lambda: self._remove_track(track))
         menu.addAction(remove_action)
         
-        menu.exec(self.list_widget.mapToGlobal(pos))
+        menu.exec(self.list_view.mapToGlobal(pos))
     
     def _remove_track(self, track: Track):
         """从歌单移除曲目"""

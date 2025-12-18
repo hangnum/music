@@ -2,11 +2,12 @@
 媒体库浏览组件
 
 显示媒体库中的所有曲目，支持搜索和排序。
+使用 Model-View 架构实现虚拟化渲染，优化大列表性能。
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QTableWidget, QTableWidgetItem, QPushButton,
+    QTableView, QPushButton,
     QLineEdit, QHeaderView, QAbstractItemView, QMenu
 )
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -20,6 +21,7 @@ from services.playlist_service import PlaylistService
 from services.tag_service import TagService
 from core.event_bus import EventBus, EventType
 from core.database import DatabaseManager
+from ui.models.track_table_model import TrackTableModel, TrackFilterProxyModel
 
 
 class LibraryWidget(QWidget):
@@ -84,10 +86,15 @@ class LibraryWidget(QWidget):
         self.stats_label.setStyleSheet("color: #B3B3B3; margin-bottom: 8px;")
         layout.addWidget(self.stats_label)
         
-        # 曲目表格
-        self.table = QTableWidget()
-        self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["标题", "艺术家", "专辑", "时长", "格式"])
+        # 曲目表格 - 使用 Model-View 架构
+        self._source_model = TrackTableModel()
+        self._proxy_model = TrackFilterProxyModel()
+        self._proxy_model.setSourceModel(self._source_model)
+        
+        self.table = QTableView()
+        self.table.setModel(self._proxy_model)
+        
+        # 表头设置
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -96,17 +103,23 @@ class LibraryWidget(QWidget):
         self.table.setColumnWidth(3, 70)
         self.table.setColumnWidth(4, 60)
         
+        # 视图属性
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setAlternatingRowColors(True)
+        
+        # 性能优化：统一行高
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.table.verticalHeader().setDefaultSectionSize(36)
+        
         self.table.setStyleSheet("""
-            QTableWidget {
+            QTableView {
                 alternate-background-color: #1A1A1A;
             }
-            QTableWidget::item {
+            QTableView::item {
                 padding: 8px;
             }
         """)
@@ -131,28 +144,12 @@ class LibraryWidget(QWidget):
         self._display_tracks(self.all_tracks)
     
     def _display_tracks(self, tracks: List[Track]):
-        """显示曲目列表"""
-        self.table.setRowCount(len(tracks))
-        
-        for row, track in enumerate(tracks):
-            # 标题
-            title_item = QTableWidgetItem(track.title)
-            title_item.setData(Qt.ItemDataRole.UserRole, track)
-            self.table.setItem(row, 0, title_item)
-            
-            # 艺术家
-            self.table.setItem(row, 1, QTableWidgetItem(track.artist_name or "-"))
-            
-            # 专辑
-            self.table.setItem(row, 2, QTableWidgetItem(track.album_name or "-"))
-            
-            # 时长
-            self.table.setItem(row, 3, QTableWidgetItem(track.duration_str))
-            
-            # 格式
-            self.table.setItem(row, 4, QTableWidgetItem(track.format))
-        
-        # 更新统计
+        """显示曲目列表 - 使用 Model 实现 O(1) 更新"""
+        self._source_model.setTracks(tracks)
+        self._update_stats(tracks)
+    
+    def _update_stats(self, tracks: List[Track]):
+        """更新统计信息"""
         total_duration = sum(t.duration_ms for t in tracks)
         hours = total_duration // 3600000
         minutes = (total_duration % 3600000) // 60000
@@ -161,42 +158,40 @@ class LibraryWidget(QWidget):
         )
     
     def _on_search(self, text: str):
-        """搜索曲目"""
-        if not text:
-            self._display_tracks(self.all_tracks)
-            return
-        
-        text = text.lower()
-        filtered = [t for t in self.all_tracks if 
-                    text in t.title.lower() or
-                    text in t.artist_name.lower() or
-                    text in t.album_name.lower()]
-        self._display_tracks(filtered)
+        """搜索曲目 - 使用代理模型过滤"""
+        self._proxy_model.setFilterText(text)
+        # 更新统计为过滤后的数量
+        filtered_count = self._proxy_model.rowCount()
+        if text:
+            self.stats_label.setText(f"找到 {filtered_count} 首曲目")
+        else:
+            self._update_stats(self.all_tracks)
     
     def _on_row_double_clicked(self, index):
         """双击行"""
-        row = index.row()
-        item = self.table.item(row, 0)
-        if item:
-            track = item.data(Qt.ItemDataRole.UserRole)
-            if track:
-                # 将当前视图中的所有曲目添加到队列
-                visible_tracks = self._get_visible_tracks()
-                track_index = next((i for i, t in enumerate(visible_tracks) 
-                                   if t.id == track.id), 0)
-                self.player.set_queue(visible_tracks, track_index)
-                self.player.play()
-                self.track_double_clicked.emit(track)
+        # 通过代理模型获取源模型索引
+        source_index = self._proxy_model.mapToSource(index)
+        track = self._source_model.getTrack(source_index.row())
+        
+        if track:
+            # 将当前视图中的所有曲目添加到队列
+            visible_tracks = self._get_visible_tracks()
+            track_index = next((i for i, t in enumerate(visible_tracks) 
+                               if t.id == track.id), 0)
+            self.player.set_queue(visible_tracks, track_index)
+            self.player.play()
+            self.track_double_clicked.emit(track)
     
     def _get_visible_tracks(self) -> List[Track]:
-        """获取当前显示的所有曲目"""
+        """获取当前显示的所有曲目（过滤后）"""
         tracks = []
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, 0)
-            if item:
-                track = item.data(Qt.ItemDataRole.UserRole)
-                if track:
-                    tracks.append(track)
+        for row in range(self._proxy_model.rowCount()):
+            source_index = self._proxy_model.mapToSource(
+                self._proxy_model.index(row, 0)
+            )
+            track = self._source_model.getTrack(source_index.row())
+            if track:
+                tracks.append(track)
         return tracks
     
     def _show_context_menu(self, pos):
@@ -210,11 +205,12 @@ class LibraryWidget(QWidget):
         # 获取选中的曲目
         selected_tracks = []
         for row in rows:
-            item = self.table.item(row, 0)
-            if item:
-                track = item.data(Qt.ItemDataRole.UserRole)
-                if track:
-                    selected_tracks.append(track)
+            source_index = self._proxy_model.mapToSource(
+                self._proxy_model.index(row, 0)
+            )
+            track = self._source_model.getTrack(source_index.row())
+            if track:
+                selected_tracks.append(track)
         
         if len(selected_tracks) == 1:
             track = selected_tracks[0]

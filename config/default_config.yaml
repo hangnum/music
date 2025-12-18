@@ -49,9 +49,9 @@ shortcuts:
   volume_down: Ctrl+Down
   volume_up: Ctrl+Up
 ui:
-  show_album_art: true
-  sidebar_width: 240
-  window_height: 1360
-  window_width: 2560
   minimize_to_tray: true
+  show_album_art: true
   show_tray_notifications: true
+  sidebar_width: 240
+  window_height: 1369
+  window_width: 2560

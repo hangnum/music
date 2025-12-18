@@ -1,12 +1,13 @@
 """
 播放列表组件
 
-显示当前播放队列，支持双击播放、右键菜单等。
+显示当前播放队列，支持双击播放、右键菜单、拖放排序等。
+使用 Model-View 架构实现虚拟化渲染。
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QListWidget, QListWidgetItem, QPushButton, QMenu
+    QListView, QPushButton, QMenu, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
@@ -14,13 +15,15 @@ from PyQt6.QtGui import QAction
 from models.track import Track
 from services.player_service import PlayerService
 from core.event_bus import EventBus, EventType
+from ui.models.track_list_model import TrackListModel
 
 
 class PlaylistWidget(QWidget):
     """
     播放列表组件
     
-    显示当前播放队列，支持播放和管理操作。
+    显示当前播放队列，支持播放、管理和拖放排序操作。
+    使用 Model-View 架构实现虚拟化渲染。
     """
     
     track_double_clicked = pyqtSignal(Track)
@@ -61,12 +64,28 @@ class PlaylistWidget(QWidget):
         
         layout.addLayout(header)
         
-        # 列表
-        self.list_widget = QListWidget()
-        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
-        self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        layout.addWidget(self.list_widget)
+        # 列表 - Model-View 架构
+        self._model = TrackListModel(enable_drag_drop=True)
+        self._model.setShowIndex(False)  # 播放队列不显示序号
+        
+        self.list_view = QListView()
+        self.list_view.setModel(self._model)
+        
+        # 启用拖放排序
+        self.list_view.setDragEnabled(True)
+        self.list_view.setAcceptDrops(True)
+        self.list_view.setDropIndicatorShown(True)
+        self.list_view.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.list_view.setDefaultDropAction(Qt.DropAction.MoveAction)
+        
+        # 性能优化：统一项高
+        self.list_view.setUniformItemSizes(True)
+        
+        self.list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.list_view.customContextMenuRequested.connect(self._show_context_menu)
+        self.list_view.doubleClicked.connect(self._on_item_double_clicked)
+        
+        layout.addWidget(self.list_view)
         
         # 底部信息
         self.info_label = QLabel("0 首曲目")
@@ -80,30 +99,16 @@ class PlaylistWidget(QWidget):
     
     def update_list(self):
         """更新列表显示"""
-        self.list_widget.clear()
-        
         queue = self.player.queue
         current = self.player.current_track
         
-        for i, track in enumerate(queue):
-            item = QListWidgetItem()
-            item.setData(Qt.ItemDataRole.UserRole, track)
-            
-            # 显示文本
-            text = f"{track.title}"
-            if track.artist_name:
-                text += f" - {track.artist_name}"
-            text += f"  [{track.duration_str}]"
-            
-            item.setText(text)
-            
-            # 高亮当前曲目
-            if current and track.id == current.id:
-                item.setForeground(Qt.GlobalColor.green)
-                text = f"▶ {text}"
-                item.setText(text)
-            
-            self.list_widget.addItem(item)
+        self._model.setTracks(queue)
+        
+        # 高亮当前播放曲目
+        if current:
+            self._model.highlightTrack(current.id)
+        else:
+            self._model.highlightTrack(None)
         
         self.info_label.setText(f"{len(queue)} 首曲目")
     
@@ -113,22 +118,26 @@ class PlaylistWidget(QWidget):
     
     def _on_track_started(self, track):
         """曲目开始播放"""
-        self.update_list()
+        # 仅更新高亮，不重置整个列表
+        if track:
+            self._model.highlightTrack(track.id)
+        else:
+            self._model.highlightTrack(None)
     
-    def _on_item_double_clicked(self, item: QListWidgetItem):
+    def _on_item_double_clicked(self, index):
         """双击曲目"""
-        track = item.data(Qt.ItemDataRole.UserRole)
+        track = self._model.getTrack(index.row())
         if track:
             self.player.play(track)
             self.track_double_clicked.emit(track)
     
     def _show_context_menu(self, pos):
         """显示右键菜单"""
-        item = self.list_widget.itemAt(pos)
-        if not item:
+        index = self.list_view.indexAt(pos)
+        if not index.isValid():
             return
         
-        track = item.data(Qt.ItemDataRole.UserRole)
+        track = self._model.getTrack(index.row())
         if not track:
             return
         
@@ -141,14 +150,13 @@ class PlaylistWidget(QWidget):
         menu.addSeparator()
         
         remove_action = QAction("从队列移除", self)
-        remove_action.triggered.connect(lambda: self._remove_track(item))
+        remove_action.triggered.connect(lambda: self._remove_track(index.row()))
         menu.addAction(remove_action)
         
-        menu.exec(self.list_widget.mapToGlobal(pos))
+        menu.exec(self.list_view.mapToGlobal(pos))
     
-    def _remove_track(self, item: QListWidgetItem):
+    def _remove_track(self, row: int):
         """从队列移除曲目"""
-        row = self.list_widget.row(item)
         if row >= 0:
             self.player.remove_from_queue(row)
     
