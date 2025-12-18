@@ -147,6 +147,43 @@
 
 ---
 
+### 2.8 ITagService - 标签服务接口
+
+管理音乐标签及其与曲目的关联。
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `create_tag(name, color)` | `str, str` | `Tag` | 创建新标签 |
+| `get_all_tags()` | - | `List[Tag]` | 获取所有标签 |
+| `delete_tag(tag_id)` | `str` | `bool` | 删除标签 |
+| `add_tag_to_track(track_id, tag_id)` | `str, str` | `bool` | 为曲目添加标签 |
+| `remove_tag_from_track(track_id, tag_id)` | `str, str` | `bool` | 移除曲目的标签 |
+| `get_track_tags(track_id)` | `str` | `List[Tag]` | 获取曲目的所有标签 |
+| `get_tracks_by_tag(tag_id)` | `str` | `List[Track]` | 获取带有特定标签的所有曲目 |
+
+---
+
+### 2.9 ILLMProvider - LLM 提供商接口
+
+底层 LLM 客户端的统一样心接口。
+
+| 方法/属性 | 类型 | 说明 |
+|------|------|------|
+| `name` | `property (str)` | 提供商名称（如 'gemini'） |
+| `settings` | `property (LLMSettings)` | 获取当前配置 |
+| `chat_completions(messages)` | `method` | 执行聊天补全请求 |
+| `validate_connection()` | `method` | 验证 API 连通性 |
+
+---
+
+## 📁 项目结构
+
+```text
+music/
+```
+
+---
+
 ## 3. 数据模型
 
 ### 3.1 Track - 音轨模型
@@ -210,6 +247,16 @@ class Playlist:
     tracks: List[Track]
     created_at: datetime
     updated_at: datetime
+
+### 3.5 Tag - 标签模型
+
+```python
+@dataclass
+class Tag:
+    id: str
+    name: str
+    color: str
+    created_at: datetime
 ```
 
 ### 3.5 PlaybackState - 播放状态模型

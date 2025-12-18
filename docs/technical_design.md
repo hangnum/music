@@ -456,7 +456,6 @@ class MetadataParser:
                         apic = tags[key]
                         metadata.cover_data = apic.data
                         metadata.cover_mime = apic.mime
-                        break
                         
         except Exception as e:
             print(f"解析MP3标签失败: {e}")
@@ -589,6 +588,24 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
     FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
 );
 
+-- 标签表
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 曲目-标签关联表
+CREATE TABLE IF NOT EXISTS track_tags (
+    track_id TEXT NOT NULL,
+    tag_id TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (track_id, tag_id),
+    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id);
@@ -607,6 +624,7 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 import threading
 from contextlib import contextmanager
+import re # Added for _is_write_sql
 
 class DatabaseManager:
     """数据库管理器 - 单例模式"""
@@ -630,6 +648,9 @@ class DatabaseManager:
         self._local = threading.local()
         self._initialized = True
         self._init_schema()
+        # Added for transaction management
+        self._write_lock = threading.Lock()
+        self._in_transaction = False
     
     @property
     def _conn(self) -> sqlite3.Connection:
@@ -642,21 +663,37 @@ class DatabaseManager:
     @contextmanager
     def transaction(self):
         """事务上下文管理器"""
-        try:
-            yield self._conn
-            self._conn.commit()
-        except Exception as e:
-            self._conn.rollback()
-            raise e
+        with self._write_lock:
+            try:
+                self._in_transaction = True
+                yield self._conn
+                self._conn.commit()
+            except Exception as e:
+                self._conn.rollback()
+                raise e
+            finally:
+                self._in_transaction = False
     
-    def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        """执行SQL"""
-        return self._conn.execute(sql, params)
-    
-    def execute_many(self, sql: str, params_list: List[tuple]) -> None:
-        """批量执行SQL"""
-        self._conn.executemany(sql, params_list)
-        self._conn.commit()
+    def execute(self, sql: str, params: tuple = (), max_retries: int = 5, retry_delay: float = 0.1) -> sqlite3.Cursor:
+        """执行SQL，支持自动提交、写入锁和重试机制"""
+        is_write = self._is_write_sql(sql)
+        
+        for i in range(max_retries):
+            try:
+                if is_write:
+                    with self._write_lock:
+                        cursor = self._conn.execute(sql, params)
+                        if not self._in_transaction:
+                            self._conn.commit()
+                else:
+                    cursor = self._conn.execute(sql, params)
+                return cursor
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e).lower() and i < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay * (i + 1))
+                    continue
+                raise
     
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[Dict]:
         """获取单条记录"""
@@ -734,6 +771,24 @@ class DatabaseManager:
             FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
         );
         
+        -- 标签表
+        CREATE TABLE IF NOT EXISTS tags (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            color TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        -- 曲目-标签关联表
+        CREATE TABLE IF NOT EXISTS track_tags (
+            track_id TEXT NOT NULL,
+            tag_id TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (track_id, tag_id),
+            FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+        );
+        
         -- 索引
         CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);
         CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id);
@@ -745,12 +800,66 @@ class DatabaseManager:
                 self.execute(statement)
         self._conn.commit()
     
+    @classmethod
+    def _strip_leading_sql_comments(cls, sql: str) -> str:
+        """Strip leading SQL comments (single-line and multi-line)"""
+        # Remove single-line comments like -- comment
+        sql = re.sub(r'^\s*--.*$', '', sql, flags=re.MULTILINE)
+        # Remove multi-line comments /* comment */
+        sql = re.sub(r'/\*.*?\*/', '', sql, flags=re.DOTALL)
+        return sql.strip()
+
+    @classmethod
+    def _is_write_sql(cls, sql: str) -> bool:
+        """识别是否为写入操作 (支持 CTE/WITH)"""
+        write_keywords = ("INSERT", "UPDATE", "DELETE", "REPLACE", "CREATE", "DROP", "ALTER")
+        stripped = cls._strip_leading_sql_comments(sql).lstrip().upper()
+        if not stripped: return False
+        
+        match = re.match(r"[A-Z]+", stripped)
+        first_keyword = match.group(0) if match else ""
+        if first_keyword in write_keywords: return True
+        if first_keyword == "WITH":
+            return bool(re.search(r"\b(INSERT|UPDATE|DELETE|REPLACE)\b", stripped))
+        return False
+
     def close(self) -> None:
         """关闭连接"""
         if hasattr(self._local, 'connection'):
             self._local.connection.close()
             del self._local.connection
 ```
+
+---
+
+### 1.5 LLM 提供商架构 (LLMProvider Framework)
+
+#### 1.5.1 设计目标
+
+- 支持多种 LLM 模型（如 GPT, Gemini, DeepSeek）。
+- 统一的输入输出接口。
+- 易于扩展新的模型提供商。
+
+#### 1.5.2 类设计
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Dict
+
+class LLMProvider(ABC):
+    @abstractmethod
+    def chat_completions(self, messages: List[Dict]) -> str:
+        pass
+```
+
+---
+
+### 1.6 标签服务架构 (TagService)
+
+#### 1.6.1 核心职责
+
+- 提供标签的增删改查。
+- 管理标签与媒体库曲目的多对多关系。
 
 ---
 
@@ -958,6 +1067,9 @@ from dataclasses import dataclass, field
 from typing import Optional
 from datetime import datetime
 import uuid
+
+# Assuming PyQt6 is used for GUI, pyqtSignal would be imported from it
+# from PyQt6.QtCore import pyqtSignal 
 
 @dataclass
 class Track:

@@ -12,6 +12,7 @@ The application follows a strict **Layered Architecture** (UI, Service, Core, Da
 * **GUI:** PyQt6
 * **Audio Engine:** pygame (extensible to others like VLC)
 * **Metadata:** mutagen
+* **LLM Providers:** SiliconFlow, Google Gemini
 * **Configuration:** PyYAML
 * **Testing:** pytest
 
@@ -62,14 +63,13 @@ The project adheres to SOLID principles and separates concerns into four main la
   * `PlayerService`: Manages playback state (playing, paused), queue, and playback modes (shuffle, repeat).
   * `LibraryService`: Handles scanning and indexing music files.
   * `PlaylistService`: Manages user playlists.
+  * `TagService`: Manages music tags.
+  * `LLMQueueService`: Orchestrates LLM-based reordering.
 
 ### 3. Core Layer (`src/core/`)
 
-* **Responsibility:** Provides low-level functionality and infrastructure.
-* **Key Components:**
-  * `AudioEngine`: Abstract wrapper around audio libraries (currently `pygame`).
-  * `EventBus`: A thread-safe, singleton event system that enables decoupled communication. It handles dispatching events to the main Qt thread when necessary.
-  * `DatabaseManager`: Handles SQLite connections.
+* `EventBus`: A thread-safe, singleton event system that enables decoupled communication. It handles dispatching events to the main Qt thread when necessary.
+* `DatabaseManager`: Handles SQLite connections.
 
 ### 4. Data Layer (`src/models/`, `config/`)
 
@@ -81,9 +81,10 @@ The project adheres to SOLID principles and separates concerns into four main la
 
 ```text
 src/
-├── core/           # Low-level logic (AudioEngine, EventBus, Database)
-├── models/         # Data classes (Track, Album, etc.)
-├── services/       # Business logic (PlayerService, LibraryService)
+├── core/           # Low-level logic (AudioEngine, EventBus, Database, LLMProvider)
+├── models/         # Data classes (Track, Album, Tag, etc.)
+├── services/       # Business logic (PlayerService, LibraryService, TagService)
+│   └── llm_providers/ # LLM implementations (Gemini, SiliconFlow)
 ├── ui/             # PyQt6 Widgets and Windows
 └── main.py         # Application Entry Point
 docs/               # Detailed documentation (Architecture, API)
@@ -114,8 +115,8 @@ tests/              # Unit and Integration tests
 
 As an agent, you need to act as a senior software engineer who highly adheres to software engineering standards.
 
-- **Deep Analysis**: Rely on long-term thinking, serialize your thinking process, and analyze problems deeply.
-- **Verification**: Every step needs to be fully thought out and verified.
-- **Planning**: Through detailed planning, design executable plans in advance to effectively avoid errors.
-- **Architecture**: The architecture design should fully consider scalability, maintainability, and testability.
-- **Code Quality**: The code should maintain a low degree of coupling.
+* **Deep Analysis**: Rely on long-term thinking, serialize your thinking process, and analyze problems deeply.
+* **Verification**: Every step needs to be fully thought out and verified.
+* **Planning**: Through detailed planning, design executable plans in advance to effectively avoid errors.
+* **Architecture**: The architecture design should fully consider scalability, maintainability, and testability.
+* **Code Quality**: The code should maintain a low degree of coupling.

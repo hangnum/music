@@ -15,6 +15,8 @@
 - 🔍 **智能搜索** - 支持按曲目、艺术家、专辑搜索
 - 📋 **播放队列** - 灵活的播放队列管理
 - 🔀 **播放模式** - 顺序播放、随机播放、单曲循环、列表循环
+- 🏷️ **标签管理** - 手动为曲目添加自定义标签
+- 🤖 **智能队列** - 基于 LLM (SiliconFlow/Gemini) 的自然语言队列重排
 - 🎨 **深色主题** - 现代化 Spotify 风格界面
 - 📊 **元数据解析** - 自动读取音乐文件标签信息
 
@@ -34,6 +36,7 @@
 | 元数据解析 | mutagen | 多格式音频标签读取 |
 | 数据库 | SQLite | 本地数据存储 |
 | 配置管理 | PyYAML | YAML格式配置文件 |
+| LLM 服务 | SiliconFlow / Gemini | 智能特性支持 |
 
 ## 📦 安装
 
@@ -77,7 +80,7 @@ python src/main.py
 
 ## 📁 项目结构
 
-```
+```text
 music/
 ├── docs/                    # 设计文档
 │   ├── architecture.md      # 系统架构
@@ -88,7 +91,8 @@ music/
 │   │   ├── audio_engine.py  # 音频引擎
 │   │   ├── event_bus.py     # 事件总线
 │   │   ├── metadata.py      # 元数据解析
-│   │   └── database.py      # 数据库管理
+│   │   ├── database.py      # 数据库管理
+│   │   └── llm_provider.py  # LLM 提供商抽象
 │   ├── models/              # 数据模型
 │   │   ├── track.py         # 曲目
 │   │   ├── album.py         # 专辑
@@ -98,7 +102,10 @@ music/
 │   │   ├── player_service.py    # 播放服务
 │   │   ├── library_service.py   # 媒体库服务
 │   │   ├── playlist_service.py  # 播放列表服务
-│   │   └── config_service.py    # 配置服务
+│   │   ├── config_service.py    # 配置服务
+│   │   ├── tag_service.py       # 标签服务
+│   │   ├── llm_queue_service.py # 智能队列服务
+│   │   └── llm_providers/       # LLM 适配器 (Gemini/SiliconFlow)
 │   ├── ui/                  # 界面层
 │   │   ├── main_window.py       # 主窗口
 │   │   ├── widgets/             # UI组件

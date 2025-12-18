@@ -45,13 +45,16 @@ graph TB
         PLS[PlaylistService<br/>播放列表服务]
         LBS[LibraryService<br/>媒体库服务]
         CS[ConfigService<br/>配置服务]
+        TS[TagService<br/>标签服务]
+        LLM[LLMQueueService<br/>智能队列服务]
     end
     
     subgraph Core Layer
         AE[AudioEngine<br/>音频引擎]
         MD[MetadataParser<br/>元数据解析]
         DB[DatabaseManager<br/>数据库管理]
-        EM[EventManager<br/>事件管理]
+        EM[EventBus<br/>事件总线]
+        LP[LLMProvider<br/>LLM 提供商]
     end
     
     subgraph Data Layer
@@ -69,6 +72,8 @@ graph TB
     PS --> AE & EM
     PLS --> DB & EM
     LBS --> MD & DB
+    TS --> DB & EM
+    LLM --> PS & EM & LP
     CS --> CFG
     
     AE --> EM
@@ -99,6 +104,8 @@ graph TB
 | PlayerService | 播放状态管理、播放队列 | IPlayerService |
 | PlaylistService | 播放列表CRUD操作 | IPlaylistService |
 | LibraryService | 媒体库扫描、索引、搜索 | ILibraryService |
+| TagService | 标签CRUD及关联管理 | ITagService |
+| LLMQueueService | 基于自然语言的队列重排 | ILLMQueueService |
 | ConfigService | 配置读写、热更新 | IConfigService |
 
 #### 2.2.3 核心层 (Core Layer)
@@ -109,8 +116,9 @@ graph TB
 |------|------|------|
 | AudioEngine | 音频解码与播放 | 支持多后端切换 |
 | MetadataParser | 元数据解析与写入 | 支持多格式 |
-| DatabaseManager | SQLite操作封装 | 连接池、事务 |
-| EventManager | 事件发布订阅 | 异步事件处理 |
+| DatabaseManager | SQLite操作封装 | 连接池、事务、并发优化 |
+| EventBus | 事件发布订阅 | 线程安全、解耦 |
+| LLMProvider | LLM 客户端抽象 | 多提供商支持 (SiliconFlow/Gemini) |
 
 #### 2.2.4 数据层 (Data Layer)
 
@@ -382,6 +390,8 @@ erDiagram
     TRACK }o--|| ALBUM : belongs_to
     TRACK }o--|| ARTIST : performed_by
     ALBUM }o--|| ARTIST : created_by
+    TRACK ||--o{ TRACK_TAG : tagged_with
+    TAG ||--o{ TRACK_TAG : associated_with
     
     TRACK {
         string id PK
@@ -396,6 +406,19 @@ erDiagram
         datetime created_at
         datetime last_played
         int play_count
+    }
+
+    TAG {
+        string id PK
+        string name
+        string color
+        datetime created_at
+    }
+
+    TRACK_TAG {
+        string track_id FK
+        string tag_id FK
+        datetime created_at
     }
     
     ALBUM {
