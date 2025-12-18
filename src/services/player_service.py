@@ -8,10 +8,13 @@ from typing import List, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
 import random
+import logging
 
 from core.audio_engine import AudioEngineBase, PygameAudioEngine, PlayerState
 from core.event_bus import EventBus, EventType
 from models.track import Track
+
+logger = logging.getLogger(__name__)
 
 
 class PlayMode(Enum):

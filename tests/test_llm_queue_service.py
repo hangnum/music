@@ -2,11 +2,6 @@
 LLM 队列管理服务测试
 """
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from services.config_service import ConfigService
 from services.llm_queue_service import LLMQueueService, QueueReorderPlan
 from models.track import Track
