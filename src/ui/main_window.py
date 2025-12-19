@@ -104,15 +104,14 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # 主要内容区域（侧边栏 + 内容）
-        content_widget = QWidget()
-        content_layout = QHBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(0)
+        # 使用 QSplitter 代替固定的 QHBoxLayout
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setHandleWidth(1) # 细分割线
+        self.splitter.setChildrenCollapsible(False)
         
         # 侧边栏
         sidebar = self._create_sidebar()
-        content_layout.addWidget(sidebar)
+        self.splitter.addWidget(sidebar)
         
         # 主内容区
         self.content_stack = QStackedWidget()
@@ -143,9 +142,17 @@ class MainWindow(QMainWindow):
         self.playlist_detail.back_requested.connect(lambda: self._switch_page(2))
         self.content_stack.addWidget(self.playlist_detail)
         
-        content_layout.addWidget(self.content_stack, 1)
+        self.splitter.addWidget(self.content_stack)
         
-        main_layout.addWidget(content_widget, 1)
+        # 设置 Splitter 比例
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        
+        # 恢复分割条位置
+        last_width = self.config.get("ui.sidebar_width", 240)
+        self.splitter.setSizes([last_width, 1000])
+
+        main_layout.addWidget(self.splitter, 1)
         
         # 底部播放控制栏
         self.player_controls = PlayerControls(self.player)
@@ -155,7 +162,7 @@ class MainWindow(QMainWindow):
         """创建侧边栏"""
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(220)  # 稍微加宽
+        sidebar.setMinimumWidth(200)  # 设置最小宽度
         
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(0, 24, 0, 24)
@@ -489,6 +496,8 @@ class MainWindow(QMainWindow):
         # 保存窗口大小
         self.config.set("ui.window_width", self.width())
         self.config.set("ui.window_height", self.height())
+        if hasattr(self, 'splitter'):
+             self.config.set("ui.sidebar_width", self.splitter.sizes()[0])
         self.config.save()
 
         try:

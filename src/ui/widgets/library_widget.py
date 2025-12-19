@@ -8,10 +8,11 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QTableView, QPushButton,
-    QLineEdit, QHeaderView, QAbstractItemView, QMenu
+    QLineEdit, QHeaderView, QAbstractItemView, QMenu,
+    QStyledItemDelegate
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import Qt, pyqtSignal, QRectF
+from PyQt6.QtGui import QAction, QPainter, QColor, QBrush, QPen
 from typing import List
 
 from models.track import Track
@@ -22,6 +23,64 @@ from services.tag_service import TagService
 from core.event_bus import EventBus, EventType
 from core.database import DatabaseManager
 from ui.models.track_table_model import TrackTableModel, TrackFilterProxyModel
+
+
+class TagDelegate(QStyledItemDelegate):
+    """
+    Renders tags as visual chips (rounded rectangles).
+    """
+    def paint(self, painter: QPainter, option, index):
+        if not index.isValid():
+            return
+            
+        tags_str = index.data()
+        if not tags_str:
+            return
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Setup area
+        rect = option.rect
+        
+        # Split tags
+        tags = [t.strip() for t in str(tags_str).split(',')]
+        
+        x_offset = rect.x()
+        y_offset = rect.y() + (rect.height() - 22) / 2 # Center vertically (22px chip height)
+        
+        for tag in tags:
+            if not tag: continue
+            
+            # Calculate width text
+            fm = painter.fontMetrics()
+            text_width = fm.horizontalAdvance(tag)
+            chip_width = text_width + 16 # Padding
+            chip_height = 22
+            
+            # Stop if overflowing cell width
+            if x_offset + chip_width > rect.right():
+                # Draw a small "..." indicator if possible or just stop
+                break 
+            
+            # Draw Chip Background
+            chip_rect = QRectF(x_offset, y_offset, chip_width, chip_height)
+            
+            # Deep purple chip color
+            bg_color = QColor(126, 87, 194, 40) # #7e57c2 with alpha
+            text_color = QColor(179, 157, 219) # #b39ddb
+            
+            painter.setBrush(QBrush(bg_color))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRoundedRect(chip_rect, 6, 6)
+            
+            # Draw Text
+            painter.setPen(text_color)
+            painter.drawText(chip_rect, Qt.AlignmentFlag.AlignCenter, tag)
+            
+            x_offset += chip_width + 6 # Gap between chips
+            
+        painter.restore()
 
 
 class LibraryWidget(QWidget):
@@ -113,7 +172,11 @@ class LibraryWidget(QWidget):
         
         # 性能优化：统一行高
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
-        self.table.verticalHeader().setDefaultSectionSize(36)
+        self.table.verticalHeader().setDefaultSectionSize(50) # 增加行高以容纳 Tag Chips
+        
+        # 设置 Tag 列的 Delegate (假设第3列是 Genre/Tags)
+        # 注意：需要确认 TrackTableModel 的列定义，通常 Genre 是第3列
+        self.table.setItemDelegateForColumn(3, TagDelegate(self.table))
         
         self.table.setStyleSheet("""
             QTableView {

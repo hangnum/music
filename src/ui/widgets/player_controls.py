@@ -35,7 +35,7 @@ class PlayerControls(QWidget):
         self._subscriptions: list = []  # 跟踪事件订阅ID
         
         self.setObjectName("playerBar")
-        self.setFixedHeight(90)
+        self.setFixedHeight(100)
         
         self._setup_ui()
         self._connect_signals()
