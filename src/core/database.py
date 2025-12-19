@@ -512,7 +512,18 @@ class DatabaseManager:
     
     @classmethod
     def reset_instance(cls) -> None:
-        """重置单例实例（仅用于测试）"""
+        """重置单例实例（仅用于测试）
+        
+        警告：此方法将在未来版本中移除。
+        请使用 AppContainerFactory.create_for_testing() 创建独立的测试实例。
+        """
+        import warnings
+        warnings.warn(
+            "DatabaseManager.reset_instance() is deprecated and will be removed. "
+            "Use AppContainerFactory.create_for_testing() for isolated test instances.",
+            FutureWarning,
+            stacklevel=2
+        )
         with cls._lock:
             if cls._instance is not None:
                 cls._instance.close()

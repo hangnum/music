@@ -26,10 +26,14 @@ def main():
     app.setApplicationName("Python Music Player")
     app.setApplicationVersion("1.0.0")
     
+    # 创建依赖容器（组合根）
+    from app.container_factory import AppContainerFactory
+    container = AppContainerFactory.create(use_qt_dispatcher=True)
+    
     # 导入主窗口（延迟导入避免循环依赖）
     from ui.main_window import MainWindow
     
-    window = MainWindow()
+    window = MainWindow(container)
     window.show()
     
     sys.exit(app.exec())
@@ -37,3 +41,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

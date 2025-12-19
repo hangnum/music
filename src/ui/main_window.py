@@ -4,7 +4,10 @@
 应用程序的主窗口，包含所有UI组件的布局。
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -28,13 +31,10 @@ from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
 from ui.dialogs.llm_queue_chat_dialog import LLMQueueChatDialog
 from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
 from ui.dialogs.audio_settings_dialog import AudioSettingsDialog
-from services.player_service import PlayerService
-from services.playlist_service import PlaylistService
-from services.library_service import LibraryService
-from services.config_service import ConfigService
-from services.queue_persistence_service import QueuePersistenceService
-from core.database import DatabaseManager
-from core.event_bus import EventBus, EventType
+from core.event_bus import EventType
+
+if TYPE_CHECKING:
+    from app.container import AppContainer
 
 
 class MainWindow(QMainWindow):
@@ -42,16 +42,35 @@ class MainWindow(QMainWindow):
     主窗口
     
     应用程序的入口界面。
+    
+    设计原则：
+    - MainWindow 持有 AppContainer，但子组件只接收 facade
+    - 禁止将 container 传递给子组件
     """
     
-    def __init__(self):
+    def __init__(self, container: "AppContainer"):
+        """初始化主窗口
+        
+        Args:
+            container: 应用依赖容器
+        """
         super().__init__()
         
         self.setWindowTitle("Python Music Player")
         self.setMinimumSize(1000, 700)
         
-        # 初始化服务
-        self._init_services()
+        # === 从容器获取服务引用 ===
+        self._container = container
+        self.config = container.config
+        self.db = container.db
+        self.event_bus = container.event_bus
+        self.facade = container.facade
+        
+        # 内部服务引用（用于需要直接访问的场景）
+        self.player = container._player
+        self.library = container._library
+        self.playlist_service = container._playlist_service
+        self.queue_persistence = container._queue_persistence
         
         # 加载样式
         self._load_styles()
@@ -76,17 +95,7 @@ class MainWindow(QMainWindow):
         
         # 恢复窗口状态
         self._restore_state()
-    
-    def _init_services(self):
-        """初始化服务"""
-        self.config = ConfigService("config/default_config.yaml")
-        self.db = DatabaseManager()
-        self.player = PlayerService()
-        self.playlist_service = PlaylistService(self.db)
-        self.library = LibraryService(self.db)
-        self.event_bus = EventBus()
-        self.queue_persistence = QueuePersistenceService(db=self.db, config=self.config, event_bus=self.event_bus)
-        self.queue_persistence.attach(self.player)
+
     
     def _load_styles(self):
         """加载样式表"""

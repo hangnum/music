@@ -1,7 +1,13 @@
+# -*- coding: utf-8 -*-
 """
 事件总线模块 - 发布订阅模式实现
 
 提供模块间松耦合的通信机制。
+
+设计说明：
+- 这是纯 Python 实现，不依赖任何 UI 框架
+- Qt 主线程派发已移至 ui/qt_event_bus.py 的 QtEventBusAdapter
+- 如需在 Qt 环境中使用，请使用 AppContainerFactory 创建的适配器
 """
 
 from typing import Dict, Callable, Any, Optional
@@ -12,14 +18,6 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
-
-try:
-    from PyQt6.QtCore import QObject, pyqtSignal, Qt, QCoreApplication
-except Exception:  # PyQt6 may be unavailable in non-UI environments
-    QObject = None  # type: ignore[assignment]
-    pyqtSignal = None  # type: ignore[assignment]
-    Qt = None  # type: ignore[assignment]
-    QCoreApplication = None  # type: ignore[assignment]
 
 
 class EventType(Enum):
@@ -60,6 +58,9 @@ class EventBus:
     
     提供发布-订阅模式的事件系统，支持异步事件处理。
     
+    注意：这是纯 Python 实现。如需在 Qt UI 中使用（确保回调在主线程执行），
+    请通过 AppContainerFactory 获取 QtEventBusAdapter 包装后的实例。
+    
     使用示例:
         event_bus = EventBus()
         
@@ -93,41 +94,14 @@ class EventBus:
         
         self._subscribers: Dict[EventType, Dict[str, Callable]] = {}
         self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="EventBus")
-        self._lock = threading.Lock()
-
-        # If a Qt application exists, dispatch callbacks onto the Qt main thread.
-        # This prevents crashes/hangs caused by updating Qt widgets from worker threads.
-        self._qt_dispatcher = None
-        self._qt_thread = None
-        self._ensure_qt_dispatcher()
-
+        self._sub_lock = threading.Lock()
         self._initialized = True
-
-    def _ensure_qt_dispatcher(self) -> None:
-        """Initialize Qt dispatcher if a Qt app is running."""
-        if self._qt_dispatcher is not None:
-            return
-        if QCoreApplication is None or QObject is None or pyqtSignal is None:
-            return
-        app = QCoreApplication.instance()
-        if app is None:
-            return
-
-        try:
-            dispatcher = _QtDispatcher()
-            qt_thread = app.thread()
-            try:
-                dispatcher.moveToThread(qt_thread)
-            except Exception:
-                pass
-            self._qt_dispatcher = dispatcher
-            self._qt_thread = qt_thread
-        except Exception:
-            self._qt_dispatcher = None
-            self._qt_thread = None
     
-    def subscribe(self, event_type: EventType, 
-                  callback: Callable[[Any], None]) -> str:
+    def subscribe(
+        self, 
+        event_type: EventType, 
+        callback: Callable[[Any], None]
+    ) -> str:
         """
         订阅事件
         
@@ -140,7 +114,7 @@ class EventBus:
         """
         subscription_id = str(uuid.uuid4())
         
-        with self._lock:
+        with self._sub_lock:
             if event_type not in self._subscribers:
                 self._subscribers[event_type] = {}
             self._subscribers[event_type][subscription_id] = callback
@@ -157,7 +131,7 @@ class EventBus:
         Returns:
             bool: 是否成功取消
         """
-        with self._lock:
+        with self._sub_lock:
             for event_type in self._subscribers:
                 if subscription_id in self._subscribers[event_type]:
                     del self._subscribers[event_type][subscription_id]
@@ -168,19 +142,17 @@ class EventBus:
         """
         异步发布事件
         
+        回调函数将在线程池中异步执行。
+        
         Args:
             event_type: 事件类型
             data: 事件数据
         """
-        with self._lock:
+        with self._sub_lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
 
-        self._ensure_qt_dispatcher()
         for callback in callbacks:
-            if self._qt_dispatcher is not None:
-                self._qt_dispatcher.dispatch.emit(callback, data)
-            else:
-                self._executor.submit(self._safe_call, callback, data)
+            self._executor.submit(self._safe_call, callback, data)
     
     def publish_sync(
         self,
@@ -191,46 +163,23 @@ class EventBus:
         """
         同步发布事件
         
+        在当前线程中同步执行所有回调。
+        
         Args:
             event_type: 事件类型
             data: 事件数据
-            timeout: Wait seconds for Qt-thread callbacks; None to wait indefinitely.
+            timeout: 此参数保留以兼容接口，在纯 Python 实现中不使用
 
         Returns:
-            bool: True if all callbacks finished before timeout.
+            bool: 始终返回 True（同步执行无超时问题）
         """
-        with self._lock:
+        with self._sub_lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
 
-        self._ensure_qt_dispatcher()
-        all_completed = True
         for callback in callbacks:
-            if self._qt_dispatcher is not None and self._qt_thread is not None:
-                # If we're not on the Qt thread, queue and block until done.
-                current_qt_thread = None
-                if Qt is not None:
-                    try:
-                        from PyQt6.QtCore import QThread
-                        current_qt_thread = QThread.currentThread()
-                    except Exception:
-                        current_qt_thread = None
-
-                if current_qt_thread is not None and current_qt_thread != self._qt_thread:
-                    done = threading.Event()
-                    self._qt_dispatcher.dispatch_sync.emit(callback, data, done)
-                    if timeout is None:
-                        completed = done.wait()
-                    else:
-                        completed = done.wait(timeout=timeout)
-                    if not completed:
-                        logger.warning("EventBus.publish_sync timed out waiting for callback: %s", callback)
-                        all_completed = False
-                else:
-                    self._safe_call(callback, data)
-            else:
-                self._safe_call(callback, data)
+            self._safe_call(callback, data)
     
-        return all_completed
+        return True
 
     def _safe_call(self, callback: Callable, data: Any) -> None:
         """安全调用回调函数"""
@@ -238,11 +187,11 @@ class EventBus:
             callback(data)
         except Exception as e:
             # 避免循环：不使用publish发布错误事件
-            logger.error("回调执行错误: %s", e)
+            logger.error("事件回调执行错误: %s", e)
     
     def clear(self) -> None:
         """清除所有订阅"""
-        with self._lock:
+        with self._sub_lock:
             self._subscribers.clear()
     
     def shutdown(self) -> None:
@@ -251,36 +200,19 @@ class EventBus:
     
     @classmethod
     def reset_instance(cls) -> None:
-        """重置单例实例（仅用于测试）"""
+        """重置单例实例（仅用于测试）
+        
+        警告：此方法将在未来版本中移除。
+        请使用 AppContainerFactory.create_for_testing() 创建独立的测试实例。
+        """
+        import warnings
+        warnings.warn(
+            "EventBus.reset_instance() is deprecated and will be removed. "
+            "Use AppContainerFactory.create_for_testing() for isolated test instances.",
+            FutureWarning,
+            stacklevel=2
+        )
         with cls._lock:
             if cls._instance is not None:
                 cls._instance.shutdown()
                 cls._instance = None
-
-
-if QObject is not None and pyqtSignal is not None:
-    class _QtDispatcher(QObject):
-        dispatch = pyqtSignal(object, object)           # callback, data
-        dispatch_sync = pyqtSignal(object, object, object)  # callback, data, threading.Event
-
-        def __init__(self):
-            super().__init__()
-            self.dispatch.connect(self._on_dispatch, Qt.ConnectionType.QueuedConnection)
-            self.dispatch_sync.connect(self._on_dispatch_sync, Qt.ConnectionType.QueuedConnection)
-
-        def _on_dispatch(self, callback: Callable, data: Any) -> None:
-            try:
-                callback(data)
-            except Exception as e:
-                logger.error("回调执行错误: %s", e)
-
-        def _on_dispatch_sync(self, callback: Callable, data: Any, done: threading.Event) -> None:
-            try:
-                callback(data)
-            except Exception as e:
-                logger.error("回调执行错误: %s", e)
-            finally:
-                try:
-                    done.set()
-                except Exception:
-                    pass

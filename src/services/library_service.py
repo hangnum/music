@@ -41,7 +41,20 @@ class LibraryService:
     """
     
     def __init__(self, db: Optional[DatabaseManager] = None):
-        self._db = db or DatabaseManager()
+        import warnings
+        
+        if db is None:
+            # 发出废弃警告：内部创建依赖的模式将被移除
+            warnings.warn(
+                "Creating DatabaseManager internally in LibraryService is deprecated. "
+                "Use AppContainerFactory.create() to get a properly configured LibraryService instance. "
+                "This fallback will be removed in a future version.",
+                FutureWarning,
+                stacklevel=2
+            )
+            db = DatabaseManager()
+        
+        self._db = db
         self._event_bus = EventBus()
         self._scan_thread: Optional[threading.Thread] = None
         self._stop_scan = threading.Event()

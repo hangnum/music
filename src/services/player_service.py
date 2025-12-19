@@ -57,9 +57,20 @@ class PlayerService:
     """
     
     def __init__(self, audio_engine: Optional[AudioEngineBase] = None):
+        import warnings
+        
         if audio_engine:
             self._engine = audio_engine
         else:
+            # 发出废弃警告：内部创建依赖的模式将被移除
+            warnings.warn(
+                "Creating AudioEngine internally in PlayerService is deprecated. "
+                "Use AppContainerFactory.create() to get a properly configured PlayerService instance. "
+                "This fallback will be removed in a future version.",
+                FutureWarning,
+                stacklevel=2
+            )
+            
             # 使用工厂模式创建引擎
             from core.engine_factory import AudioEngineFactory
             try:
