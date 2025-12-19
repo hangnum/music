@@ -15,7 +15,7 @@ import threading
 import time
 from typing import Optional, List, Any, TYPE_CHECKING
 
-from core.audio_engine import AudioEngineBase, PlayerState
+from core.audio_engine import AudioEngineBase, PlayerState, PlaybackEndInfo
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,13 @@ class VLCEngine(AudioEngineBase):
             self._playback_started = False
 
         if self._on_end_callback:
-            self._on_end_callback()
+            self._on_end_callback(
+                PlaybackEndInfo(
+                    ended_file=self._current_file,
+                    next_file=None,
+                    reason="ended",
+                )
+            )
 
     def load(self, file_path: str) -> bool:
         """加载音频文件"""
@@ -307,31 +313,46 @@ class VLCEngine(AudioEngineBase):
             self._crossfade_active = False
 
     def _finalize_crossfade(self) -> None:
-        """完成 crossfade，切换到新曲目"""
+        """Finalize crossfade and switch to the new track."""
+        ended_file = None
+        next_file = None
+
         with self._lock:
-            # 停止主播放器
+            ended_file = self._current_file
+            next_file = self._next_file
+
+            # Stop main player.
             self._player.stop()
-            
-            # 交换播放器角色
+
+            # Swap players/media.
             self._player, self._crossfade_player = self._crossfade_player, self._player
             self._media, self._crossfade_media = self._next_media, self._media
-            
-            # 更新状态
+
+            # Update state.
             self._current_file = self._next_file
             self._duration_ms = self._media.get_duration() if self._media else 0
-            
-            # 清理
+
+            # Cleanup.
             self._next_media = None
             self._next_file = None
             self._crossfade_active = False
-            
-            # 恢复正常音量
+
+            # Restore volume.
             self._apply_volume(self._player)
-            
-            # 重新绑定事件
+
+            # Rebind events.
             self._setup_event_callbacks()
-            
-            logger.debug("Crossfade 完成，切换到新曲目")
+
+            logger.debug("Crossfade complete, switched to new track")
+
+        if self._on_end_callback and next_file:
+            self._on_end_callback(
+                PlaybackEndInfo(
+                    ended_file=ended_file,
+                    next_file=next_file,
+                    reason="auto_advance",
+                )
+            )
 
     def _stop_crossfade(self) -> None:
         """停止 crossfade 过程"""
@@ -415,19 +436,25 @@ class VLCEngine(AudioEngineBase):
     def supports_replay_gain(self) -> bool:
         return True
 
-    def set_next_track(self, file_path: str) -> bool:
-        """预加载下一曲"""
+    def set_next_track(self, file_path: Optional[str]) -> bool:
+        """Preload next track."""
+        if not file_path:
+            self._stop_crossfade()
+            self._next_media = None
+            self._next_file = None
+            return True
+
         try:
             self._next_media = self._instance.media_new(file_path)
             self._next_file = file_path
-            
-            # 如果正在播放且启用了 crossfade，启动监控
+
+            # If playing and crossfade is enabled, start monitoring.
             if self._state == PlayerState.PLAYING and self._crossfade_duration_ms > 0:
                 self._start_crossfade_monitor()
-            
+
             return True
         except Exception as e:
-            logger.warning("预加载下一曲失败: %s", e)
+            logger.warning("Preload next track failed: %s", e)
             return False
 
     def set_crossfade_duration(self, duration_ms: int) -> None:

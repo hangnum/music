@@ -199,15 +199,9 @@ class DatabaseManager:
                     time.sleep(retry_delay * (i + 1))  # Exponential-ish backoff
                     continue
                 raise
-
-        if is_write:
-            with self._write_lock:
-                cursor = self._conn.execute(sql, params)
-                if not in_transaction:
-                    self._conn.commit()
-        else:
-            cursor = self._conn.execute(sql, params)
-        return cursor
+        
+        # 如果所有重试都失败，最后一次异常会被 raise
+        # (正常情况下不会执行到这里，因为最后一次失败会 raise)
     
     def execute_many(self, sql: str, params_list: List[tuple]) -> None:
         """批量执行SQL语句"""

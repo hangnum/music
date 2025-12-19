@@ -11,7 +11,7 @@ import random
 import logging
 import threading
 
-from core.audio_engine import AudioEngineBase, PlayerState
+from core.audio_engine import AudioEngineBase, PlayerState, PlaybackEndInfo
 from core.event_bus import EventBus, EventType
 from models.track import Track
 
@@ -74,6 +74,8 @@ class PlayerService:
             logger.info("PlayerService 使用音频后端: %s", self._engine.get_engine_name())
         
         self._event_bus = EventBus()
+        self._engine.set_on_end(self._on_engine_end)
+        self._engine.set_on_error(self._on_error)
         
         # 线程安全锁（保护队列和索引访问）
         self._lock = threading.RLock()
@@ -91,24 +93,9 @@ class PlayerService:
         self._history: List[int] = []
     
     def check_playback_ended(self) -> bool:
-        """
-        检查播放是否结束，如果结束则自动播放下一曲
-        
-        由主线程定期调用（如Qt定时器），确保线程安全。
-        
-        Returns:
-            bool: 是否检测到播放结束
-        """
-        if self._engine.check_if_ended():
-            self._event_bus.publish_sync(EventType.TRACK_ENDED, {
-                "track": self.current_track,
-                "reason": "ended"
-            })
-            # 自动播放下一曲
-            self.next_track()
-            return True
-        return False
-    
+        """Check whether playback has ended."""
+        return self._engine.check_if_ended()
+
     @property
     def state(self) -> PlaybackState:
         """获取当前播放状态"""
@@ -165,14 +152,16 @@ class PlayerService:
             
             self._history.clear()
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
-    
+        self._update_next_track_preload()
+
     def add_to_queue(self, track: Track) -> None:
         """添加曲目到队列末尾"""
         with self._lock:
             self._queue.append(track)
             self._shuffle_indices.append(len(self._queue) - 1)
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
-    
+        self._update_next_track_preload()
+
     def insert_next(self, track: Track) -> None:
         """插入曲目到当前曲目之后"""
         with self._lock:
@@ -185,7 +174,9 @@ class PlayerService:
                 random.shuffle(self._shuffle_indices)
         
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
-    
+        
+        self._update_next_track_preload()
+
     def remove_from_queue(self, index: int) -> bool:
         """
         从队列移除曲目
@@ -213,6 +204,8 @@ class PlayerService:
                     random.shuffle(self._shuffle_indices)
                 
                 self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
+                
+                self._update_next_track_preload()
                 return True
             return False
     
@@ -225,7 +218,8 @@ class PlayerService:
             self._shuffle_indices.clear()
             self._history.clear()
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
-    
+        self._update_next_track_preload()
+
     def play(self, track: Optional[Track] = None) -> bool:
         """
         播放曲目
@@ -237,9 +231,13 @@ class PlayerService:
             bool: 是否成功播放
         """
         if track:
-            # 查找或添加到队列
-            if track in self._queue:
-                self._current_index = self._queue.index(track)
+            # P1-4 修复：使用 file_path 作为稳定键判重，而非依赖 dataclass 默认相等性
+            existing_index = next(
+                (i for i, t in enumerate(self._queue) if t.file_path == track.file_path),
+                None
+            )
+            if existing_index is not None:
+                self._current_index = existing_index
             else:
                 self._queue.append(track)
                 self._current_index = len(self._queue) - 1
@@ -258,6 +256,7 @@ class PlayerService:
                     self._history.pop(0)
                 
                 self._event_bus.publish_sync(EventType.TRACK_STARTED, current)
+                self._update_next_track_preload()
                 return True
         
         return False
@@ -287,7 +286,9 @@ class PlayerService:
         """停止播放"""
         current = self.current_track
         self._engine.stop()
-        self._event_bus.publish_sync(EventType.TRACK_ENDED, {
+        self._engine.set_next_track(None)
+        # P1-5 修复：使用 PLAYBACK_STOPPED 而非 TRACK_ENDED，避免误触发自动切歌逻辑
+        self._event_bus.publish_sync(EventType.PLAYBACK_STOPPED, {
             "track": current,
             "reason": "stopped"
         })
@@ -354,7 +355,8 @@ class PlayerService:
                 current_shuffle_pos = self._shuffle_indices.index(self._current_index)
                 if current_shuffle_pos < len(self._shuffle_indices) - 1:
                     return self._shuffle_indices[current_shuffle_pos + 1]
-                elif self._play_mode == PlayMode.REPEAT_ALL:
+                else:
+                    # Shuffle 到末尾，重新 shuffle 并循环播放
                     random.shuffle(self._shuffle_indices)
                     return self._shuffle_indices[0]
             except ValueError:
@@ -370,6 +372,32 @@ class PlayerService:
         
         return None
     
+    def _find_track_index_by_file(self, file_path: str) -> Optional[int]:
+        """Find queue index by file path."""
+        with self._lock:
+            for i, track in enumerate(self._queue):
+                if track.file_path == file_path:
+                    return i
+        return None
+
+    def _update_next_track_preload(self) -> None:
+        """Preload next track for engines that support gapless/crossfade."""
+        if not hasattr(self._engine, "set_next_track"):
+            return
+
+        if not self.is_playing:
+            self._engine.set_next_track(None)
+            return
+
+        with self._lock:
+            next_index = self._get_next_index()
+            if next_index is None or not (0 <= next_index < len(self._queue)):
+                next_path = None
+            else:
+                next_path = self._queue[next_index].file_path
+
+        self._engine.set_next_track(next_path)
+
     def seek(self, position_ms: int) -> None:
         """
         跳转到指定位置
@@ -409,6 +437,7 @@ class PlayerService:
         if mode == PlayMode.SHUFFLE:
             self._shuffle_indices = list(range(len(self._queue)))
             random.shuffle(self._shuffle_indices)
+        self._update_next_track_preload()
     
     def get_play_mode(self) -> PlayMode:
         """获取播放模式"""
@@ -422,16 +451,34 @@ class PlayerService:
         self.set_play_mode(modes[next_idx])
         return self._play_mode
     
-    def _on_track_end(self) -> None:
-        """曲目播放结束回调"""
-        self._event_bus.publish_sync(EventType.TRACK_ENDED, {
-            "track": self.current_track,
-            "reason": "ended"
-        })
-        
-        # 自动播放下一曲（单曲循环在_get_next_index中处理）
+    def _on_engine_end(self, info: PlaybackEndInfo) -> None:
+        """Handle playback end from the engine."""
+        ended_track = self.current_track
+        if ended_track:
+            self._event_bus.publish_sync(EventType.TRACK_ENDED, {
+                "track": ended_track,
+                "reason": info.reason,
+            })
+
+        if info.next_file:
+            next_index = self._find_track_index_by_file(info.next_file)
+            if next_index is None:
+                logger.warning("Auto-advanced track not found in queue: %s", info.next_file)
+                return
+
+            with self._lock:
+                self._current_index = next_index
+                self._history.append(next_index)
+                if len(self._history) > 100:
+                    self._history.pop(0)
+
+            self._event_bus.publish_sync(EventType.TRACK_STARTED, self.current_track)
+            self._update_next_track_preload()
+            return
+
+        # No auto-advance from engine; fall back to PlayerService queue logic.
         self.next_track()
-    
+
     def _on_error(self, error: str) -> None:
         """错误回调"""
         self._event_bus.publish_sync(EventType.ERROR_OCCURRED, {

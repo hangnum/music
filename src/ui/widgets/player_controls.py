@@ -218,6 +218,9 @@ class PlayerControls(QWidget):
         self._subscriptions.append(
             self.event_bus.subscribe(EventType.TRACK_ENDED, self._on_track_ended)
         )
+        self._subscriptions.append(
+            self.event_bus.subscribe(EventType.PLAYBACK_STOPPED, self._on_playback_stopped)
+        )
     
     def cleanup(self):
         """清理事件订阅（应在组件销毁前调用）"""
@@ -347,6 +350,10 @@ class PlayerControls(QWidget):
     
     def _on_track_ended(self, _=None):
         """曲目结束"""
+        self._update_play_button()
+
+    def _on_playback_stopped(self, _=None):
+        """Playback stopped."""
         self._update_play_button()
     
     def _update_play_button(self):

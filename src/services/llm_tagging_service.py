@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
@@ -99,6 +100,11 @@ class LLMTaggingService:
             self._client = create_llm_provider(self._config)
         
         self._stop_flag: Dict[str, bool] = {}
+        # Run tagging jobs in a background thread to avoid blocking UI.
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="LLMTagging"
+        )
+        self._running_futures: Dict[str, concurrent.futures.Future] = {}
     
     def start_tagging_job(
         self,
@@ -135,30 +141,54 @@ class LLMTaggingService:
             "status": "running",
             "started_at": datetime.now().isoformat(),
         })
-        
         self._stop_flag[job_id] = False
-        
+
+        future = self._executor.submit(
+            self._run_tagging_job_wrapper,
+            job_id,
+            untagged_ids,
+            batch_size,
+            tags_per_track,
+            progress_callback,
+        )
+        self._running_futures[job_id] = future
+
+        return job_id
+
+    def _run_tagging_job_wrapper(
+        self,
+        job_id: str,
+        track_ids: List[str],
+        batch_size: int,
+        tags_per_track: int,
+        progress_callback: Optional[Callable[[int, int], None]],
+    ) -> None:
+        """Run tagging job in a background thread."""
         try:
-            self._process_tagging_job(
+            stopped = self._process_tagging_job(
                 job_id=job_id,
-                track_ids=untagged_ids,
+                track_ids=track_ids,
                 batch_size=batch_size,
                 tags_per_track=tags_per_track,
                 progress_callback=progress_callback,
             )
-            
-            # 标记完成
-            self._db.update(
-                "llm_tagging_jobs",
-                {
-                    "status": "completed",
-                    "completed_at": datetime.now().isoformat(),
-                },
-                "id = ?",
-                (job_id,)
-            )
+
+            if stopped:
+                self._db.update(
+                    "llm_tagging_jobs",
+                    {"status": "stopped", "completed_at": datetime.now().isoformat()},
+                    "id = ?",
+                    (job_id,)
+                )
+            else:
+                self._db.update(
+                    "llm_tagging_jobs",
+                    {"status": "completed", "completed_at": datetime.now().isoformat()},
+                    "id = ?",
+                    (job_id,)
+                )
         except Exception as e:
-            logger.error("标注任务失败: %s", e)
+            logger.error("Tagging job failed: %s", e)
             self._db.update(
                 "llm_tagging_jobs",
                 {
@@ -169,11 +199,11 @@ class LLMTaggingService:
                 "id = ?",
                 (job_id,)
             )
-            raise
         finally:
             self._stop_flag.pop(job_id, None)
-        
-        return job_id
+            self._running_futures.pop(job_id, None)
+
+
     
     def _process_tagging_job(
         self,
@@ -182,60 +212,74 @@ class LLMTaggingService:
         batch_size: int,
         tags_per_track: int,
         progress_callback: Optional[Callable[[int, int], None]],
-    ) -> None:
-        """处理标注任务"""
+    ) -> bool:
+        """Process tagging job."""
         total = len(track_ids)
         processed = 0
-        
+
         for i in range(0, total, batch_size):
-            # 检查停止标志
             if self._stop_flag.get(job_id, False):
+                logger.info("Tagging job stopped: %s", job_id)
+                return True
+
+            batch_ids = track_ids[i:i + batch_size]
+            batch_tracks = list(self._library_service.get_tracks_by_ids(batch_ids))
+
+            if not batch_tracks:
+                continue
+
+            try:
+                tags_result = self._request_tags_for_batch(batch_tracks, tags_per_track)
+            except Exception as e:
+                logger.warning("Batch processing failed, skipping: %s", e)
+                processed += len(batch_ids)
                 self._db.update(
                     "llm_tagging_jobs",
-                    {"status": "stopped"},
+                    {"processed_tracks": processed},
                     "id = ?",
                     (job_id,)
                 )
-                logger.info("标注任务已停止: %s", job_id)
-                return
-            
-            batch_ids = track_ids[i:i + batch_size]
-            batch_tracks = list(self._library_service.get_tracks_by_ids(batch_ids))
-            
-            if not batch_tracks:
+                if progress_callback:
+                    progress_callback(processed, total)
                 continue
-            
-            # 构建批量标注请求
-            try:
-                tags_result = self._request_tags_for_batch(batch_tracks, tags_per_track)
-                
-                # 应用标签
-                for track_id, tags in tags_result.items():
-                    if tags:
-                        self._tag_service.batch_add_tags_to_track(
-                            track_id=track_id,
-                            tag_names=tags,
-                            source="llm"
-                        )
+
+            for track_id in batch_ids:
+                if self._stop_flag.get(job_id, False):
+                    logger.info("Tagging job stopped: %s", job_id)
+                    self._db.update(
+                        "llm_tagging_jobs",
+                        {"processed_tracks": processed},
+                        "id = ?",
+                        (job_id,)
+                    )
+                    if progress_callback:
+                        progress_callback(processed, total)
+                    return True
+
+                tags = tags_result.get(track_id, [])
+                if tags:
+                    self._tag_service.batch_add_tags_to_track(
+                        track_id=track_id,
+                        tag_names=tags,
+                        source="llm"
+                    )
                     self._tag_service.mark_track_as_tagged(track_id, job_id)
-                
-            except Exception as e:
-                logger.warning("批次处理失败，跳过: %s", e)
-            
-            processed += len(batch_ids)
-            
-            # 更新进度
+                processed += 1
+
             self._db.update(
                 "llm_tagging_jobs",
                 {"processed_tracks": processed},
                 "id = ?",
                 (job_id,)
             )
-            
+
             if progress_callback:
                 progress_callback(processed, total)
-    
+
+        return False
+
     def _request_tags_for_batch(
+
         self,
         tracks: List[Any],
         tags_per_track: int,
@@ -407,6 +451,20 @@ class LLMTaggingService:
             self._stop_flag[job_id] = True
             return True
         return False
+
+    def wait_for_job(self, job_id: str, timeout: Optional[float] = None) -> bool:
+        """Wait for a tagging job to finish."""
+        future = self._running_futures.get(job_id)
+        if future is None:
+            return True
+
+        try:
+            future.result(timeout=timeout)
+            return True
+        except concurrent.futures.TimeoutError:
+            return False
+        except Exception:
+            return True
     
     def get_tagging_stats(self) -> Dict[str, Any]:
         """

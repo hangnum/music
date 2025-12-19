@@ -29,6 +29,7 @@ class EventType(Enum):
     TRACK_LOADED = "track_loaded"
     TRACK_STARTED = "track_started"
     TRACK_ENDED = "track_ended"
+    PLAYBACK_STOPPED = "playback_stopped"  # 手动停止（区分自然结束）
     TRACK_PAUSED = "track_paused"
     TRACK_RESUMED = "track_resumed"
     POSITION_CHANGED = "position_changed"
@@ -207,7 +208,11 @@ class EventBus:
                 if current_qt_thread is not None and current_qt_thread != self._qt_thread:
                     done = threading.Event()
                     self._qt_dispatcher.dispatch_sync.emit(callback, data, done)
-                    done.wait(timeout=5)
+                    if not done.wait(timeout=5):
+                        logger.warning(
+                            "EventBus.publish_sync 超时，回调未在 5 秒内完成: %s",
+                            callback
+                        )
                 else:
                     self._safe_call(callback, data)
             else:

@@ -14,7 +14,7 @@ import math
 import array
 from typing import Optional, List
 
-from core.audio_engine import AudioEngineBase, PlayerState
+from core.audio_engine import AudioEngineBase, PlayerState, PlaybackEndInfo
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +264,7 @@ class MiniaudioEngine(AudioEngineBase):
         # 下一曲预加载 (gapless)
         self._next_file: Optional[str] = None
         self._next_decoded: Optional[miniaudio.DecodedSoundFile] = None
+        self._next_crossfade_allowed: bool = True
 
         # 线程锁
         self._lock = threading.Lock()
@@ -287,6 +288,30 @@ class MiniaudioEngine(AudioEngineBase):
             logger.error("miniaudio 设备初始化失败: %s", e)
             self._state = PlayerState.ERROR
 
+    def _reinit_device_if_needed(self, target_sample_rate: int) -> None:
+        """如果采样率变化，重建播放设备以匹配音源采样率"""
+        if self._sample_rate == target_sample_rate:
+            return
+        
+        if self._device:
+            try:
+                self._device.close()
+            except Exception:
+                pass
+        
+        try:
+            self._device = miniaudio.PlaybackDevice(
+                output_format=miniaudio.SampleFormat.FLOAT32,
+                nchannels=2,
+                sample_rate=target_sample_rate,
+            )
+            self._sample_rate = target_sample_rate
+            self._eq_processor.set_sample_rate(target_sample_rate)
+            logger.info("miniaudio 设备重建，采样率: %d", target_sample_rate)
+        except Exception as e:
+            logger.error("miniaudio 设备重建失败: %s", e)
+            self._state = PlayerState.ERROR
+
     def load(self, file_path: str) -> bool:
         """加载音频文件"""
         try:
@@ -301,6 +326,9 @@ class MiniaudioEngine(AudioEngineBase):
                     output_format=miniaudio.SampleFormat.FLOAT32,
                     nchannels=2,
                 )
+
+                # 检查并重建设备以匹配音源采样率（P0-2 修复）
+                self._reinit_device_if_needed(self._decoded_audio.sample_rate)
 
                 self._current_file = file_path
                 self._sample_rate = self._decoded_audio.sample_rate
@@ -406,7 +434,8 @@ class MiniaudioEngine(AudioEngineBase):
                 # 检查是否在 crossfade 区域
                 in_crossfade = (crossfade_frames > 0 and 
                                position >= crossfade_start_frame and 
-                               engine._next_decoded is not None)
+                               engine._next_decoded is not None and 
+                               engine._next_crossfade_allowed)
 
                 # 1. 应用 EQ 处理（crossfade 期间跳过，由 _apply_crossfade 统一处理）
                 if eq_processor.enabled and not in_crossfade:
@@ -517,19 +546,32 @@ class MiniaudioEngine(AudioEngineBase):
         return result
 
     def _on_playback_finished(self) -> None:
-        """播放结束处理"""
-        had_crossfade = False
-        
+        """Playback finished handling."""
+        ended_file = None
+        next_file = None
+        auto_advanced = False
+
         with self._lock:
+            ended_file = self._current_file
             self._state = PlayerState.STOPPED
             self._playback_started = False
             self._is_crossfading = False
 
-            # 如果有预加载的下一曲，切换到它
             if self._next_decoded is not None:
-                had_crossfade = self._crossfade_duration_ms > 0
-                self._decoded_audio = self._next_decoded
-                self._current_file = self._next_file
+                next_decoded = self._next_decoded
+                next_file = self._next_file
+                had_crossfade = self._crossfade_duration_ms > 0 and self._next_crossfade_allowed
+
+                # Clear preloaded state before switching.
+                self._next_decoded = None
+                self._next_file = None
+                self._next_crossfade_allowed = True
+
+                # Reinit device if needed to match the next track sample rate.
+                self._reinit_device_if_needed(next_decoded.sample_rate)
+
+                self._decoded_audio = next_decoded
+                self._current_file = next_file
                 self._sample_rate = self._decoded_audio.sample_rate
                 self._channels = self._decoded_audio.nchannels
                 self._duration_ms = int(
@@ -538,26 +580,34 @@ class MiniaudioEngine(AudioEngineBase):
                     / self._sample_rate
                     * 1000
                 )
-                
-                # 如果有 crossfade，位置应该从 crossfade 长度开始
-                if had_crossfade:
-                    self._position_samples = self._crossfade_samples
-                else:
-                    self._position_samples = 0
-                
-                self._next_decoded = None
-                self._next_file = None
 
-                # 继续播放下一曲
+                # Align position if crossfade already played part of the next track.
+                self._position_samples = self._crossfade_samples if had_crossfade else 0
+
+                # Refresh EQ and crossfade values for the new track.
+                self._eq_processor.set_sample_rate(self._sample_rate)
                 self._eq_processor.reset()
+                self._crossfade_samples = int(
+                    self._crossfade_duration_ms / 1000.0 * self._sample_rate
+                )
+
+                # Continue playback with the next track.
                 stream = self._create_stream()
-                self._device.start(stream)
-                self._state = PlayerState.PLAYING
-                self._playback_started = True
-                return
+                if self._device:
+                    self._device.start(stream)
+                    self._state = PlayerState.PLAYING
+                    self._playback_started = True
+                    auto_advanced = True
 
         if self._on_end_callback:
-            self._on_end_callback()
+            reason = "auto_advance" if auto_advanced else "ended"
+            self._on_end_callback(
+                PlaybackEndInfo(
+                    ended_file=ended_file,
+                    next_file=next_file if auto_advanced else None,
+                    reason=reason,
+                )
+            )
 
     def pause(self) -> None:
         """暂停播放"""
@@ -643,19 +693,38 @@ class MiniaudioEngine(AudioEngineBase):
     def supports_replay_gain(self) -> bool:
         return True
 
-    def set_next_track(self, file_path: str) -> bool:
-        """预加载下一曲（Gapless Playback / Crossfade）"""
+    def set_next_track(self, file_path: Optional[str]) -> bool:
+        """Preload next track for gapless/crossfade playback."""
+        if not file_path:
+            self._next_decoded = None
+            self._next_file = None
+            self._next_crossfade_allowed = True
+            return True
+
         try:
-            self._next_decoded = miniaudio.decode_file(
+            decoded = miniaudio.decode_file(
                 file_path,
                 output_format=miniaudio.SampleFormat.FLOAT32,
                 nchannels=2,
             )
+            self._next_decoded = decoded
             self._next_file = file_path
-            logger.debug("预加载下一曲: %s", file_path)
+
+            # Avoid crossfade mixing when sample rates differ.
+            self._next_crossfade_allowed = (
+                self._sample_rate == decoded.sample_rate
+            )
+            if self._crossfade_duration_ms > 0 and not self._next_crossfade_allowed:
+                logger.info(
+                    "Crossfade disabled due to sample rate mismatch: %d -> %d",
+                    self._sample_rate,
+                    decoded.sample_rate,
+                )
+
+            logger.debug("Preloaded next track: %s", file_path)
             return True
         except Exception as e:
-            logger.warning("预加载下一曲失败: %s", e)
+            logger.warning("Preload next track failed: %s", e)
             return False
 
     def set_crossfade_duration(self, duration_ms: int) -> None:

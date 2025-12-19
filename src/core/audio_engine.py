@@ -6,6 +6,7 @@
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Optional, Callable, List
 from enum import Enum
 import threading
@@ -24,6 +25,14 @@ class PlayerState(Enum):
     ERROR = "error"         # 错误
 
 
+@dataclass(frozen=True)
+class PlaybackEndInfo:
+    """Playback end info."""
+    ended_file: Optional[str]
+    next_file: Optional[str] = None
+    reason: str = "ended"
+
+
 class AudioEngineBase(ABC):
     """
     音频引擎抽象基类
@@ -35,7 +44,7 @@ class AudioEngineBase(ABC):
         self._state: PlayerState = PlayerState.IDLE
         self._volume: float = 1.0
         self._current_file: Optional[str] = None
-        self._on_end_callback: Optional[Callable] = None
+        self._on_end_callback: Optional[Callable[[PlaybackEndInfo], None]] = None
         self._on_error_callback: Optional[Callable[[str], None]] = None
     
 
@@ -155,7 +164,7 @@ class AudioEngineBase(ABC):
         """
         pass
     
-    def set_on_end(self, callback: Callable) -> None:
+    def set_on_end(self, callback: Callable[[PlaybackEndInfo], None]) -> None:
         """设置播放结束回调"""
         self._on_end_callback = callback
     
@@ -201,7 +210,7 @@ class AudioEngineBase(ABC):
         """
         return False
 
-    def set_next_track(self, file_path: str) -> bool:
+    def set_next_track(self, file_path: Optional[str]) -> bool:
         """
         预加载下一曲（用于 Gapless Playback）
 
@@ -447,6 +456,14 @@ class PygameAudioEngine(AudioEngineBase):
             if not busy:
                 self._state = PlayerState.STOPPED
                 self._playback_started = False
+                if self._on_end_callback:
+                    self._on_end_callback(
+                        PlaybackEndInfo(
+                            ended_file=self._current_file,
+                            next_file=None,
+                            reason="ended",
+                        )
+                    )
                 return True
         return False
     

@@ -4,6 +4,8 @@ LLM 批量标注服务测试
 
 import pytest
 import os
+import tempfile
+import shutil
 
 from core.database import DatabaseManager
 from services.tag_service import TagService
@@ -48,16 +50,23 @@ class TestLLMTaggingService:
         from services.config_service import ConfigService
         ConfigService.reset_instance()
         DatabaseManager.reset_instance()
-        self.db = DatabaseManager("test_llm_tagging.db")
+        # 使用 tempfile 创建隔离的测试目录
+        self._tmpdir = tempfile.mkdtemp(prefix="llm-tagging-test-")
+        self._db_path = os.path.join(self._tmpdir, "test_llm_tagging.db")
+        self.db = DatabaseManager(self._db_path)
         self.tag_service = TagService(self.db)
-        self.config = ConfigService("config/does_not_exist.yaml")
+        self.config = ConfigService(os.path.join(self._tmpdir, "config.yaml"))
     
     def teardown_method(self):
         from services.config_service import ConfigService
+        # 先关闭数据库连接
+        if hasattr(self, 'db') and self.db:
+            self.db.close()
         ConfigService.reset_instance()
         DatabaseManager.reset_instance()
-        if os.path.exists("test_llm_tagging.db"):
-            os.remove("test_llm_tagging.db")
+        # 清理临时目录
+        if hasattr(self, '_tmpdir') and os.path.exists(self._tmpdir):
+            shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def _create_tracks(self, count: int):
         """创建测试曲目"""
@@ -98,6 +107,7 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         
         assert job_id != ""
         assert client.call_count >= 1
@@ -118,7 +128,8 @@ class TestLLMTaggingService:
             client=client,
         )
         
-        service.start_tagging_job(batch_size=10)
+        job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         
         # 验证标签已创建
         tags = self.tag_service.get_all_tags()
@@ -145,7 +156,8 @@ class TestLLMTaggingService:
             client=client,
         )
         
-        service.start_tagging_job(batch_size=10)
+        job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         
         # 验证曲目标签关联
         track0_tags = self.tag_service.get_track_tag_names("track-0")
@@ -171,6 +183,7 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         status = service.get_job_status(job_id)
         
         assert status is not None
@@ -195,7 +208,8 @@ class TestLLMTaggingService:
             client=client,
         )
         
-        service.start_tagging_job(batch_size=10)
+        job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         
         # 验证未标注曲目列表为空
         untagged = self.tag_service.get_untagged_tracks(source="llm")
@@ -221,6 +235,7 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         status = service.get_job_status(job_id)
         
         # 应该只处理 2 个曲目
@@ -242,7 +257,8 @@ class TestLLMTaggingService:
             client=client,
         )
         
-        service.start_tagging_job(batch_size=10)
+        job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         stats = service.get_tagging_stats()
         
         assert stats["tagged_tracks"] == 3
@@ -269,7 +285,8 @@ class TestLLMTaggingService:
         def progress_callback(current, total):
             progress_calls.append((current, total))
         
-        service.start_tagging_job(batch_size=2, progress_callback=progress_callback)
+        job_id = service.start_tagging_job(batch_size=2, progress_callback=progress_callback)
+        service.wait_for_job(job_id)  # 等待异步任务完成
         
         assert len(progress_calls) > 0
         # 最后一次调用应该是完成
