@@ -54,6 +54,9 @@ class LibraryService:
         """
         同步扫描目录
         
+        使用两阶段方式：先快速统计文件数，再扫描处理。
+        这样可以提供精确的进度百分比，同时避免一次性加载所有文件路径到内存。
+        
         Args:
             directories: 目录列表
             progress_callback: 进度回调 (current, total, file_path)
@@ -63,22 +66,31 @@ class LibraryService:
         """
         self._stop_scan.clear()
         total_added = 0
+        scanned_count = 0
         
-        # 收集所有音频文件（单次遍历，避免按扩展名重复扫描目录）
         supported_exts = set(MetadataParser.get_supported_formats())
-        all_files: List[Path] = []
+        
+        # 阶段 1：快速统计文件数（只计数，不存储路径）
+        total_files = 0
         for directory in directories:
+            if self._stop_scan.is_set():
+                break
             dir_path = Path(directory)
             if not dir_path.exists():
                 continue
-
             for file_path in dir_path.rglob("*"):
                 if self._stop_scan.is_set():
                     break
                 if file_path.is_file() and file_path.suffix.lower() in supported_exts:
-                    all_files.append(file_path)
+                    total_files += 1
         
-        total_files = len(all_files)
+        if self._stop_scan.is_set():
+            self._event_bus.publish(EventType.LIBRARY_SCAN_COMPLETED, {
+                "total_scanned": 0,
+                "total_added": 0
+            })
+            return 0
+        
         self._event_bus.publish(EventType.LIBRARY_SCAN_STARTED, {
             "total": total_files,
             "directories": directories
@@ -96,10 +108,23 @@ class LibraryService:
         batch_size = 50
         pending_count = 0
         
-        for i, file_path in enumerate(all_files):
+        # 阶段 2：扫描处理（使用生成器，不存储所有路径）
+        def iter_audio_files():
+            for directory in directories:
+                dir_path = Path(directory)
+                if not dir_path.exists():
+                    continue
+                for file_path in dir_path.rglob("*"):
+                    if self._stop_scan.is_set():
+                        return
+                    if file_path.is_file() and file_path.suffix.lower() in supported_exts:
+                        yield file_path
+        
+        for file_path in iter_audio_files():
             if self._stop_scan.is_set():
                 break
             
+            scanned_count += 1
             file_str = str(file_path)
             
             # 检查是否已存在
@@ -117,10 +142,10 @@ class LibraryService:
             
             # 进度回调
             if progress_callback:
-                progress_callback(i + 1, total_files, file_str)
+                progress_callback(scanned_count, total_files, file_str)
             
             self._event_bus.publish(EventType.LIBRARY_SCAN_PROGRESS, {
-                "current": i + 1,
+                "current": scanned_count,
                 "total": total_files,
                 "file": file_str,
                 "added": total_added
@@ -134,8 +159,9 @@ class LibraryService:
         self._artist_cache.clear()
         self._album_cache.clear()
         
+        # 使用实际扫描数量
         self._event_bus.publish(EventType.LIBRARY_SCAN_COMPLETED, {
-            "total_scanned": total_files,
+            "total_scanned": scanned_count,
             "total_added": total_added
         })
         

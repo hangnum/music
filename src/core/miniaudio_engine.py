@@ -224,6 +224,11 @@ class MiniaudioEngine(AudioEngineBase):
     - 支持 ReplayGain
     """
 
+    @staticmethod
+    def probe() -> bool:
+        """检测 miniaudio 依赖是否可用"""
+        return MINIAUDIO_AVAILABLE
+
     def __init__(self):
         if not MINIAUDIO_AVAILABLE:
             raise ImportError("miniaudio 库未安装")
@@ -398,8 +403,13 @@ class MiniaudioEngine(AudioEngineBase):
                 chunk = array.array('f', samples[start:end])
                 chunk_frames = len(chunk) // channels
 
-                # 1. 应用 EQ 处理
-                if eq_processor.enabled:
+                # 检查是否在 crossfade 区域
+                in_crossfade = (crossfade_frames > 0 and 
+                               position >= crossfade_start_frame and 
+                               engine._next_decoded is not None)
+
+                # 1. 应用 EQ 处理（crossfade 期间跳过，由 _apply_crossfade 统一处理）
+                if eq_processor.enabled and not in_crossfade:
                     chunk = eq_processor.process(chunk)
 
                 # 2. 动态计算增益 (ReplayGain + Volume) - 每个 chunk 重新计算
@@ -411,11 +421,8 @@ class MiniaudioEngine(AudioEngineBase):
                     for i in range(len(chunk)):
                         chunk[i] *= gain
 
-                # 3. Crossfade 处理
-                if (crossfade_frames > 0 and 
-                    position >= crossfade_start_frame and 
-                    engine._next_decoded is not None):
-                    
+                # 3. Crossfade 处理（会在混合后统一应用 EQ）
+                if in_crossfade:
                     chunk = engine._apply_crossfade(
                         chunk, position, crossfade_start_frame, 
                         crossfade_frames, channels, gain
@@ -444,8 +451,10 @@ class MiniaudioEngine(AudioEngineBase):
         """
         应用 Crossfade 混合
         
+        注意：EQ 在混合后统一应用，避免滤波器状态在两个音频流之间串扰。
+        
         Args:
-            outgoing_chunk: 当前曲目的音频块（正在淡出）
+            outgoing_chunk: 当前曲目的音频块（正在淡出，已应用 EQ）
             position: 当前播放位置（帧）
             crossfade_start: crossfade 开始位置（帧）
             crossfade_frames: crossfade 总帧数
@@ -469,14 +478,10 @@ class MiniaudioEngine(AudioEngineBase):
         if next_start >= next_total:
             return outgoing_chunk
         
-        # 获取下一曲的采样
+        # 获取下一曲的采样（不单独应用 EQ，避免滤波器状态串扰）
         incoming_chunk = array.array('f', next_samples[next_start:next_end])
         
-        # 应用 EQ 到下一曲
-        if self._eq_processor.enabled:
-            incoming_chunk = self._eq_processor.process(incoming_chunk)
-        
-        # 应用增益到下一曲
+        # 仅应用增益到下一曲（EQ 将在混合后统一应用）
         if gain != 1.0:
             for i in range(len(incoming_chunk)):
                 incoming_chunk[i] *= gain
@@ -501,6 +506,13 @@ class MiniaudioEngine(AudioEngineBase):
             incoming_sample = incoming_chunk[i] if i < len(incoming_chunk) else 0.0
             
             result[i] = outgoing_sample * fade_out + incoming_sample * fade_in
+        
+        # 混合后统一应用 EQ（如果启用）
+        # 注意：outgoing_chunk 已经在 _create_stream 中应用了 EQ，
+        # 但这里我们对混合后的结果重新应用，以保持 EQ 处理的一致性
+        # 由于 crossfade 期间两个流已经混合，只需对结果应用一次 EQ
+        if self._eq_processor.enabled:
+            result = self._eq_processor.process(result)
         
         return result
 

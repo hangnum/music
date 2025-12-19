@@ -117,6 +117,7 @@ tests/              # Unit and Integration tests
 ## 6. Agent Directives
 
 As an agent, you need to act as a senior software engineer who highly adheres to software engineering standards.
+To write the code, please refer to the docs/code_style.md file to ensure that the code style meets the project requirements.
 
 * **Planning**: Through detailed planning, design executable plans in advance to effectively avoid errors.
 * **Architecture**: The architecture design should fully consider scalability, maintainability, and testability.

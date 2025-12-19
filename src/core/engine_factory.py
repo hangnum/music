@@ -140,15 +140,31 @@ class AudioEngineFactory:
             if backend not in _ENGINE_REGISTRY:
                 continue
 
-            try:
-                # 尝试初始化以验证可用性
-                engine = _ENGINE_REGISTRY[backend]()
-                available.append(backend)
-                # 清理测试实例
-                if hasattr(engine, 'cleanup'):
-                    engine.cleanup()
-            except Exception:
-                pass
+            engine_class = _ENGINE_REGISTRY[backend]
+            
+            # 检查子类是否重写了 probe() 方法（而非继承基类的默认实现）
+            has_custom_probe = (
+                'probe' in engine_class.__dict__ or  # 直接定义在类上
+                any('probe' in base.__dict__ for base in engine_class.__mro__[1:-1] 
+                    if base.__name__ != 'AudioEngineBase')  # 定义在中间父类上
+            )
+            
+            if has_custom_probe:
+                # 使用静态 probe() 方法（不触碰播放状态）
+                try:
+                    if engine_class.probe():
+                        available.append(backend)
+                except Exception:
+                    pass
+            else:
+                # 没有 probe 方法的引擎：尝试实例化
+                try:
+                    engine = engine_class()
+                    available.append(backend)
+                    if hasattr(engine, 'cleanup'):
+                        engine.cleanup()
+                except Exception:
+                    pass
 
         return available
 
@@ -194,8 +210,24 @@ class AudioEngineFactory:
         if backend not in _ENGINE_REGISTRY:
             return False
 
+        engine_class = _ENGINE_REGISTRY[backend]
+        
+        # 检查子类是否重写了 probe() 方法
+        has_custom_probe = (
+            'probe' in engine_class.__dict__ or
+            any('probe' in base.__dict__ for base in engine_class.__mro__[1:-1] 
+                if base.__name__ != 'AudioEngineBase')
+        )
+        
+        if has_custom_probe:
+            try:
+                return engine_class.probe()
+            except Exception:
+                return False
+        
+        # 没有 probe 方法的引擎：尝试实例化
         try:
-            engine = _ENGINE_REGISTRY[backend]()
+            engine = engine_class()
             if hasattr(engine, 'cleanup'):
                 engine.cleanup()
             return True

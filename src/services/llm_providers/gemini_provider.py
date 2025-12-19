@@ -191,7 +191,11 @@ class GeminiProvider(LLMProvider):
     def validate_connection(self) -> bool:
         """验证 API 连接是否有效"""
         try:
-            self.chat_completions([{"role": "user", "content": "ping"}])
+            # 使用明确的 JSON 提示词，避免 json_mode 下返回非 JSON
+            self.chat_completions([{
+                "role": "user", 
+                "content": 'Respond with this exact JSON: {"status": "ok"}'
+            }])
             return True
         except LLMProviderError:
             return False

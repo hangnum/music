@@ -38,6 +38,20 @@ class AudioEngineBase(ABC):
         self._on_end_callback: Optional[Callable] = None
         self._on_error_callback: Optional[Callable[[str], None]] = None
     
+
+    @staticmethod
+    def probe() -> bool:
+        """
+        检测引擎依赖是否可用（不触碰播放状态）
+        
+        子类应重写此方法，仅检查必要的依赖是否可导入，
+        不应初始化任何全局状态或播放设备。
+        
+        Returns:
+            bool: True 表示依赖可用
+        """
+        return False
+
     @property
     def state(self) -> PlayerState:
         """获取当前播放状态"""
@@ -269,6 +283,15 @@ class PygameAudioEngine(AudioEngineBase):
     _initialized = False
     _mixer_refcount = 0
     _lock = threading.Lock()
+    
+    @staticmethod
+    def probe() -> bool:
+        """检测 pygame 依赖是否可用（不初始化 mixer）"""
+        try:
+            import pygame
+            return hasattr(pygame, 'mixer')
+        except ImportError:
+            return False
     
     def __init__(self):
         super().__init__()

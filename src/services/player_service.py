@@ -96,7 +96,10 @@ class PlayerService:
             bool: 是否检测到播放结束
         """
         if self._engine.check_if_ended():
-            self._event_bus.publish_sync(EventType.TRACK_ENDED, self.current_track)
+            self._event_bus.publish_sync(EventType.TRACK_ENDED, {
+                "track": self.current_track,
+                "reason": "ended"
+            })
             # 自动播放下一曲
             self.next_track()
             return True
@@ -270,8 +273,12 @@ class PlayerService:
     
     def stop(self) -> None:
         """停止播放"""
+        current = self.current_track
         self._engine.stop()
-        self._event_bus.publish_sync(EventType.TRACK_ENDED)
+        self._event_bus.publish_sync(EventType.TRACK_ENDED, {
+            "track": current,
+            "reason": "stopped"
+        })
     
     def next_track(self) -> Optional[Track]:
         """
@@ -402,7 +409,10 @@ class PlayerService:
     
     def _on_track_end(self) -> None:
         """曲目播放结束回调"""
-        self._event_bus.publish_sync(EventType.TRACK_ENDED, self.current_track)
+        self._event_bus.publish_sync(EventType.TRACK_ENDED, {
+            "track": self.current_track,
+            "reason": "ended"
+        })
         
         # 自动播放下一曲（单曲循环在_get_next_index中处理）
         self.next_track()

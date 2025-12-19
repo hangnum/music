@@ -40,6 +40,11 @@ class VLCEngine(AudioEngineBase):
     - Crossfade (双 MediaPlayer 音量渐变)
     """
 
+    @staticmethod
+    def probe() -> bool:
+        """检测 python-vlc 依赖是否可用"""
+        return VLC_AVAILABLE
+
     def __init__(self):
         if not VLC_AVAILABLE:
             raise ImportError("python-vlc 库未安装")

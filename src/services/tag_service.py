@@ -283,6 +283,8 @@ class TagService:
         """
         设置曲目的标签（替换所有现有标签）
         
+        使用事务确保原子性：如果中途失败，会回滚所有更改。
+        
         Args:
             track_id: 曲目 ID
             tag_ids: 新的标签 ID 列表
@@ -291,16 +293,17 @@ class TagService:
             是否设置成功
         """
         try:
-            # 先删除现有关联
-            self._db.delete("track_tags", "track_id = ?", (track_id,))
-            
-            # 添加新关联
-            for tag_id in tag_ids:
-                self._db.insert("track_tags", {
-                    "track_id": track_id,
-                    "tag_id": tag_id,
-                    "created_at": datetime.now().isoformat()
-                })
+            with self._db.transaction():
+                # 先删除现有关联
+                self._db.delete("track_tags", "track_id = ?", (track_id,))
+                
+                # 添加新关联
+                for tag_id in tag_ids:
+                    self._db.insert("track_tags", {
+                        "track_id": track_id,
+                        "tag_id": tag_id,
+                        "created_at": datetime.now().isoformat()
+                    })
             
             return True
         except Exception:
