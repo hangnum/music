@@ -40,11 +40,46 @@ class DatabaseManager:
                     cls._instance._initialized = False
         return cls._instance
     
+    @staticmethod
+    def _get_default_db_path() -> str:
+        """获取用户数据目录下的默认数据库路径"""
+        import sys
+        import os
+        from pathlib import Path
+        
+        if sys.platform == "win32":
+            base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+        elif sys.platform == "darwin":
+            base = Path.home() / "Library" / "Application Support"
+        else:
+            base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+        
+        db_dir = base / "python-music-player"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        return str(db_dir / "music_library.db")
+    
     def __init__(self, db_path: str = None):
         if self._initialized:
             return
         
-        self._db_path = db_path or "music_library.db"
+        if db_path:
+            self._db_path = db_path
+        else:
+            # 使用用户数据目录作为默认路径
+            new_path = self._get_default_db_path()
+            old_path = Path("music_library.db")
+            
+            # 自动迁移：如果新路径不存在但旧路径存在，则移动文件
+            if not Path(new_path).exists() and old_path.exists():
+                import shutil
+                try:
+                    Path(new_path).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(old_path), new_path)
+                except Exception:
+                    # 移动失败则继续使用旧路径
+                    new_path = str(old_path)
+            
+            self._db_path = new_path
         self._local = threading.local()
         self._write_lock = threading.RLock()
         self._initialized = True

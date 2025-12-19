@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
     def _init_services(self):
         """初始化服务"""
         self.config = ConfigService("config/default_config.yaml")
-        self.db = DatabaseManager("music_library.db")
+        self.db = DatabaseManager()
         self.player = PlayerService()
         self.playlist_service = PlaylistService(self.db)
         self.library = LibraryService(self.db)
@@ -499,6 +499,9 @@ class MainWindow(QMainWindow):
         
         # 隐藏托盘
         self._system_tray.hide()
+        
+        # 等待扫描线程完成
+        self.library.join_scan_thread()
         
         # 清理资源
         self.player.cleanup()

@@ -177,12 +177,28 @@ class LibraryService:
         if self._scan_thread and self._scan_thread.is_alive():
             return
         
+        def _safe_scan():
+            try:
+                self.scan(directories)
+            except Exception as e:
+                logger.exception("扫描线程异常: %s", e)
+                self._event_bus.publish(EventType.LIBRARY_SCAN_COMPLETED, {
+                    "total_scanned": 0,
+                    "total_added": 0,
+                    "error": str(e)
+                })
+        
         self._scan_thread = threading.Thread(
-            target=self.scan,
-            args=(directories,),
+            target=_safe_scan,
             daemon=True
         )
         self._scan_thread.start()
+    
+    def join_scan_thread(self, timeout: float = 5.0) -> None:
+        """等待扫描线程结束（用于应用退出时清理）"""
+        if self._scan_thread and self._scan_thread.is_alive():
+            self._stop_scan.set()
+            self._scan_thread.join(timeout=timeout)
     
     def stop_scan(self) -> None:
         """停止扫描"""

@@ -242,9 +242,8 @@ class LLMQueueChatDialog(QDialog):
         """对话框关闭时安全停止工作线程"""
         if self._thread and self._thread.isRunning():
             self._thread.quit()
-            if not self._thread.wait(3000):  # 最多等待3秒
-                self._thread.terminate()  # 强制终止
-                self._thread.wait(500)
+            # 等待5秒，不强制终止以避免资源泄漏
+            self._thread.wait(5000)
         self._cleanup_thread()
         event.accept()
 

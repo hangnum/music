@@ -366,7 +366,10 @@ class PlayerService:
             position_ms: 目标位置（毫秒）
         """
         self._engine.seek(position_ms)
-        self._event_bus.publish_sync(EventType.POSITION_CHANGED, position_ms)
+        self._event_bus.publish_sync(EventType.POSITION_CHANGED, {
+            "position": position_ms,
+            "duration": self._engine.get_duration()
+        })
     
     def set_volume(self, volume: float) -> None:
         """
