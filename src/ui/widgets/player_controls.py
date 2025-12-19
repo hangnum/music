@@ -43,33 +43,63 @@ class PlayerControls(QWidget):
     
     def _setup_ui(self):
         """设置UI"""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(32, 12, 32, 12)  # 增加边距
-        layout.setSpacing(32)  # 增加组件间距
+        # 主布局：垂直两行
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # 第一行：进度条（横跨整个宽度）
+        self.progress_container = QWidget()
+        self.progress_container.setFixedHeight(20) # 预留一点高度给handle
+        prog_layout = QHBoxLayout(self.progress_container)
+        prog_layout.setContentsMargins(0, 0, 0, 0)
+        prog_layout.setSpacing(0)
+        
+        self.progress_slider = QSlider(Qt.Orientation.Horizontal)
+        self.progress_slider.setMinimum(0)
+        self.progress_slider.setMaximum(1000)
+        self.progress_slider.setValue(0)
+        self.progress_slider.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.progress_slider.sliderPressed.connect(self._on_slider_pressed)
+        self.progress_slider.sliderReleased.connect(self._on_slider_released)
+        
+        prog_layout.addWidget(self.progress_slider)
+        main_layout.addWidget(self.progress_container)
+        
+        # 第二行：控制面板
+        self.control_panel = QWidget()
+        control_layout = QHBoxLayout(self.control_panel)
+        control_layout.setContentsMargins(24, 4, 24, 12)
+        control_layout.setSpacing(24)
         
         # 左侧：曲目信息
         self.track_info = self._create_track_info()
-        layout.addWidget(self.track_info)
+        control_layout.addWidget(self.track_info)
         
-        # 中间：播放控制
-        self.controls = self._create_controls()
-        layout.addWidget(self.controls, 1)
+        # 中间：播放控制按钮
+        control_layout.addStretch(1)
+        self.controls = self._create_button_controls()
+        control_layout.addWidget(self.controls)
+        control_layout.addStretch(1)
         
-        # 右侧：音量控制
+        # 右侧：音量与工具
         self.volume_control = self._create_volume_control()
-        layout.addWidget(self.volume_control)
+        control_layout.addWidget(self.volume_control)
+        
+        main_layout.addWidget(self.control_panel)
     
     def _create_track_info(self) -> QWidget:
         """创建曲目信息区域"""
         widget = QWidget()
-        widget.setFixedWidth(240)  # 第一列稍宽
+        widget.setFixedWidth(240)
+        widget.setObjectName("trackInfo")
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setSpacing(12)
         
         # 封面图片
         self.cover_label = QLabel()
-        self.cover_label.setFixedSize(56, 56)
+        self.cover_label.setFixedSize(48, 48)
         self.cover_label.setStyleSheet("""
             background-color: #2C2C2E;
             border-radius: 6px;
@@ -80,16 +110,18 @@ class PlayerControls(QWidget):
         
         # 曲目文字信息
         info_layout = QVBoxLayout()
-        info_layout.setSpacing(2)  # 减小行间距
+        info_layout.setSpacing(2)
         info_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         self.title_label = QLabel("未在播放")
-        self.title_label.setStyleSheet("font-weight: 600; font-size: 14px; color: #FFFFFF;")
-        self.title_label.setWordWrap(False)
+        self.title_label.setStyleSheet("font-weight: 600; font-size: 14px; color: #E0E0E0;")
+        # 限制文字长度，简单截断
+        self.title_label.setFixedWidth(160)
         
         self.artist_label = QLabel("Apple Music")
         self.artist_label.setObjectName("secondaryLabel")
-        self.artist_label.setStyleSheet("color: #8E8E93; font-size: 13px; font-weight: 400;")
+        self.artist_label.setStyleSheet("color: #9E9E9E; font-size: 12px;")
+        self.artist_label.setFixedWidth(160)
         
         info_layout.addWidget(self.title_label)
         info_layout.addWidget(self.artist_label)
@@ -97,105 +129,81 @@ class PlayerControls(QWidget):
         
         return widget
     
-    def _create_controls(self) -> QWidget:
-        """创建播放控制区域"""
+    def _create_button_controls(self) -> QWidget:
+        """创建播放控制按钮组（不含进度条）"""
         widget = QWidget()
-        main_layout = QVBoxLayout(widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(8)
-        
-        # 控制按钮行
-        btn_layout = QHBoxLayout()
-        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        btn_layout.setSpacing(24)  # 按钮间距
-        
-        # 随机播放按钮
-        self.shuffle_btn = QPushButton("🔀")
-        self.shuffle_btn.setObjectName("controlButton")
-        self.shuffle_btn.setToolTip("随机播放")
-        self.shuffle_btn.setFixedSize(32, 32)
-        self.shuffle_btn.clicked.connect(self._on_shuffle_clicked)
-        btn_layout.addWidget(self.shuffle_btn)
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(20)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # 上一曲按钮
         self.prev_btn = QPushButton("⏮")
         self.prev_btn.setObjectName("controlButton")
         self.prev_btn.setToolTip("上一曲")
-        self.prev_btn.setFixedSize(32, 32)
+        self.prev_btn.setFixedSize(36, 36)
         self.prev_btn.clicked.connect(self._on_prev_clicked)
-        btn_layout.addWidget(self.prev_btn)
+        layout.addWidget(self.prev_btn)
         
-        # 播放/暂停按钮
+        # 播放/暂停按钮 (Hero Button)
         self.play_btn = QPushButton("▶")
-        self.play_btn.setObjectName("playButton")
+        self.play_btn.setObjectName("PlayPauseButton")
         self.play_btn.setToolTip("播放")
-        self.play_btn.setFixedSize(48, 48)  # 加大播放按钮
+        self.play_btn.setFixedSize(48, 48) # 比其他按钮大 ~30%
         self.play_btn.clicked.connect(self._on_play_clicked)
-        btn_layout.addWidget(self.play_btn)
+        layout.addWidget(self.play_btn)
         
         # 下一曲按钮
         self.next_btn = QPushButton("⏭")
         self.next_btn.setObjectName("controlButton")
         self.next_btn.setToolTip("下一曲")
-        self.next_btn.setFixedSize(32, 32)
+        self.next_btn.setFixedSize(36, 36)
         self.next_btn.clicked.connect(self._on_next_clicked)
-        btn_layout.addWidget(self.next_btn)
+        layout.addWidget(self.next_btn)
+        
+        return widget
+    
+    def _create_volume_control(self) -> QWidget:
+        """创建音量和辅助功能区域"""
+        widget = QWidget()
+        widget.setFixedWidth(200) # 稍微加宽以容纳时间信息
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+        layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        # 当前时间/总时间 (移动到右侧显示)
+        self.time_label = QLabel("0:00 / 0:00")
+        self.time_label.setStyleSheet("color: #9E9E9E; font-size: 11px; font-family: monospace;")
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(self.time_label)
+
+        # 随机播放按钮
+        self.shuffle_btn = QPushButton("🔀")
+        self.shuffle_btn.setObjectName("controlButton")
+        self.shuffle_btn.setToolTip("随机播放")
+        self.shuffle_btn.setFixedSize(28, 28)
+        self.shuffle_btn.clicked.connect(self._on_shuffle_clicked)
+        layout.addWidget(self.shuffle_btn)
         
         # 循环播放按钮
         self.repeat_btn = QPushButton("🔁")
         self.repeat_btn.setObjectName("controlButton")
         self.repeat_btn.setToolTip("循环播放")
-        self.repeat_btn.setFixedSize(32, 32)
+        self.repeat_btn.setFixedSize(28, 28)
         self.repeat_btn.clicked.connect(self._on_repeat_clicked)
-        btn_layout.addWidget(self.repeat_btn)
+        layout.addWidget(self.repeat_btn)
         
-        main_layout.addLayout(btn_layout)
-        
-        # 进度条行
-        progress_layout = QHBoxLayout()
-        progress_layout.setSpacing(12)
-        
-        self.current_time = QLabel("0:00")
-        self.current_time.setStyleSheet("color: #8E8E93; font-size: 11px; font-weight: 500;")
-        self.current_time.setFixedWidth(40)
-        self.current_time.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        progress_layout.addWidget(self.current_time)
-        
-        self.progress_slider = QSlider(Qt.Orientation.Horizontal)
-        self.progress_slider.setMinimum(0)
-        self.progress_slider.setMaximum(1000)
-        self.progress_slider.setValue(0)
-        self.progress_slider.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.progress_slider.sliderPressed.connect(self._on_slider_pressed)
-        self.progress_slider.sliderReleased.connect(self._on_slider_released)
-        progress_layout.addWidget(self.progress_slider, 1)
-        
-        self.total_time = QLabel("0:00")
-        self.total_time.setStyleSheet("color: #8E8E93; font-size: 11px; font-weight: 500;")
-        self.total_time.setFixedWidth(40)
-        progress_layout.addWidget(self.total_time)
-        
-        main_layout.addLayout(progress_layout)
-        
-        return widget
-    
-    def _create_volume_control(self) -> QWidget:
-        """创建音量控制区域"""
-        widget = QWidget()
-        widget.setFixedWidth(150)
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-        
-        # 音量图标
+        # 音量按钮
         self.volume_btn = QPushButton("🔊")
         self.volume_btn.setObjectName("controlButton")
-        self.volume_btn.setFixedSize(32, 32)
+        self.volume_btn.setFixedSize(28, 28)
         self.volume_btn.clicked.connect(self._on_mute_clicked)
         layout.addWidget(self.volume_btn)
         
-        # 音量滑块
+        # 音量滑块 (可选：可以做一个弹出式或者这种迷你式，这里保持迷你式)
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setFixedWidth(60)
         self.volume_slider.setMinimum(0)
         self.volume_slider.setMaximum(100)
         self.volume_slider.setValue(80)
@@ -250,7 +258,11 @@ class PlayerControls(QWidget):
             if state.duration_ms > 0:
                 progress = int((state.position_ms / state.duration_ms) * 1000)
                 self.progress_slider.setValue(progress)
-                self.current_time.setText(self._format_time(state.position_ms))
+                
+                # 更新时间标签 "0:00 / 3:45"
+                current_str = self._format_time(state.position_ms)
+                total_str = self._format_time(state.duration_ms)
+                self.time_label.setText(f"{current_str} / {total_str}")
     
     def _format_time(self, ms: int) -> str:
         """格式化时间"""
@@ -282,7 +294,7 @@ class PlayerControls(QWidget):
             self.shuffle_btn.setStyleSheet("")
         else:
             self.player.set_play_mode(PlayMode.SHUFFLE)
-            self.shuffle_btn.setStyleSheet("color: #1DB954;")
+            self.shuffle_btn.setStyleSheet("color: #7e57c2;") # Accent Color
     
     def _on_repeat_clicked(self):
         """循环按钮点击"""
@@ -294,10 +306,10 @@ class PlayerControls(QWidget):
         elif mode == PlayMode.REPEAT_ALL:
             self.player.set_play_mode(PlayMode.REPEAT_ONE)
             self.repeat_btn.setText("🔂")
-            self.repeat_btn.setStyleSheet("color: #1DB954;")
+            self.repeat_btn.setStyleSheet("color: #7e57c2;") # Accent Color
         else:
             self.player.set_play_mode(PlayMode.REPEAT_ALL)
-            self.repeat_btn.setStyleSheet("color: #1DB954;")
+            self.repeat_btn.setStyleSheet("color: #7e57c2;") # Accent Color
     
     def _on_slider_pressed(self):
         """进度条按下"""
@@ -337,7 +349,9 @@ class PlayerControls(QWidget):
         if track:
             self.title_label.setText(track.title)
             self.artist_label.setText(track.artist_name)
-            self.total_time.setText(self._format_time(track.duration_ms))
+            # Update time label initial state
+            total_str = self._format_time(track.duration_ms)
+            self.time_label.setText(f"0:00 / {total_str}")
         self._update_play_button()
     
     def _on_track_paused(self, _=None):

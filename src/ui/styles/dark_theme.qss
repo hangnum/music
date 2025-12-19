@@ -97,7 +97,7 @@ QWidget#sidebar QPushButton:checked {
 
 /* Player Control Buttons (Icons) */
 QPushButton#controlButton {
-    border-radius: 8px;
+    border-radius: 6px; /* Rounded rectangle */
     padding: 8px;
     background-color: transparent;
 }
@@ -109,52 +109,53 @@ QPushButton#controlButton:checked {
     background-color: rgba(126, 87, 194, 0.1);
 }
 
-/* Play/Pause Button (Round & Prominent) */
-QPushButton#playButton {
-    background-color: #ffffff;
-    color: #121218;
-    border-radius: 28px; /* 56px size */
+/* Play/Pause Button (Hero Button - Round & Accent Color) */
+QPushButton#PlayPauseButton {
+    background-color: #7e57c2;
+    color: #ffffff;
+    border-radius: 24px; /* 48px size -> 24px radius */
     padding: 0px;
+    border: 1px solid #6b46b0;
 }
 
-QPushButton#playButton:hover {
-    background-color: #e0e0e0;
+QPushButton#PlayPauseButton:hover {
+    background-color: #9575cd; /* Lighter on hover */
+    border: 1px solid #7e57c2;
 }
 
-QPushButton#playButton:pressed {
-    background-color: #c0c0c0;
+QPushButton#PlayPauseButton:pressed {
+    background-color: #5e35b1; /* Darker on press */
 }
 
 /* --- Sliders --- */
 
 QSlider::groove:horizontal {
-    border: 1px solid #2a2a30;
-    height: 6px;
-    background: #1e1e24;
-    margin: 2px 0;
-    border-radius: 3px;
+    border: none;
+    height: 4px; /* Refined height */
+    background: #2a2a30;
+    margin: 0px 0;
+    border-radius: 2px;
 }
 
 QSlider::sub-page:horizontal {
-    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0,
-        stop: 0 #5e35b1, stop: 1 #7e57c2); /* Purple Gradient */
-    border-radius: 3px;
+    background: #7e57c2; /* Accent Color */
+    border-radius: 2px;
 }
 
 QSlider::handle:horizontal {
     background: #ffffff;
-    border: 1px solid #7e57c2;
-    width: 16px;
-    height: 16px;
-    margin: -6px 0; /* Center handle */
-    border-radius: 8px;
+    border: none;
+    width: 12px;
+    height: 12px;
+    margin: -4px 0; /* Center handle (12-4)/2 = 4 */
+    border-radius: 6px;
 }
 
 QSlider::handle:horizontal:hover {
     background: #f0f0f0;
-    width: 18px;
-    height: 18px;
-    margin: -7px 0;
+    width: 14px;
+    height: 14px;
+    margin: -5px 0;
 }
 
 /* --- Tables & Lists --- */
@@ -278,8 +279,8 @@ QLabel#sidebarHeader {
 
 /* Player Bar */
 QWidget#playerBar {
-    background-color: #181820; /* Slightly elevated surface */
-    border-top: 1px solid #2a2a35;
+    background-color: rgba(30, 30, 34, 0.95); /* Deep semi-transparent background */
+    border-top: 1px solid rgba(255, 255, 255, 0.08); /* Subtle separator */
 }
 
 /* Title Label */
