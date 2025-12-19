@@ -45,6 +45,7 @@ class LibraryService:
         self._event_bus = EventBus()
         self._scan_thread: Optional[threading.Thread] = None
         self._stop_scan = threading.Event()
+        self._lock = threading.RLock()
         # 扫描时的缓存（减少重复查询）
         self._artist_cache: Dict[str, str] = {}
         self._album_cache: Dict[str, str] = {}
@@ -156,8 +157,9 @@ class LibraryService:
             self._db.commit()
         
         # 清理扫描缓存
-        self._artist_cache.clear()
-        self._album_cache.clear()
+        with self._lock:
+            self._artist_cache.clear()
+            self._album_cache.clear()
         
         # 使用实际扫描数量
         self._event_bus.publish(EventType.LIBRARY_SCAN_COMPLETED, {
@@ -272,8 +274,9 @@ class LibraryService:
     def _get_or_create_artist(self, name: str, commit: bool = True) -> str:
         """获取或创建艺术家（使用缓存）"""
         # 先检查缓存
-        if name in self._artist_cache:
-            return self._artist_cache[name]
+        with self._lock:
+            if name in self._artist_cache:
+                return self._artist_cache[name]
         
         existing = self._db.fetch_one(
             "SELECT id FROM artists WHERE name = ?",
@@ -281,7 +284,8 @@ class LibraryService:
         )
         
         if existing:
-            self._artist_cache[name] = existing["id"]
+            with self._lock:
+                self._artist_cache[name] = existing["id"]
             return existing["id"]
         
         artist_id = str(uuid.uuid4())
@@ -292,7 +296,8 @@ class LibraryService:
         if commit:
             self._db.commit()
         
-        self._artist_cache[name] = artist_id
+        with self._lock:
+            self._artist_cache[name] = artist_id
         return artist_id
     
     def _get_or_create_album(self, title: str, artist_id: Optional[str],
@@ -300,8 +305,9 @@ class LibraryService:
         """获取或创建专辑（使用缓存）"""
         # 缓存键: (title, artist_id)
         cache_key = (title, artist_id)
-        if cache_key in self._album_cache:
-            return self._album_cache[cache_key]
+        with self._lock:
+            if cache_key in self._album_cache:
+                return self._album_cache[cache_key]
         
         if artist_id:
             existing = self._db.fetch_one(
@@ -315,7 +321,8 @@ class LibraryService:
             )
         
         if existing:
-            self._album_cache[cache_key] = existing["id"]
+            with self._lock:
+                self._album_cache[cache_key] = existing["id"]
             return existing["id"]
         
         album_id = str(uuid.uuid4())
@@ -326,7 +333,8 @@ class LibraryService:
         if commit:
             self._db.commit()
         
-        self._album_cache[cache_key] = album_id
+        with self._lock:
+            self._album_cache[cache_key] = album_id
         return album_id
     
     def get_all_tracks(self) -> List[Track]:
