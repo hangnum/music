@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 import random
 import logging
+import threading
 
 from core.audio_engine import AudioEngineBase, PlayerState
 from core.event_bus import EventBus, EventType
@@ -74,6 +75,9 @@ class PlayerService:
         
         self._event_bus = EventBus()
         
+        # 线程安全锁（保护队列和索引访问）
+        self._lock = threading.RLock()
+        
         # 播放队列
         self._queue: List[Track] = []
         self._current_index: int = -1
@@ -108,30 +112,33 @@ class PlayerService:
     @property
     def state(self) -> PlaybackState:
         """获取当前播放状态"""
-        current_track = None
-        if 0 <= self._current_index < len(self._queue):
-            current_track = self._queue[self._current_index]
-        
-        return PlaybackState(
-            current_track=current_track,
-            position_ms=self._engine.get_position(),
-            duration_ms=self._engine.get_duration(),
-            is_playing=self._engine.state == PlayerState.PLAYING,
-            volume=self._engine.volume,
-            play_mode=self._play_mode
-        )
+        with self._lock:
+            current_track = None
+            if 0 <= self._current_index < len(self._queue):
+                current_track = self._queue[self._current_index]
+            
+            return PlaybackState(
+                current_track=current_track,
+                position_ms=self._engine.get_position(),
+                duration_ms=self._engine.get_duration(),
+                is_playing=self._engine.state == PlayerState.PLAYING,
+                volume=self._engine.volume,
+                play_mode=self._play_mode
+            )
     
     @property
     def current_track(self) -> Optional[Track]:
         """获取当前曲目"""
-        if 0 <= self._current_index < len(self._queue):
-            return self._queue[self._current_index]
-        return None
+        with self._lock:
+            if 0 <= self._current_index < len(self._queue):
+                return self._queue[self._current_index]
+            return None
     
     @property
     def queue(self) -> List[Track]:
         """获取播放队列"""
-        return self._queue.copy()
+        with self._lock:
+            return self._queue.copy()
     
     @property
     def is_playing(self) -> bool:
@@ -146,33 +153,36 @@ class PlayerService:
             tracks: 曲目列表
             start_index: 起始索引
         """
-        self._queue = tracks.copy()
-        self._current_index = start_index if tracks else -1
-        
-        # 重置随机播放索引
-        self._shuffle_indices = list(range(len(tracks)))
-        if self._play_mode == PlayMode.SHUFFLE:
-            random.shuffle(self._shuffle_indices)
-            self._shuffle_position = 0
-        
-        self._history.clear()
+        with self._lock:
+            self._queue = tracks.copy()
+            self._current_index = start_index if tracks else -1
+            
+            # 重置随机播放索引
+            self._shuffle_indices = list(range(len(tracks)))
+            if self._play_mode == PlayMode.SHUFFLE:
+                random.shuffle(self._shuffle_indices)
+                self._shuffle_position = 0
+            
+            self._history.clear()
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
     def add_to_queue(self, track: Track) -> None:
         """添加曲目到队列末尾"""
-        self._queue.append(track)
-        self._shuffle_indices.append(len(self._queue) - 1)
+        with self._lock:
+            self._queue.append(track)
+            self._shuffle_indices.append(len(self._queue) - 1)
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
     def insert_next(self, track: Track) -> None:
         """插入曲目到当前曲目之后"""
-        insert_pos = self._current_index + 1
-        self._queue.insert(insert_pos, track)
-        
-        # 更新shuffle索引
-        self._shuffle_indices = list(range(len(self._queue)))
-        if self._play_mode == PlayMode.SHUFFLE:
-            random.shuffle(self._shuffle_indices)
+        with self._lock:
+            insert_pos = self._current_index + 1
+            self._queue.insert(insert_pos, track)
+            
+            # 更新shuffle索引
+            self._shuffle_indices = list(range(len(self._queue)))
+            if self._play_mode == PlayMode.SHUFFLE:
+                random.shuffle(self._shuffle_indices)
         
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
@@ -186,32 +196,34 @@ class PlayerService:
         Returns:
             bool: 是否成功移除
         """
-        if 0 <= index < len(self._queue):
-            self._queue.pop(index)
-            
-            # 调整当前索引
-            if index < self._current_index:
-                self._current_index -= 1
-            elif index == self._current_index:
-                if self._current_index >= len(self._queue):
-                    self._current_index = len(self._queue) - 1
-            
-            # 更新shuffle索引
-            self._shuffle_indices = list(range(len(self._queue)))
-            if self._play_mode == PlayMode.SHUFFLE:
-                random.shuffle(self._shuffle_indices)
-            
-            self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
-            return True
-        return False
+        with self._lock:
+            if 0 <= index < len(self._queue):
+                self._queue.pop(index)
+                
+                # 调整当前索引
+                if index < self._current_index:
+                    self._current_index -= 1
+                elif index == self._current_index:
+                    if self._current_index >= len(self._queue):
+                        self._current_index = len(self._queue) - 1
+                
+                # 更新shuffle索引
+                self._shuffle_indices = list(range(len(self._queue)))
+                if self._play_mode == PlayMode.SHUFFLE:
+                    random.shuffle(self._shuffle_indices)
+                
+                self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
+                return True
+            return False
     
     def clear_queue(self) -> None:
         """清空队列"""
         self.stop()
-        self._queue.clear()
-        self._current_index = -1
-        self._shuffle_indices.clear()
-        self._history.clear()
+        with self._lock:
+            self._queue.clear()
+            self._current_index = -1
+            self._shuffle_indices.clear()
+            self._history.clear()
         self._event_bus.publish_sync(EventType.QUEUE_CHANGED, self._queue)
     
     def play(self, track: Optional[Track] = None) -> bool:

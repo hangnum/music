@@ -7,9 +7,12 @@
 from typing import List, Optional
 from datetime import datetime
 import uuid
+import logging
 
 from core.database import DatabaseManager
 from models.tag import Tag
+
+logger = logging.getLogger(__name__)
 
 
 class TagService:
@@ -198,6 +201,7 @@ class TagService:
             return True
         except Exception:
             # 可能是重复添加或外键约束失败
+            logger.warning("添加标签失败: track_id=%s, tag_id=%s", track_id, tag_id, exc_info=True)
             return False
     
     def remove_tag_from_track(self, track_id: str, tag_id: str) -> bool:
@@ -307,6 +311,7 @@ class TagService:
             
             return True
         except Exception:
+            logger.warning("设置曲目标签失败: track_id=%s, tag_ids=%s", track_id, tag_ids, exc_info=True)
             return False
     
     # ========== 搜索 ==========
@@ -542,5 +547,6 @@ class TagService:
             })
             return True
         except Exception:
+            logger.warning("标记曲目LLM标注状态失败: track_id=%s, job_id=%s", track_id, job_id, exc_info=True)
             return False
 

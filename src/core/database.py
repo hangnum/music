@@ -10,6 +10,9 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 import threading
 from contextlib import contextmanager
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
@@ -490,7 +493,7 @@ class DatabaseManager:
                 except Exception as e:
                     # 忽略迁移错误（列可能已存在于某些边缘情况）
                     if "duplicate column" not in str(e).lower():
-                        pass
+                        logger.exception("数据库迁移失败: %s", migration)
     
     def _column_exists(self, table: str, column: str) -> bool:
         """检查表中是否存在某列"""
