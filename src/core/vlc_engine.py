@@ -86,6 +86,11 @@ class VLCEngine(AudioEngineBase):
         self._next_file: Optional[str] = None
         self._next_media: Optional[Any] = None
 
+        # Event handlers
+        self._event_handlers_bound = False
+        self._end_event_handler = None
+        self._error_event_handler = None
+
 
         # 线程锁
         self._lock = threading.Lock()
@@ -94,8 +99,9 @@ class VLCEngine(AudioEngineBase):
         self._setup_event_callbacks()
 
     def _setup_event_callbacks(self) -> None:
-        """设置 VLC 事件回调"""
-        events = self._player.event_manager()
+        """Set VLC event callbacks."""
+        if self._event_handlers_bound:
+            return
 
         def on_end_reached(event):
             self._on_playback_finished()
@@ -103,14 +109,17 @@ class VLCEngine(AudioEngineBase):
         def on_error(event):
             self._state = PlayerState.ERROR
             if self._on_error_callback:
-                self._on_error_callback("VLC 播放错误")
+                self._on_error_callback("VLC playback error")
 
-        events.event_attach(vlc.EventType.MediaPlayerEndReached, on_end_reached)
-        events.event_attach(vlc.EventType.MediaPlayerEncounteredError, on_error)
-        
-        # 为 crossfade 播放器也添加事件
-        crossfade_events = self._crossfade_player.event_manager()
-        crossfade_events.event_attach(vlc.EventType.MediaPlayerEndReached, on_end_reached)
+        self._end_event_handler = on_end_reached
+        self._error_event_handler = on_error
+
+        for player in (self._player, self._crossfade_player):
+            events = player.event_manager()
+            events.event_attach(vlc.EventType.MediaPlayerEndReached, on_end_reached)
+            events.event_attach(vlc.EventType.MediaPlayerEncounteredError, on_error)
+
+        self._event_handlers_bound = True
 
     def _on_playback_finished(self) -> None:
         """播放结束处理"""
@@ -339,9 +348,6 @@ class VLCEngine(AudioEngineBase):
 
             # Restore volume.
             self._apply_volume(self._player)
-
-            # Rebind events.
-            self._setup_event_callbacks()
 
             logger.debug("Crossfade complete, switched to new track")
 

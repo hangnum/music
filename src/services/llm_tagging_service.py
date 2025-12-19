@@ -10,6 +10,7 @@ import json
 import logging
 import uuid
 import concurrent.futures
+import weakref
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
@@ -105,6 +106,27 @@ class LLMTaggingService:
             max_workers=1, thread_name_prefix="LLMTagging"
         )
         self._running_futures: Dict[str, concurrent.futures.Future] = {}
+        self._shutdown = False
+        self._finalizer = weakref.finalize(self, self._shutdown_executor, self._executor)
+
+    @staticmethod
+    def _shutdown_executor(
+        executor: concurrent.futures.ThreadPoolExecutor,
+        wait: bool = False,
+    ) -> None:
+        try:
+            executor.shutdown(wait=wait, cancel_futures=True)
+        except TypeError:
+            executor.shutdown(wait=wait)
+
+    def shutdown(self, wait: bool = True) -> None:
+        """Shutdown the tagging worker executor."""
+        if self._shutdown:
+            return
+        self._shutdown = True
+        if self._finalizer.alive:
+            self._finalizer.detach()
+        self._shutdown_executor(self._executor, wait=wait)
     
     def start_tagging_job(
         self,
@@ -123,6 +145,8 @@ class LLMTaggingService:
         Returns:
             任务 ID
         """
+        if self._shutdown:
+            raise LLMTaggingError("Tagging service is shut down")
         if self._library_service is None:
             raise LLMTaggingError("LibraryService 未初始化")
         
@@ -232,7 +256,6 @@ class LLMTaggingService:
                 tags_result = self._request_tags_for_batch(batch_tracks, tags_per_track)
             except Exception as e:
                 logger.warning("Batch processing failed, skipping: %s", e)
-                processed += len(batch_ids)
                 self._db.update(
                     "llm_tagging_jobs",
                     {"processed_tracks": processed},

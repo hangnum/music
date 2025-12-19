@@ -140,8 +140,8 @@ class MetadataParser:
             if 'TDRC' in tags:
                 try:
                     metadata.year = int(str(tags['TDRC'])[:4])
-                except (ValueError, IndexError):
-                    pass
+                except (ValueError, IndexError) as e:
+                    logger.debug("MP3 year parse failed for %s: %s", file_path, e)
             
             # 曲目号
             if 'TRCK' in tags:
@@ -151,13 +151,13 @@ class MetadataParser:
                     try:
                         metadata.track_number = int(parts[0])
                         metadata.total_tracks = int(parts[1])
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("MP3 track number parse failed for %s: %s", file_path, e)
                 else:
                     try:
                         metadata.track_number = int(track_str)
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug("MP3 track number parse failed for %s: %s", file_path, e)
             
             # 封面图片
             for key in tags:
@@ -197,15 +197,15 @@ class MetadataParser:
         if 'date' in audio:
             try:
                 metadata.year = int(audio['date'][0][:4])
-            except (ValueError, IndexError):
-                pass
+            except (ValueError, IndexError) as e:
+                logger.debug("Vorbis year parse failed for %s: %s", metadata.file_path, e)
         
         # 曲目号
         if 'tracknumber' in audio:
             try:
                 metadata.track_number = int(audio['tracknumber'][0])
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Vorbis track number parse failed for %s: %s", metadata.file_path, e)
     
     @classmethod
     def _parse_m4a(cls, audio, metadata: AudioMetadata) -> None:
@@ -222,8 +222,8 @@ class MetadataParser:
         if '\xa9day' in audio:
             try:
                 metadata.year = int(audio['\xa9day'][0][:4])
-            except (ValueError, IndexError):
-                pass
+            except (ValueError, IndexError) as e:
+                logger.debug("M4A year parse failed for %s: %s", metadata.file_path, e)
         
         # 曲目号
         if 'trkn' in audio:
@@ -231,8 +231,8 @@ class MetadataParser:
                 track_info = audio['trkn'][0]
                 metadata.track_number = track_info[0]
                 metadata.total_tracks = track_info[1] if len(track_info) > 1 else None
-            except (IndexError, TypeError):
-                pass
+            except (IndexError, TypeError) as e:
+                logger.debug("M4A track number parse failed for %s: %s", metadata.file_path, e)
         
         # 封面
         if 'covr' in audio and audio['covr']:

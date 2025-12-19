@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 import json
+import logging
 
 from core.database import DatabaseManager
 from core.event_bus import EventBus, EventType
@@ -17,6 +18,7 @@ from services.config_service import ConfigService
 from services.library_service import LibraryService
 from models.track import Track
 
+logger = logging.getLogger(__name__)
 
 class QueuePersistenceService:
     LAST_QUEUE_KEY = "playback.last_queue"
@@ -52,8 +54,8 @@ class QueuePersistenceService:
         for sub_id in self._sub_ids:
             try:
                 self._event_bus.unsubscribe(sub_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("QueuePersistenceService unsubscribe failed: %s", e)
         self._sub_ids.clear()
         self._player = None
 
@@ -86,7 +88,8 @@ class QueuePersistenceService:
 
         try:
             data = json.loads(row["value"])
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to parse persisted queue: %s", e)
             return ([], None)
 
         track_ids = data.get("track_ids") if isinstance(data, dict) else None
@@ -145,4 +148,3 @@ class QueuePersistenceService:
         if self._suppress:
             return
         self.persist_from_player()
-

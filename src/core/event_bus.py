@@ -182,18 +182,28 @@ class EventBus:
             else:
                 self._executor.submit(self._safe_call, callback, data)
     
-    def publish_sync(self, event_type: EventType, data: Any = None) -> None:
+    def publish_sync(
+        self,
+        event_type: EventType,
+        data: Any = None,
+        timeout: Optional[float] = 5.0,
+    ) -> bool:
         """
         同步发布事件
         
         Args:
             event_type: 事件类型
             data: 事件数据
+            timeout: Wait seconds for Qt-thread callbacks; None to wait indefinitely.
+
+        Returns:
+            bool: True if all callbacks finished before timeout.
         """
         with self._lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
 
         self._ensure_qt_dispatcher()
+        all_completed = True
         for callback in callbacks:
             if self._qt_dispatcher is not None and self._qt_thread is not None:
                 # If we're not on the Qt thread, queue and block until done.
@@ -208,16 +218,20 @@ class EventBus:
                 if current_qt_thread is not None and current_qt_thread != self._qt_thread:
                     done = threading.Event()
                     self._qt_dispatcher.dispatch_sync.emit(callback, data, done)
-                    if not done.wait(timeout=5):
-                        logger.warning(
-                            "EventBus.publish_sync 超时，回调未在 5 秒内完成: %s",
-                            callback
-                        )
+                    if timeout is None:
+                        completed = done.wait()
+                    else:
+                        completed = done.wait(timeout=timeout)
+                    if not completed:
+                        logger.warning("EventBus.publish_sync timed out waiting for callback: %s", callback)
+                        all_completed = False
                 else:
                     self._safe_call(callback, data)
             else:
                 self._safe_call(callback, data)
     
+        return all_completed
+
     def _safe_call(self, callback: Callable, data: Any) -> None:
         """安全调用回调函数"""
         try:
