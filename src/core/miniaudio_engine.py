@@ -321,11 +321,25 @@ class MiniaudioEngine(AudioEngineBase):
                     self._stop_internal()
 
                 # 解码音频文件
-                self._decoded_audio = miniaudio.decode_file(
-                    file_path,
-                    output_format=miniaudio.SampleFormat.FLOAT32,
-                    nchannels=2,
-                )
+                try:
+                    self._decoded_audio = miniaudio.decode_file(
+                        file_path,
+                        output_format=miniaudio.SampleFormat.FLOAT32,
+                        nchannels=2,
+                    )
+                except Exception as e:
+                    logger.debug("miniaudio decode_file failed, retrying in-memory: %s", e)
+                    try:
+                        with open(file_path, "rb") as audio_file:
+                            data = audio_file.read()
+                        self._decoded_audio = miniaudio.decode(
+                            data,
+                            output_format=miniaudio.SampleFormat.FLOAT32,
+                            nchannels=2,
+                        )
+                    except Exception as inner_error:
+                        logger.warning("miniaudio decode failed: %s", inner_error)
+                        raise
 
                 # 检查并重建设备以匹配音源采样率（P0-2 修复）
                 self._reinit_device_if_needed(self._decoded_audio.sample_rate)
@@ -412,7 +426,7 @@ class MiniaudioEngine(AudioEngineBase):
         def stream_generator():
             nonlocal position
             
-            frames_per_chunk = 1024
+            framecount = yield
             total_samples = len(samples)
             total_frames = total_samples // channels
             
@@ -422,7 +436,8 @@ class MiniaudioEngine(AudioEngineBase):
             
             while position < total_frames:
                 start = position * channels
-                end = min(start + frames_per_chunk * channels, total_samples)
+                requested_frames = framecount or 1024
+                end = min(start + requested_frames * channels, total_samples)
 
                 if start >= total_samples:
                     break
@@ -461,12 +476,14 @@ class MiniaudioEngine(AudioEngineBase):
                 position += chunk_frames
                 self._position_samples = position
 
-                yield chunk
+                framecount = yield chunk
 
             # 播放结束
             self._on_playback_finished()
 
-        return stream_generator()
+        generator = stream_generator()
+        next(generator)
+        return generator
 
     def _apply_crossfade(
         self, 
@@ -702,11 +719,25 @@ class MiniaudioEngine(AudioEngineBase):
             return True
 
         try:
-            decoded = miniaudio.decode_file(
-                file_path,
-                output_format=miniaudio.SampleFormat.FLOAT32,
-                nchannels=2,
-            )
+            try:
+                decoded = miniaudio.decode_file(
+                    file_path,
+                    output_format=miniaudio.SampleFormat.FLOAT32,
+                    nchannels=2,
+                )
+            except Exception as e:
+                logger.debug("miniaudio decode_file failed, retrying in-memory: %s", e)
+                try:
+                    with open(file_path, "rb") as audio_file:
+                        data = audio_file.read()
+                    decoded = miniaudio.decode(
+                        data,
+                        output_format=miniaudio.SampleFormat.FLOAT32,
+                        nchannels=2,
+                    )
+                except Exception as inner_error:
+                    logger.warning("miniaudio decode failed: %s", inner_error)
+                    raise
             self._next_decoded = decoded
             self._next_file = file_path
 
