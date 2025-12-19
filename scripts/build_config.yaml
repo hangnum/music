@@ -41,6 +41,18 @@ build:
 
   # Hidden imports (modules that need to be explicitly included)
   hidden_imports:
+    # Application Layer (DI Container)
+    - "app"
+    - "app.container"
+    - "app.container_factory"
+    - "app.protocols"
+
+    # Core Ports (Protocol Interfaces)
+    - "core.ports"
+    - "core.ports.audio"
+    - "core.ports.database"
+    - "core.ports.llm"
+
     # Pygame
     - "pygame.sdl2_video"
     - "pygame.mixer_music"

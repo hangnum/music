@@ -235,7 +235,7 @@ exe = EXE(
     name="{self.config.app_name}",
     debug={self.config.debug},
     bootloader_ignore_signals=False,
-    strip={self.config.strip},
+    strip={self.should_strip()},
     upx={self.config.upx_compression},
     upx_exclude={self.config.upx_exclude},
     runtime_tmpdir=None,
@@ -284,6 +284,16 @@ exe = EXE(
             "linux": ["win32gui", "win32con", "win32file"],
         }
         return excludes.get(self.platform, [])
+    
+    def should_strip(self) -> bool:
+        """Check if strip should be enabled for this platform.
+        
+        The 'strip' command is a Unix tool and not available on Windows by default.
+        Enabling it on Windows causes harmless but noisy warnings.
+        """
+        if self.platform == "win32":
+            return False
+        return self.config.strip
 
 
 # ----------------------------------------------------------------------------

@@ -553,3 +553,18 @@ class MainWindow(QMainWindow):
         self._do_cleanup_and_exit()
         from PyQt6.QtWidgets import QApplication
         QApplication.quit()
+    
+    def activate_from_external(self):
+        """从外部请求激活窗口（单实例支持）
+        
+        当另一个实例尝试启动时，会发送激活消息到主实例。
+        主实例收到消息后调用此方法将窗口激活并置顶。
+        """
+        # 如果最小化则恢复
+        if self.isMinimized():
+            self.showNormal()
+        
+        self.show()           # 确保可见
+        self.raise_()         # 置顶
+        self.activateWindow() # 获取焦点
+
