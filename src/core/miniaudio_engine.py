@@ -411,75 +411,103 @@ class MiniaudioEngine(AudioEngineBase):
     def _create_stream(self):
         """创建音频流生成器 - 包含完整的音频处理链"""
         samples = self._decoded_audio.samples
-        sample_rate = self._sample_rate
         channels = self._channels
         
-        # 捕获当前位置（位置需要在循环中更新）
+        # Current position in frames.
         position = self._position_samples
+        total_samples = len(samples)
+        total_frames = total_samples // channels
+        crossfade_frames = self._crossfade_samples
+        crossfade_start_frame = (
+            total_frames - crossfade_frames if crossfade_frames > 0 else total_frames
+        )
         
-        # EQ 处理器引用
+        # EQ processor reference.
         eq_processor = self._eq_processor
         
-        # 保存 self 引用以便在闭包中访问实时值
+        # Capture self for the closure.
         engine = self
 
         def stream_generator():
-            nonlocal position
+            nonlocal position, samples, channels, total_samples, total_frames, crossfade_frames, crossfade_start_frame
             
             framecount = yield
-            total_samples = len(samples)
-            total_frames = total_samples // channels
             
-            # Crossfade 阈值（距离结束还有多少帧时开始 crossfade）
-            crossfade_frames = engine._crossfade_samples
-            crossfade_start_frame = total_frames - crossfade_frames if crossfade_frames > 0 else total_frames
-            
-            while position < total_frames:
-                start = position * channels
-                requested_frames = framecount or 1024
-                end = min(start + requested_frames * channels, total_samples)
+            while True:
+                while position < total_frames:
+                    start = position * channels
+                    requested_frames = framecount or 1024
+                    end = min(start + requested_frames * channels, total_samples)
 
-                if start >= total_samples:
-                    break
+                    if start >= total_samples:
+                        break
 
-                # 获取原始采样
-                chunk = array.array('f', samples[start:end])
-                chunk_frames = len(chunk) // channels
+                    # Raw samples.
+                    chunk = array.array('f', samples[start:end])
+                    chunk_frames = len(chunk) // channels
 
-                # 检查是否在 crossfade 区域
-                in_crossfade = (crossfade_frames > 0 and 
-                               position >= crossfade_start_frame and 
-                               engine._next_decoded is not None and 
-                               engine._next_crossfade_allowed)
+                    # Check crossfade window.
+                    in_crossfade = (crossfade_frames > 0 and 
+                                   position >= crossfade_start_frame and 
+                                   engine._next_decoded is not None and 
+                                   engine._next_crossfade_allowed)
 
-                # 1. 应用 EQ 处理（crossfade 期间跳过，由 _apply_crossfade 统一处理）
-                if eq_processor.enabled and not in_crossfade:
-                    chunk = eq_processor.process(chunk)
+                    # 1. EQ (skip during crossfade).
+                    if eq_processor.enabled and not in_crossfade:
+                        chunk = eq_processor.process(chunk)
 
-                # 2. 动态计算增益 (ReplayGain + Volume) - 每个 chunk 重新计算
-                base_gain = engine._volume * (10 ** (engine._replay_gain_db / 20))
-                max_gain = 1.0 / engine._replay_gain_peak if engine._replay_gain_peak > 0 else 1.0
-                gain = min(base_gain, max_gain)
-                
-                if gain != 1.0:
-                    for i in range(len(chunk)):
-                        chunk[i] *= gain
+                    # 2. Gain (ReplayGain + volume).
+                    base_gain = engine._volume * (10 ** (engine._replay_gain_db / 20))
+                    max_gain = 1.0 / engine._replay_gain_peak if engine._replay_gain_peak > 0 else 1.0
+                    gain = min(base_gain, max_gain)
+                    
+                    if gain != 1.0:
+                        for i in range(len(chunk)):
+                            chunk[i] *= gain
 
-                # 3. Crossfade 处理（会在混合后统一应用 EQ）
-                if in_crossfade:
-                    chunk = engine._apply_crossfade(
-                        chunk, position, crossfade_start_frame, 
-                        crossfade_frames, channels, gain
+                    # 3. Crossfade mixing.
+                    if in_crossfade:
+                        chunk = engine._apply_crossfade(
+                            chunk, position, crossfade_start_frame, 
+                            crossfade_frames, channels, gain
+                        )
+
+                    # Update position.
+                    position += chunk_frames
+                    self._position_samples = position
+
+                    framecount = yield chunk
+
+                ended_file, next_file, auto_advanced, stop_device = self._on_playback_finished()
+
+                if not auto_advanced and stop_device and self._device:
+                    try:
+                        self._device.stop()
+                    except Exception:
+                        pass
+
+                if self._on_end_callback:
+                    reason = "auto_advance" if auto_advanced else "ended"
+                    self._on_end_callback(
+                        PlaybackEndInfo(
+                            ended_file=ended_file,
+                            next_file=next_file,
+                            reason=reason,
+                        )
                     )
 
-                # 更新位置
-                position += chunk_frames
-                self._position_samples = position
+                if not auto_advanced:
+                    return
 
-                framecount = yield chunk
-
-            # 播放结束
-            self._on_playback_finished()
+                samples = self._decoded_audio.samples
+                channels = self._channels
+                position = self._position_samples
+                total_samples = len(samples)
+                total_frames = total_samples // channels
+                crossfade_frames = engine._crossfade_samples
+                crossfade_start_frame = (
+                    total_frames - crossfade_frames if crossfade_frames > 0 else total_frames
+                )
 
         generator = stream_generator()
         next(generator)
@@ -562,19 +590,24 @@ class MiniaudioEngine(AudioEngineBase):
         
         return result
 
-    def _on_playback_finished(self) -> None:
+    def _on_playback_finished(self) -> tuple[Optional[str], Optional[str], bool, bool]:
         """Playback finished handling."""
         ended_file = None
         next_file = None
         auto_advanced = False
+        stop_device = False
 
         with self._lock:
             ended_file = self._current_file
-            self._state = PlayerState.STOPPED
-            self._playback_started = False
             self._is_crossfading = False
 
-            if self._next_decoded is not None:
+            can_auto_advance = (
+                self._next_decoded is not None
+                and self._next_crossfade_allowed
+                and self._next_decoded.sample_rate == self._sample_rate
+            )
+
+            if can_auto_advance:
                 next_decoded = self._next_decoded
                 next_file = self._next_file
                 had_crossfade = self._crossfade_duration_ms > 0 and self._next_crossfade_allowed
@@ -583,9 +616,6 @@ class MiniaudioEngine(AudioEngineBase):
                 self._next_decoded = None
                 self._next_file = None
                 self._next_crossfade_allowed = True
-
-                # Reinit device if needed to match the next track sample rate.
-                self._reinit_device_if_needed(next_decoded.sample_rate)
 
                 self._decoded_audio = next_decoded
                 self._current_file = next_file
@@ -608,23 +638,27 @@ class MiniaudioEngine(AudioEngineBase):
                     self._crossfade_duration_ms / 1000.0 * self._sample_rate
                 )
 
-                # Continue playback with the next track.
-                stream = self._create_stream()
-                if self._device:
-                    self._device.start(stream)
-                    self._state = PlayerState.PLAYING
-                    self._playback_started = True
-                    auto_advanced = True
+                self._state = PlayerState.PLAYING
+                self._playback_started = True
+                auto_advanced = True
+            else:
+                if self._next_decoded is not None and not can_auto_advance:
+                    logger.info(
+                        "Auto-advance disabled due to sample rate mismatch: %d -> %d",
+                        self._sample_rate,
+                        self._next_decoded.sample_rate,
+                    )
 
-        if self._on_end_callback:
-            reason = "auto_advance" if auto_advanced else "ended"
-            self._on_end_callback(
-                PlaybackEndInfo(
-                    ended_file=ended_file,
-                    next_file=next_file if auto_advanced else None,
-                    reason=reason,
-                )
-            )
+                # Clear preloaded state since we cannot auto-advance.
+                self._next_decoded = None
+                self._next_file = None
+                self._next_crossfade_allowed = True
+
+                self._state = PlayerState.STOPPED
+                self._playback_started = False
+                stop_device = True
+
+        return ended_file, (next_file if auto_advanced else None), auto_advanced, stop_device
 
     def pause(self) -> None:
         """暂停播放"""
