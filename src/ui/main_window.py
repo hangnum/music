@@ -129,7 +129,9 @@ class MainWindow(QMainWindow):
         
         # 媒体库页面
         self.library_widget = LibraryWidget(
-            self.library, self.player, self.playlist_service
+            self.library, self.player, self.playlist_service,
+            tag_service=self._container._tag_service,
+            llm_tagging_service=self._container._llm_tagging_service,
         )
         self.content_stack.addWidget(self.library_widget)
         
@@ -304,6 +306,12 @@ class MainWindow(QMainWindow):
         queue_assistant.triggered.connect(self._open_llm_queue_assistant)
         ai_menu.addAction(queue_assistant)
         
+        ai_menu.addSeparator()
+        
+        llm_tagging = QAction("AI 标签标注…", self)
+        llm_tagging.triggered.connect(self._start_llm_tagging)
+        ai_menu.addAction(llm_tagging)
+        
         # 设置菜单
         settings_menu = menubar.addMenu("设置")
         
@@ -340,6 +348,23 @@ class MainWindow(QMainWindow):
 
     def _open_llm_queue_assistant(self):
         dlg = LLMQueueChatDialog(self.player, self.library, self.config, self)
+        dlg.exec()
+    
+    def _start_llm_tagging(self):
+        """启动 LLM 标签标注"""
+        if self._container._llm_tagging_service is None:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "LLM 服务不可用",
+                "LLM 标签标注服务未初始化。\n请检查 LLM API Key 配置是否正确。"
+            )
+            return
+        
+        from ui.dialogs.llm_tagging_progress_dialog import LLMTaggingProgressDialog
+        dlg = LLMTaggingProgressDialog(
+            llm_tagging_service=self._container._llm_tagging_service,
+            parent=self,
+        )
         dlg.exec()
     
     def _on_create_playlist(self):

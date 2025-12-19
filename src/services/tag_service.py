@@ -193,12 +193,11 @@ class TagService:
             是否添加成功
         """
         try:
-            self._db.insert("track_tags", {
-                "track_id": track_id,
-                "tag_id": tag_id,
-                "created_at": datetime.now().isoformat()
-            })
-            return True
+            cursor = self._db.execute(
+                "INSERT OR IGNORE INTO track_tags (track_id, tag_id, created_at) VALUES (?, ?, ?)",
+                (track_id, tag_id, datetime.now().isoformat()),
+            )
+            return cursor.rowcount > 0
         except Exception:
             # 可能是重复添加或外键约束失败
             logger.warning("添加标签失败: track_id=%s, tag_id=%s", track_id, tag_id, exc_info=True)
@@ -540,12 +539,11 @@ class TagService:
             是否标记成功
         """
         try:
-            self._db.insert("llm_tagged_tracks", {
-                "track_id": track_id,
-                "job_id": job_id,
-                "tagged_at": datetime.now().isoformat()
-            })
-            return True
+            cursor = self._db.execute(
+                "INSERT OR IGNORE INTO llm_tagged_tracks (track_id, job_id, tagged_at) VALUES (?, ?, ?)",
+                (track_id, job_id, datetime.now().isoformat()),
+            )
+            return cursor.rowcount > 0
         except Exception:
             logger.warning("标记曲目LLM标注状态失败: track_id=%s, job_id=%s", track_id, job_id, exc_info=True)
             return False

@@ -106,7 +106,31 @@ class AppContainerFactory:
         )
         queue_persistence.attach(player)
         
-        # === 5. 创建 Facade ===
+        # === 5. LLM 相关服务 ===
+        # 网络搜索服务（用于增强 LLM 标注）
+        from services.web_search_service import WebSearchService
+        web_search_service = WebSearchService(timeout=10.0)
+        
+        # LLM 标注服务
+        llm_tagging_service = None
+        try:
+            from services.llm_tagging_service import LLMTaggingService
+            from services.llm_providers import create_llm_provider
+            
+            llm_client = create_llm_provider(config)
+            llm_tagging_service = LLMTaggingService(
+                config=config,
+                db=db,
+                tag_service=tag_service,
+                library_service=library,
+                client=llm_client,
+                web_search=web_search_service,
+            )
+            logger.info("LLM 标注服务创建成功")
+        except Exception as e:
+            logger.warning("LLM 标注服务创建失败（可能缺少 API Key）: %s", e)
+        
+        # === 6. 创建 Facade ===
         facade = MusicAppFacade(
             player=player,
             library=library,
@@ -115,7 +139,7 @@ class AppContainerFactory:
             event_bus=event_bus,
         )
         
-        # === 6. 装配容器 ===
+        # === 7. 装配容器 ===
         container = AppContainer(
             config=config,
             event_bus=event_bus,
@@ -126,6 +150,8 @@ class AppContainerFactory:
             _playlist_service=playlist_service,
             _queue_persistence=queue_persistence,
             _tag_service=tag_service,
+            _llm_tagging_service=llm_tagging_service,
+            _web_search_service=web_search_service,
         )
         
         logger.info("应用容器创建完成")

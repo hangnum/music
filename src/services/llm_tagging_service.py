@@ -22,6 +22,7 @@ from services.tag_service import TagService
 if TYPE_CHECKING:
     from core.llm_provider import LLMProvider
     from services.library_service import LibraryService
+    from services.web_search_service import WebSearchService
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,7 @@ class LLMTaggingService:
         tag_service: Optional[TagService] = None,
         library_service: Optional["LibraryService"] = None,
         client: Optional["LLMProvider"] = None,
+        web_search: Optional["WebSearchService"] = None,
     ):
         """
         初始化 LLM 标注服务
@@ -88,11 +90,13 @@ class LLMTaggingService:
             tag_service: 标签服务
             library_service: 音乐库服务
             client: LLM 提供商（可选，默认根据配置创建）
+            web_search: 网络搜索服务（可选，用于增强标注）
         """
         self._config = config or ConfigService()
         self._db = db or DatabaseManager()
         self._tag_service = tag_service or TagService(self._db)
         self._library_service = library_service
+        self._web_search = web_search
         
         if client is not None:
             self._client = client
@@ -133,6 +137,7 @@ class LLMTaggingService:
         progress_callback: Optional[Callable[[int, int], None]] = None,
         batch_size: int = 50,
         tags_per_track: int = 5,
+        use_web_search: bool = False,
     ) -> str:
         """
         启动批量标注任务
@@ -141,6 +146,7 @@ class LLMTaggingService:
             progress_callback: 进度回调函数 (current, total)
             batch_size: 每批处理的曲目数量
             tags_per_track: 每首曲目的最大标签数量
+            use_web_search: 是否使用网络搜索增强标注
             
         Returns:
             任务 ID
@@ -174,6 +180,7 @@ class LLMTaggingService:
             batch_size,
             tags_per_track,
             progress_callback,
+            use_web_search,
         )
         self._running_futures[job_id] = future
 
@@ -186,6 +193,7 @@ class LLMTaggingService:
         batch_size: int,
         tags_per_track: int,
         progress_callback: Optional[Callable[[int, int], None]],
+        use_web_search: bool = False,
     ) -> None:
         """Run tagging job in a background thread."""
         try:
@@ -195,6 +203,7 @@ class LLMTaggingService:
                 batch_size=batch_size,
                 tags_per_track=tags_per_track,
                 progress_callback=progress_callback,
+                use_web_search=use_web_search,
             )
 
             if stopped:
@@ -236,6 +245,7 @@ class LLMTaggingService:
         batch_size: int,
         tags_per_track: int,
         progress_callback: Optional[Callable[[int, int], None]],
+        use_web_search: bool = False,
     ) -> bool:
         """Process tagging job."""
         total = len(track_ids)
@@ -253,7 +263,9 @@ class LLMTaggingService:
                 continue
 
             try:
-                tags_result = self._request_tags_for_batch(batch_tracks, tags_per_track)
+                tags_result = self._request_tags_for_batch(
+                    batch_tracks, tags_per_track, use_web_search
+                )
             except Exception as e:
                 logger.warning("Batch processing failed, skipping: %s", e)
                 self._db.update(
@@ -302,10 +314,10 @@ class LLMTaggingService:
         return False
 
     def _request_tags_for_batch(
-
         self,
         tracks: List[Any],
         tags_per_track: int,
+        use_web_search: bool = False,
     ) -> Dict[str, List[str]]:
         """
         请求 LLM 为批量曲目生成标签
@@ -313,6 +325,7 @@ class LLMTaggingService:
         Args:
             tracks: 曲目列表
             tags_per_track: 每首曲目的最大标签数量
+            use_web_search: 是否使用网络搜索增强
             
         Returns:
             {track_id: [tag1, tag2, ...]}
@@ -320,15 +333,31 @@ class LLMTaggingService:
         # 构建曲目摘要
         track_briefs = []
         for t in tracks:
-            track_briefs.append({
+            brief = {
                 "id": t.id,
                 "title": t.title or "",
                 "artist": getattr(t, "artist_name", "") or "",
                 "album": getattr(t, "album_name", "") or "",
                 "genre": getattr(t, "genre", "") or "",
-            })
+            }
+            
+            # 如果启用网络搜索，添加搜索上下文
+            if use_web_search and self._web_search:
+                try:
+                    context = self._web_search.get_music_context(
+                        artist=brief["artist"],
+                        title=brief["title"],
+                        album=brief["album"],
+                        max_total_chars=300,
+                    )
+                    if context:
+                        brief["web_context"] = context
+                except Exception as e:
+                    logger.debug("Web search failed for %s: %s", t.id, e)
+            
+            track_briefs.append(brief)
         
-        messages = self._build_tagging_messages(track_briefs, tags_per_track)
+        messages = self._build_tagging_messages(track_briefs, tags_per_track, use_web_search)
         content = self._client.chat_completions(messages)
         
         return self._parse_tagging_response(content, {t["id"] for t in track_briefs})
@@ -337,8 +366,12 @@ class LLMTaggingService:
         self,
         tracks: List[Dict[str, str]],
         tags_per_track: int,
+        use_web_search: bool = False,
     ) -> List[Dict[str, str]]:
         """构建标注请求消息"""
+        # 构建示例输出
+        example_output = '{"tags": {"track_id_1": ["流行", "华语", "周杰伦"], "track_id_2": ["摇滚", "英文"]}}'
+        
         payload = {
             "task": "music_tagging",
             "tracks": tracks,
@@ -351,25 +384,44 @@ class LLMTaggingService:
                 "语言（如：中文、英文、日语、韩语等）",
                 "其他特征（如：纯音乐、现场版、翻唱等）",
             ],
-            "response_schema": {
-                "tags": {
-                    "<track_id>": ["tag1", "tag2", "..."]
-                }
+            "response_format": {
+                "type": "json_object",
+                "schema": {"tags": {"<track_id>": ["tag1", "tag2"]}},
+                "example": example_output,
             },
             "rules": [
-                "只输出 JSON（不要 markdown，不要代码块）。",
+                "【重要】只输出纯 JSON，不要任何 markdown 代码块（禁止 ```）。",
+                "【重要】输出必须是合法 JSON，确保引号匹配、无尾部逗号。",
                 f"每首曲目生成 1-{tags_per_track} 个标签。",
-                "标签应该简洁、具有描述性，便于后续检索。",
+                "标签应该简洁（2-10字），具有描述性。",
                 "如果无法判断某个分类的标签，可以省略。",
-                "优先使用中文标签，但保留常见的英文风格名称（如 Rock, Pop）。",
+                "优先使用中文标签，保留常见英文风格名（如 Rock, Pop, R&B）。",
             ],
         }
         
-        system = (
-            "你是音乐标签标注助手。根据歌曲的标题、艺术家、专辑和流派信息，"
-            "为每首歌曲生成描述性标签。这些标签将用于后续的音乐检索和推荐。"
-            "严格按 schema 输出 JSON，且不要输出除 JSON 之外的任何内容。"
+        # 根据是否使用网络搜索调整 system prompt
+        base_instruction = (
+            "你是专业的音乐标签标注助手。你的任务是为音乐曲目生成准确的描述性标签。\n\n"
+            "【输出格式要求】\n"
+            "- 只输出纯 JSON 对象\n"
+            "- 禁止使用 markdown 代码块（不要写 ```）\n"
+            "- 禁止在 JSON 外添加任何解释文字\n\n"
+            f"【输出示例】\n{example_output}"
         )
+        
+        if use_web_search:
+            system = (
+                f"{base_instruction}\n\n"
+                "【数据来源】\n"
+                "你将收到歌曲的标题、艺术家、专辑信息，以及从网络搜索获取的上下文（web_context）。"
+                "请综合这些信息生成准确的标签。"
+            )
+        else:
+            system = (
+                f"{base_instruction}\n\n"
+                "【数据来源】\n"
+                "根据歌曲的标题、艺术家、专辑和流派信息生成标签。"
+            )
         
         return [
             {"role": "system", "content": system},
@@ -381,14 +433,8 @@ class LLMTaggingService:
         content: str,
         known_ids: set,
     ) -> Dict[str, List[str]]:
-        """解析 LLM 标注响应"""
-        raw = self._strip_code_fences(content).strip()
-        
-        try:
-            data = json.loads(raw)
-        except Exception as e:
-            logger.warning("LLM 返回非 JSON: %s", raw[:200])
-            raise LLMTaggingError(f"LLM 返回非 JSON: {raw[:200]}") from e
+        """解析 LLM 标注响应（增强版）"""
+        data = self._try_parse_json(content)
         
         tags_data = data.get("tags", {})
         if not isinstance(tags_data, dict):
@@ -414,14 +460,80 @@ class LLMTaggingService:
         
         return result
     
+    def _try_parse_json(self, text: str) -> dict:
+        """
+        尝试解析 JSON，包含多种自动修复策略
+        
+        解析顺序:
+        1. 直接解析
+        2. 移除代码块后解析
+        3. 正则提取 JSON 对象
+        4. 修复常见格式问题（尾部逗号等）
+        """
+        import re
+        
+        # 策略1: 直接解析
+        text = text.strip()
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        
+        # 策略2: 移除代码块后解析
+        raw = self._strip_code_fences(text)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            pass
+        
+        # 策略3: 正则提取 JSON 对象
+        match = re.search(r'\{[\s\S]*\}', raw)
+        if match:
+            extracted = match.group()
+            try:
+                return json.loads(extracted)
+            except json.JSONDecodeError:
+                # 策略4: 修复尾部逗号问题
+                fixed = re.sub(r',(\s*[}\]])', r'\1', extracted)
+                try:
+                    return json.loads(fixed)
+                except json.JSONDecodeError:
+                    pass
+        
+        # 所有策略都失败
+        logger.warning("LLM 返回无法解析的内容: %s", raw[:200])
+        raise LLMTaggingError(f"LLM 返回非 JSON: {raw[:200]}")
+    
     @staticmethod
     def _strip_code_fences(text: str) -> str:
-        """移除代码块标记"""
+        """
+        移除各种代码块格式
+        
+        处理格式:
+        - ```json\n...\n```
+        - ```\n...\n```
+        - `...`
+        - 前后空白
+        """
         t = text.strip()
+        
+        # 处理 ```...``` 格式（可能带语言标识）
         if t.startswith("```"):
             lines = t.splitlines()
-            if len(lines) >= 3 and lines[0].startswith("```") and lines[-1].startswith("```"):
-                return "\n".join(lines[1:-1])
+            if len(lines) >= 2:
+                # 找到结束的 ```
+                end_idx = len(lines)
+                for i in range(len(lines) - 1, 0, -1):
+                    if lines[i].strip().startswith("```"):
+                        end_idx = i
+                        break
+                # 移除首行和末行
+                return "\n".join(lines[1:end_idx]).strip()
+        
+        # 处理单个反引号 `{...}`
+        if t.startswith("`") and t.endswith("`") and not t.startswith("```"):
+            return t[1:-1].strip()
+        
         return t
     
     def get_job_status(self, job_id: str) -> Optional[TaggingJobStatus]:
@@ -515,4 +627,162 @@ class LLMTaggingService:
             "tagged_tracks": tagged_count["count"] if tagged_count else 0,
             "total_tracks": total_count["count"] if total_count else 0,
             "llm_tags": llm_tag_count["count"] if llm_tag_count else 0,
+        }
+    
+    def tag_single_track_detailed(
+        self,
+        track: Any,
+        save_tags: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        对单首曲目进行精细标注
+        
+        使用网络搜索获取详细信息，然后调用 LLM 生成高质量标签。
+        
+        Args:
+            track: 曲目对象
+            save_tags: 是否保存标签到数据库
+            
+        Returns:
+            {
+                "tags": ["标签1", "标签2", ...],
+                "search_context": "搜索到的上下文信息",
+                "analysis": "LLM 分析说明",
+            }
+        """
+        artist = getattr(track, "artist_name", "") or ""
+        title = track.title or ""
+        album = getattr(track, "album_name", "") or ""
+        genre = getattr(track, "genre", "") or ""
+        
+        # 获取详细的搜索上下文
+        search_results = []
+        if self._web_search:
+            try:
+                # 搜索歌曲信息
+                song_info = self._web_search.search_music_info(
+                    artist=artist, title=title, max_results=5
+                )
+                search_results.extend(song_info)
+                
+                # 搜索艺术家信息
+                if artist:
+                    artist_info = self._web_search.search_artist_info(
+                        artist=artist, max_results=3
+                    )
+                    search_results.extend(artist_info)
+                
+                # 搜索专辑信息
+                if album:
+                    album_info = self._web_search.search_album_info(
+                        artist=artist, album=album, max_results=2
+                    )
+                    search_results.extend(album_info)
+            except Exception as e:
+                logger.warning("精细标注搜索失败: %s", e)
+        
+        search_context = " | ".join(search_results[:10]) if search_results else ""
+        
+        # 构建精细标注请求
+        messages = self._build_detailed_tagging_messages(
+            title=title,
+            artist=artist,
+            album=album,
+            genre=genre,
+            search_context=search_context,
+        )
+        
+        try:
+            content = self._client.chat_completions(messages)
+            result = self._parse_detailed_response(content)
+        except Exception as e:
+            logger.error("精细标注 LLM 调用失败: %s", e)
+            return {
+                "tags": [],
+                "search_context": search_context,
+                "analysis": f"标注失败: {e}",
+            }
+        
+        # 保存标签
+        if save_tags and result.get("tags") and self._tag_service:
+            self._tag_service.batch_add_tags_to_track(
+                track_id=track.id,
+                tag_names=result["tags"],
+                source="llm_detailed",
+            )
+            self._tag_service.mark_track_as_tagged(track.id)
+        
+        result["search_context"] = search_context
+        return result
+    
+    def _build_detailed_tagging_messages(
+        self,
+        title: str,
+        artist: str,
+        album: str,
+        genre: str,
+        search_context: str,
+    ) -> List[Dict[str, str]]:
+        """构建精细标注请求"""
+        track_info = {
+            "title": title,
+            "artist": artist,
+            "album": album,
+            "genre": genre,
+        }
+        
+        if search_context:
+            track_info["web_search_results"] = search_context
+        
+        payload = {
+            "task": "detailed_music_tagging",
+            "track": track_info,
+            "request": [
+                "根据歌曲信息和网络搜索结果，生成 5-10 个高质量标签",
+                "标签应覆盖：风格/流派、情绪/氛围、年代、语言、艺术家特点",
+                "提供简短的分析说明为什么选择这些标签",
+            ],
+            "response_schema": {
+                "tags": ["标签1", "标签2", "..."],
+                "analysis": "分析说明",
+            },
+        }
+        
+        system = (
+            "你是专业的音乐分类专家。根据歌曲的元数据和从网络搜索获取的信息，"
+            "为这首歌曲生成准确、详细的标签。"
+            "网络搜索结果可以帮助你了解艺术家风格、专辑特点、歌曲背景等。"
+            "只输出 JSON，不要输出其他内容。"
+        )
+        
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ]
+    
+    def _parse_detailed_response(self, content: str) -> Dict[str, Any]:
+        """解析精细标注响应"""
+        raw = self._strip_code_fences(content).strip()
+        
+        try:
+            data = json.loads(raw)
+        except Exception as e:
+            logger.warning("精细标注 LLM 返回非 JSON: %s", raw[:200])
+            return {"tags": [], "analysis": f"解析失败: {e}"}
+        
+        tags = data.get("tags", [])
+        if not isinstance(tags, list):
+            tags = []
+        
+        # 过滤有效标签
+        valid_tags = []
+        for tag in tags:
+            if isinstance(tag, str):
+                tag = tag.strip()
+                if tag and len(tag) <= 50:
+                    valid_tags.append(tag)
+        
+        return {
+            "tags": valid_tags,
+            "analysis": data.get("analysis", ""),
         }

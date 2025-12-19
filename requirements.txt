@@ -19,6 +19,9 @@ PyYAML>=6.0
 # 图像处理
 Pillow>=10.0.0
 
+# 网络搜索
+ddgs>=6.1.0  # DuckDuckGo 搜索，用于辅助 AI 打标签
+
 # 开发依赖
 pytest>=7.0.0
 pytest-qt>=4.2.0

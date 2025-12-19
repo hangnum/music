@@ -173,7 +173,7 @@ class ConfigService:
                 },
                 'queue_manager': {
                     'max_items': 50,        # 发送给 LLM 的队列条目上限
-                    'max_tokens': 512,
+                    'max_tokens': 2048,     # 增加以防止 JSON 被截断
                     'temperature': 0.2,
                     'json_mode': True,      # 尝试使用 response_format=json_object
                     'cache': {

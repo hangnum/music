@@ -53,6 +53,8 @@ class AppContainer:
     _playlist_service: Any = field(default=None, repr=False)
     _queue_persistence: Any = field(default=None, repr=False)
     _tag_service: Any = field(default=None, repr=False)
+    _llm_tagging_service: Any = field(default=None, repr=False)
+    _web_search_service: Any = field(default=None, repr=False)
     
     def cleanup(self) -> None:
         """清理所有资源

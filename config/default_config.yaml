@@ -37,12 +37,18 @@ llm:
   queue_manager:
     json_mode: true
     max_items: 50
-    max_tokens: 512
+    max_tokens: 2048  # 增加以防止 JSON 被截断
     semantic_fallback:
       batch_size: 250
       max_catalog_items: 1500
       per_batch_pick: 8
     temperature: 0.2
+  tagging:
+    # 标签标注专用配置
+    max_tokens: 2048  # 批量标注需要更多 token
+    tags_per_track: 5
+    batch_size: 50
+    temperature: 0.3
   siliconflow:
     api_key: ""
     api_key_env: SILICONFLOW_API_KEY

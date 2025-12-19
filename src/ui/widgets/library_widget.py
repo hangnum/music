@@ -21,7 +21,6 @@ from services.player_service import PlayerService
 from services.playlist_service import PlaylistService
 from services.tag_service import TagService
 from core.event_bus import EventBus, EventType
-from core.database import DatabaseManager
 from ui.models.track_table_model import TrackTableModel, TrackFilterProxyModel
 
 
@@ -96,11 +95,15 @@ class LibraryWidget(QWidget):
     def __init__(self, library_service: LibraryService,
                  player_service: PlayerService, 
                  playlist_service: PlaylistService = None,
+                 tag_service: TagService = None,
+                 llm_tagging_service=None,
                  parent=None):
         super().__init__(parent)
         self.library = library_service
         self.player = player_service
         self._playlist_service = playlist_service
+        self._tag_service = tag_service
+        self._llm_tagging_service = llm_tagging_service
         self.event_bus = EventBus()
         
         self.all_tracks: List[Track] = []
@@ -315,6 +318,14 @@ class LibraryWidget(QWidget):
         manage_tags.triggered.connect(lambda: self._show_tag_dialog(selected_tracks))
         menu.addAction(manage_tags)
         
+        # AI 精细标注（仅单曲）
+        if len(selected_tracks) == 1:
+            ai_tagging = QAction("🤖 AI 精细标注", self)
+            ai_tagging.triggered.connect(
+                lambda: self._show_detailed_tagging_dialog(selected_tracks[0])
+            )
+            menu.addAction(ai_tagging)
+        
         menu.exec(self.table.viewport().mapToGlobal(pos))
     
     def _play_track(self, track: Track):
@@ -342,9 +353,16 @@ class LibraryWidget(QWidget):
     def _show_tag_dialog(self, tracks: List[Track]):
         """显示标签管理对话框"""
         from ui.dialogs.tag_dialog import TagDialog
+        from PyQt6.QtWidgets import QMessageBox
         
-        tag_service = TagService(DatabaseManager())
-        dialog = TagDialog(tracks, tag_service, self)
+        if self._tag_service is None:
+            QMessageBox.warning(
+                self, "标签服务不可用",
+                "标签服务未初始化。"
+            )
+            return
+        
+        dialog = TagDialog(tracks, self._tag_service, self)
         dialog.exec()
     
     def _on_scan_completed(self, data):
@@ -354,4 +372,20 @@ class LibraryWidget(QWidget):
     def _on_track_added(self, track):
         """新曲目添加"""
         pass  # 可以增量更新
+    
+    def _show_detailed_tagging_dialog(self, track: Track):
+        """显示 AI 精细标注对话框"""
+        from ui.dialogs.detailed_tagging_dialog import DetailedTaggingDialog
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if self._llm_tagging_service is None:
+            QMessageBox.warning(
+                self, "AI 标注不可用",
+                "LLM 标签标注服务未初始化。\n请检查 LLM API Key 配置。"
+            )
+            return
+        
+        dialog = DetailedTaggingDialog(track, self._llm_tagging_service, self)
+        dialog.tagging_completed.connect(lambda _: self._load_tracks())
+        dialog.exec()
 
