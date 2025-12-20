@@ -9,6 +9,7 @@ miniaudio 音频引擎实现
 """
 
 import logging
+import os
 import threading
 import math
 import array
@@ -25,6 +26,32 @@ try:
 except ImportError:
     MINIAUDIO_AVAILABLE = False
     logger.warning("miniaudio 库未安装，MiniaudioEngine 不可用")
+
+# 尝试导入 FFmpeg 转码器
+try:
+    from core.ffmpeg_transcoder import FFmpegTranscoder, MINIAUDIO_NATIVE_FORMATS
+    FFMPEG_TRANSCODER_AVAILABLE = True
+except ImportError:
+    FFmpegTranscoder = None  # type: ignore
+    MINIAUDIO_NATIVE_FORMATS = {'.mp3', '.flac', '.wav', '.ogg'}
+    FFMPEG_TRANSCODER_AVAILABLE = False
+
+
+class UnsupportedFormatError(Exception):
+    """
+    不支持的音频格式异常
+    
+    当 miniaudio 原生不支持且 FFmpeg 转码失败时抛出。
+    PlayerService 可捕获此异常并尝试 VLC 回退。
+    """
+    def __init__(self, file_path: str, format_ext: str, reason: str = ""):
+        self.file_path = file_path
+        self.format_ext = format_ext
+        self.reason = reason
+        super().__init__(
+            f"不支持的格式 {format_ext}: {file_path}" + 
+            (f" ({reason})" if reason else "")
+        )
 
 
 # ===== 10 频段 EQ Biquad 滤波器实现 =====
@@ -313,35 +340,59 @@ class MiniaudioEngine(AudioEngineBase):
             self._state = PlayerState.ERROR
 
     def load(self, file_path: str) -> bool:
-        """加载音频文件"""
+        """
+        加载音频文件
+        
+        加载策略:
+        1. 原生支持的格式直接解码
+        2. 非原生格式尝试 FFmpeg 转码
+        3. 都失败则抛出 UnsupportedFormatError 供上层回退
+        
+        Args:
+            file_path: 音频文件路径
+            
+        Returns:
+            bool: 是否加载成功
+            
+        Raises:
+            UnsupportedFormatError: 格式不支持且无法转码
+        """
+        ext = os.path.splitext(file_path)[1].lower()
+        is_native = ext in MINIAUDIO_NATIVE_FORMATS
+        
         try:
             with self._lock:
                 # 停止当前播放
                 if self._state == PlayerState.PLAYING:
                     self._stop_internal()
 
-                # 解码音频文件
-                try:
-                    self._decoded_audio = miniaudio.decode_file(
-                        file_path,
-                        output_format=miniaudio.SampleFormat.FLOAT32,
-                        nchannels=2,
-                    )
-                except Exception as e:
-                    logger.debug("miniaudio decode_file failed, retrying in-memory: %s", e)
+                decode_error = None
+                
+                # 策略1: 尝试原生解码
+                if is_native:
                     try:
-                        with open(file_path, "rb") as audio_file:
-                            data = audio_file.read()
-                        self._decoded_audio = miniaudio.decode(
-                            data,
-                            output_format=miniaudio.SampleFormat.FLOAT32,
-                            nchannels=2,
-                        )
-                    except Exception as inner_error:
-                        logger.warning("miniaudio decode failed: %s", inner_error)
-                        raise
+                        self._decoded_audio = self._decode_native(file_path)
+                    except Exception as e:
+                        decode_error = e
+                        logger.debug("原生解码失败: %s", e)
+                
+                # 策略2: 非原生格式或原生解码失败，尝试 FFmpeg 转码
+                if self._decoded_audio is None:
+                    if FFMPEG_TRANSCODER_AVAILABLE and FFmpegTranscoder.is_available():
+                        try:
+                            self._decoded_audio = self._decode_via_ffmpeg(file_path)
+                            logger.info("通过 FFmpeg 转码加载: %s", file_path)
+                        except Exception as e:
+                            logger.warning("FFmpeg 转码失败: %s", e)
+                            if decode_error is None:
+                                decode_error = e
+                
+                # 策略3: 都失败，抛出异常供上层回退
+                if self._decoded_audio is None:
+                    reason = str(decode_error) if decode_error else "未知错误"
+                    raise UnsupportedFormatError(file_path, ext, reason)
 
-                # 检查并重建设备以匹配音源采样率（P0-2 修复）
+                # 检查并重建设备以匹配音源采样率
                 self._reinit_device_if_needed(self._decoded_audio.sample_rate)
 
                 self._current_file = file_path
@@ -369,12 +420,53 @@ class MiniaudioEngine(AudioEngineBase):
 
                 return True
 
+        except UnsupportedFormatError:
+            # 重新抛出，让上层处理回退
+            raise
         except Exception as e:
             self._state = PlayerState.ERROR
             logger.error("加载文件失败: %s", e)
             if self._on_error_callback:
                 self._on_error_callback(f"加载文件失败: {e}")
             return False
+
+    def _decode_native(self, file_path: str):
+        """
+        使用 miniaudio 原生解码
+        
+        先尝试 decode_file，失败后尝试内存解码。
+        """
+        try:
+            return miniaudio.decode_file(
+                file_path,
+                output_format=miniaudio.SampleFormat.FLOAT32,
+                nchannels=2,
+            )
+        except Exception as e:
+            logger.debug("miniaudio decode_file failed, retrying in-memory: %s", e)
+            with open(file_path, "rb") as audio_file:
+                data = audio_file.read()
+            return miniaudio.decode(
+                data,
+                output_format=miniaudio.SampleFormat.FLOAT32,
+                nchannels=2,
+            )
+
+    def _decode_via_ffmpeg(self, file_path: str):
+        """
+        通过 FFmpeg 转码后解码
+        
+        将文件转码为 WAV 格式，然后用 miniaudio 解码。
+        """
+        wav_data = FFmpegTranscoder.transcode_to_wav_pipe(
+            file_path, 
+            target_sample_rate=self._sample_rate
+        )
+        return miniaudio.decode(
+            wav_data,
+            output_format=miniaudio.SampleFormat.FLOAT32,
+            nchannels=2,
+        )
 
     def play(self) -> bool:
         """开始播放"""
@@ -753,25 +845,29 @@ class MiniaudioEngine(AudioEngineBase):
             return True
 
         try:
-            try:
-                decoded = miniaudio.decode_file(
-                    file_path,
-                    output_format=miniaudio.SampleFormat.FLOAT32,
-                    nchannels=2,
-                )
-            except Exception as e:
-                logger.debug("miniaudio decode_file failed, retrying in-memory: %s", e)
+            ext = os.path.splitext(file_path)[1].lower()
+            is_native = ext in MINIAUDIO_NATIVE_FORMATS
+            decoded = None
+            
+            # 策略1: 原生解码
+            if is_native:
                 try:
-                    with open(file_path, "rb") as audio_file:
-                        data = audio_file.read()
-                    decoded = miniaudio.decode(
-                        data,
-                        output_format=miniaudio.SampleFormat.FLOAT32,
-                        nchannels=2,
-                    )
-                except Exception as inner_error:
-                    logger.warning("miniaudio decode failed: %s", inner_error)
-                    raise
+                    decoded = self._decode_native(file_path)
+                except Exception as e:
+                    logger.debug("预加载原生解码失败: %s", e)
+            
+            # 策略2: FFmpeg 转码
+            if decoded is None:
+                if FFMPEG_TRANSCODER_AVAILABLE and FFmpegTranscoder.is_available():
+                    try:
+                        decoded = self._decode_via_ffmpeg(file_path)
+                        logger.debug("预加载通过 FFmpeg 转码: %s", file_path)
+                    except Exception as e:
+                        logger.warning("预加载 FFmpeg 转码失败: %s", e)
+            
+            if decoded is None:
+                logger.warning("预加载失败，格式不支持: %s", file_path)
+                return False
             self._next_decoded = decoded
             self._next_file = file_path
 

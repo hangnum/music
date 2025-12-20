@@ -95,14 +95,11 @@ class MainWindow(QMainWindow):
         
         # 恢复窗口状态
         self._restore_state()
-
     
     def _load_styles(self):
         """加载样式表"""
-        style_path = Path(__file__).parent / "styles" / "dark_theme.qss"
-        if style_path.exists():
-            with open(style_path, 'r', encoding='utf-8') as f:
-                self.setStyleSheet(f.read())
+        from ui.styles.theme_manager import ThemeManager
+        self.setStyleSheet(ThemeManager.get_global_stylesheet())
     
     def _setup_ui(self):
         """设置UI布局"""
@@ -174,6 +171,10 @@ class MainWindow(QMainWindow):
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
         sidebar.setMinimumWidth(200)  # 设置最小宽度
+        
+        # 应用侧边栏按钮样式
+        from ui.styles.theme_manager import ThemeManager
+        sidebar.setStyleSheet(ThemeManager.get_sidebar_button_style())
         
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(0, 24, 0, 24)
@@ -249,7 +250,8 @@ class MainWindow(QMainWindow):
         
         # 底部信息
         self.status_label = QLabel()
-        self.status_label.setStyleSheet("color: #8E8E93; padding: 0 20px; font-size: 11px;")
+        from ui.resources.design_tokens import tokens
+        self.status_label.setStyleSheet(f"color: {tokens.NEUTRAL_500}; padding: 0 20px; font-size: {tokens.FONT_SIZE_XS}px;")
         self._update_status()
         layout.addWidget(self.status_label)
         

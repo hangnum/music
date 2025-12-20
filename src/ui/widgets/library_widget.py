@@ -22,6 +22,8 @@ from services.playlist_service import PlaylistService
 from services.tag_service import TagService
 from core.event_bus import EventBus, EventType
 from ui.models.track_table_model import TrackTableModel, TrackFilterProxyModel
+from ui.resources.design_tokens import tokens
+from ui.styles.theme_manager import ThemeManager
 
 
 class TagDelegate(QStyledItemDelegate):
@@ -66,8 +68,8 @@ class TagDelegate(QStyledItemDelegate):
             chip_rect = QRectF(x_offset, y_offset, chip_width, chip_height)
             
             # Deep purple chip color
-            bg_color = QColor(126, 87, 194, 40) # #7e57c2 with alpha
-            text_color = QColor(179, 157, 219) # #b39ddb
+            bg_color = QColor(63, 183, 166, 40) # #3FB7A6 with alpha
+            text_color = QColor(223, 246, 243) # #DFF6F3
             
             painter.setBrush(QBrush(bg_color))
             painter.setPen(Qt.PenStyle.NoPen)
@@ -123,7 +125,7 @@ class LibraryWidget(QWidget):
         
         title = QLabel("媒体库")
         title.setObjectName("titleLabel")
-        title.setStyleSheet("font-size: 28px; font-weight: bold;")
+        title.setStyleSheet(ThemeManager.get_title_label_style())
         header.addWidget(title)
         
         header.addStretch()
@@ -145,7 +147,7 @@ class LibraryWidget(QWidget):
         
         # 统计信息
         self.stats_label = QLabel()
-        self.stats_label.setStyleSheet("color: #B3B3B3; margin-bottom: 8px;")
+        self.stats_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.stats_label)
         
         # 曲目表格 - 使用 Model-View 架构
@@ -181,13 +183,13 @@ class LibraryWidget(QWidget):
         # 注意：需要确认 TrackTableModel 的列定义，通常 Genre 是第3列
         self.table.setItemDelegateForColumn(3, TagDelegate(self.table))
         
-        self.table.setStyleSheet("""
-            QTableView {
-                alternate-background-color: #1A1A1A;
-            }
-            QTableView::item {
+        self.table.setStyleSheet(f"""
+            QTableView {{
+                alternate-background-color: {tokens.NEUTRAL_850};
+            }}
+            QTableView::item {{
                 padding: 8px;
-            }
+            }}
         """)
         
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -388,4 +390,3 @@ class LibraryWidget(QWidget):
         dialog = DetailedTaggingDialog(track, self._llm_tagging_service, self)
         dialog.tagging_completed.connect(lambda _: self._load_tracks())
         dialog.exec()
-

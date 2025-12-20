@@ -117,7 +117,8 @@ class LLMSettingsDialog(QDialog):
         
         # Gemini 特别提示
         note = QLabel("注意：需要能访问 Google API 的网络环境")
-        note.setStyleSheet("color: #888; font-size: 11px;")
+        from ui.resources.design_tokens import tokens
+        note.setStyleSheet(f"color: {tokens.NEUTRAL_500}; font-size: {tokens.FONT_SIZE_XS}px;")
         form.addRow("", note)
 
         return widget

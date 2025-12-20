@@ -15,6 +15,7 @@ from pathlib import Path
 from services.player_service import PlayerService
 from models.track import Track
 from core.event_bus import EventBus, EventType
+from ui.resources.design_tokens import tokens
 
 
 class MiniPlayer(QWidget):
@@ -62,41 +63,41 @@ class MiniPlayer(QWidget):
         # 圆角样式
         self.setStyleSheet("""
             MiniPlayer {
-                background-color: #1C1C1E;
+                background-color: #151B26;
                 border-radius: 12px;
-                border: 1px solid #3A3A3C;
+                border: 1px solid #253043;
             }
             QLabel {
-                color: #FFFFFF;
+                color: #E6E8EC;
             }
             QPushButton {
                 background-color: transparent;
                 border: none;
-                color: #FFFFFF;
+                color: #E6E8EC;
                 font-size: 16px;
                 padding: 4px;
             }
             QPushButton:hover {
-                background-color: #3A3A3C;
+                background-color: #223044;
                 border-radius: 4px;
             }
             QPushButton:pressed {
-                background-color: #2C2C2E;
+                background-color: #1C2734;
             }
             QSlider::groove:horizontal {
                 height: 4px;
-                background: #3A3A3C;
+                background: #2A3342;
                 border-radius: 2px;
             }
             QSlider::handle:horizontal {
                 width: 8px;
                 height: 8px;
                 margin: -2px 0;
-                background: #FFFFFF;
+                background: #E6E8EC;
                 border-radius: 4px;
             }
             QSlider::sub-page:horizontal {
-                background: #FA2D48;
+                background: #3FB7A6;
                 border-radius: 2px;
             }
         """)
@@ -111,7 +112,7 @@ class MiniPlayer(QWidget):
         self.cover_label = QLabel()
         self.cover_label.setFixedSize(60, 60)
         self.cover_label.setStyleSheet("""
-            background-color: #2C2C2E;
+            background-color: #1B2230;
             border-radius: 6px;
         """)
         self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -123,12 +124,12 @@ class MiniPlayer(QWidget):
         info_layout.setSpacing(4)
         
         self.title_label = QLabel("未播放")
-        self.title_label.setStyleSheet("font-size: 13px; font-weight: bold;")
+        self.title_label.setStyleSheet(f"font-size: {tokens.FONT_SIZE_SM}px; font-weight: bold;")
         self.title_label.setMaximumWidth(140)
         info_layout.addWidget(self.title_label)
         
         self.artist_label = QLabel("-")
-        self.artist_label.setStyleSheet("font-size: 11px; color: #8E8E93;")
+        self.artist_label.setStyleSheet(f"font-size: {tokens.FONT_SIZE_MINI}px; color: {tokens.NEUTRAL_500};")
         self.artist_label.setMaximumWidth(140)
         info_layout.addWidget(self.artist_label)
         

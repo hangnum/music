@@ -13,6 +13,7 @@ from PyQt6.QtGui import QIcon, QPixmap
 
 from services.player_service import PlayerService, PlayMode
 from core.event_bus import EventBus, EventType
+from ui.styles.theme_manager import ThemeManager
 
 
 class PlayerControls(QWidget):
@@ -100,11 +101,7 @@ class PlayerControls(QWidget):
         # 封面图片
         self.cover_label = QLabel()
         self.cover_label.setFixedSize(48, 48)
-        self.cover_label.setStyleSheet("""
-            background-color: #2C2C2E;
-            border-radius: 6px;
-            border: 1px solid #3A3A3C;
-        """)
+        self.cover_label.setStyleSheet(ThemeManager.get_cover_style())
         self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.cover_label)
         
@@ -114,13 +111,13 @@ class PlayerControls(QWidget):
         info_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         self.title_label = QLabel("未在播放")
-        self.title_label.setStyleSheet("font-weight: 600; font-size: 14px; color: #E0E0E0;")
+        self.title_label.setStyleSheet(ThemeManager.get_track_title_style())
         # 限制文字长度，简单截断
         self.title_label.setFixedWidth(160)
         
         self.artist_label = QLabel("Apple Music")
         self.artist_label.setObjectName("secondaryLabel")
-        self.artist_label.setStyleSheet("color: #9E9E9E; font-size: 12px;")
+        self.artist_label.setStyleSheet(ThemeManager.get_track_artist_style())
         self.artist_label.setFixedWidth(160)
         
         info_layout.addWidget(self.title_label)
@@ -142,6 +139,7 @@ class PlayerControls(QWidget):
         self.prev_btn.setObjectName("controlButton")
         self.prev_btn.setToolTip("上一曲")
         self.prev_btn.setFixedSize(36, 36)
+        self.prev_btn.setStyleSheet(ThemeManager.get_control_button_style())
         self.prev_btn.clicked.connect(self._on_prev_clicked)
         layout.addWidget(self.prev_btn)
         
@@ -149,7 +147,8 @@ class PlayerControls(QWidget):
         self.play_btn = QPushButton("▶")
         self.play_btn.setObjectName("PlayPauseButton")
         self.play_btn.setToolTip("播放")
-        self.play_btn.setFixedSize(48, 48) # 比其他按钮大 ~30%
+        self.play_btn.setFixedSize(48, 48)
+        self.play_btn.setStyleSheet(ThemeManager.get_primary_button_style())
         self.play_btn.clicked.connect(self._on_play_clicked)
         layout.addWidget(self.play_btn)
         
@@ -158,6 +157,7 @@ class PlayerControls(QWidget):
         self.next_btn.setObjectName("controlButton")
         self.next_btn.setToolTip("下一曲")
         self.next_btn.setFixedSize(36, 36)
+        self.next_btn.setStyleSheet(ThemeManager.get_control_button_style())
         self.next_btn.clicked.connect(self._on_next_clicked)
         layout.addWidget(self.next_btn)
         
@@ -174,7 +174,7 @@ class PlayerControls(QWidget):
         
         # 当前时间/总时间 (移动到右侧显示)
         self.time_label = QLabel("0:00 / 0:00")
-        self.time_label.setStyleSheet("color: #9E9E9E; font-size: 11px; font-family: monospace;")
+        self.time_label.setStyleSheet(ThemeManager.get_time_label_style())
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.time_label)
 
@@ -183,6 +183,8 @@ class PlayerControls(QWidget):
         self.shuffle_btn.setObjectName("controlButton")
         self.shuffle_btn.setToolTip("随机播放")
         self.shuffle_btn.setFixedSize(28, 28)
+        self.shuffle_btn.setStyleSheet(ThemeManager.get_control_button_style())
+        self.shuffle_btn.setCheckable(True)
         self.shuffle_btn.clicked.connect(self._on_shuffle_clicked)
         layout.addWidget(self.shuffle_btn)
         
@@ -191,6 +193,8 @@ class PlayerControls(QWidget):
         self.repeat_btn.setObjectName("controlButton")
         self.repeat_btn.setToolTip("循环播放")
         self.repeat_btn.setFixedSize(28, 28)
+        self.repeat_btn.setStyleSheet(ThemeManager.get_control_button_style())
+        self.repeat_btn.setCheckable(True)
         self.repeat_btn.clicked.connect(self._on_repeat_clicked)
         layout.addWidget(self.repeat_btn)
         
@@ -198,6 +202,7 @@ class PlayerControls(QWidget):
         self.volume_btn = QPushButton("🔊")
         self.volume_btn.setObjectName("controlButton")
         self.volume_btn.setFixedSize(28, 28)
+        self.volume_btn.setStyleSheet(ThemeManager.get_control_button_style())
         self.volume_btn.clicked.connect(self._on_mute_clicked)
         layout.addWidget(self.volume_btn)
         
@@ -291,10 +296,10 @@ class PlayerControls(QWidget):
         mode = self.player.get_play_mode()
         if mode == PlayMode.SHUFFLE:
             self.player.set_play_mode(PlayMode.SEQUENTIAL)
-            self.shuffle_btn.setStyleSheet("")
+            self.shuffle_btn.setChecked(False)
         else:
             self.player.set_play_mode(PlayMode.SHUFFLE)
-            self.shuffle_btn.setStyleSheet("color: #7e57c2;") # Accent Color
+            self.shuffle_btn.setChecked(True)
     
     def _on_repeat_clicked(self):
         """循环按钮点击"""
@@ -302,14 +307,14 @@ class PlayerControls(QWidget):
         if mode == PlayMode.REPEAT_ONE:
             self.player.set_play_mode(PlayMode.SEQUENTIAL)
             self.repeat_btn.setText("🔁")
-            self.repeat_btn.setStyleSheet("")
+            self.repeat_btn.setChecked(False)
         elif mode == PlayMode.REPEAT_ALL:
             self.player.set_play_mode(PlayMode.REPEAT_ONE)
             self.repeat_btn.setText("🔂")
-            self.repeat_btn.setStyleSheet("color: #7e57c2;") # Accent Color
+            self.repeat_btn.setChecked(True)
         else:
             self.player.set_play_mode(PlayMode.REPEAT_ALL)
-            self.repeat_btn.setStyleSheet("color: #7e57c2;") # Accent Color
+            self.repeat_btn.setChecked(True)
     
     def _on_slider_pressed(self):
         """进度条按下"""

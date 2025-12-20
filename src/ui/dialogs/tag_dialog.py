@@ -18,6 +18,8 @@ from models.track import Track
 from models.tag import Tag
 from services.tag_service import TagService
 from core.database import DatabaseManager
+from ui.resources.design_tokens import tokens
+from ui.styles.theme_manager import ThemeManager
 
 
 class TagChip(QWidget):
@@ -40,12 +42,12 @@ class TagChip(QWidget):
         
         # 颜色指示器
         color_dot = QLabel("●")
-        color_dot.setStyleSheet(f"color: {tag.color}; font-size: 12px;")
+        color_dot.setStyleSheet(f"color: {tag.color}; font-size: {tokens.FONT_SIZE_XS}px;")
         layout.addWidget(color_dot)
         
         # 标签名
         name_label = QLabel(tag.name)
-        name_label.setStyleSheet("color: #E0E0E0;")
+        name_label.setStyleSheet(f"color: {tokens.NEUTRAL_200};")
         layout.addWidget(name_label)
         
         layout.addStretch()
@@ -98,30 +100,30 @@ class TagDialog(QDialog):
             title_text = f"为 {len(self.tracks)} 首曲目管理标签"
         
         title = QLabel(title_text)
-        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #E0E0E0;")
+        title.setStyleSheet(f"font-size: {tokens.FONT_SIZE_LG}px; font-weight: bold; color: {tokens.NEUTRAL_200};")
         title.setWordWrap(True)
         layout.addWidget(title)
         
         # 分隔线
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
-        line.setStyleSheet("background-color: #333;")
+        line.setStyleSheet(f"background-color: {tokens.NEUTRAL_700};")
         layout.addWidget(line)
         
         # 标签列表区域
         tags_label = QLabel("选择标签:")
-        tags_label.setStyleSheet("color: #B0B0B0;")
+        tags_label.setStyleSheet(f"color: {tokens.NEUTRAL_500};")
         layout.addWidget(tags_label)
         
         # 可滚动的标签列表
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("""
-            QScrollArea { 
-                border: 1px solid #333; 
-                border-radius: 8px;
-                background-color: #1A1A1A;
-            }
+        scroll.setStyleSheet(f"""
+            QScrollArea {{ 
+                border: 1px solid {tokens.NEUTRAL_600}; 
+                border-radius: {tokens.RADIUS_MD}px;
+                background-color: {tokens.NEUTRAL_800};
+            }}
         """)
         
         self.tags_container = QWidget()
@@ -135,53 +137,41 @@ class TagDialog(QDialog):
         # 分隔线
         line2 = QFrame()
         line2.setFrameShape(QFrame.Shape.HLine)
-        line2.setStyleSheet("background-color: #333;")
+        line2.setStyleSheet(f"background-color: {tokens.NEUTRAL_700};")
         layout.addWidget(line2)
         
         # 创建新标签区域
         create_label = QLabel("创建新标签:")
-        create_label.setStyleSheet("color: #B0B0B0;")
+        create_label.setStyleSheet(f"color: {tokens.NEUTRAL_500};")
         layout.addWidget(create_label)
         
         create_row = QHBoxLayout()
         
         self.new_tag_input = QLineEdit()
         self.new_tag_input.setPlaceholderText("输入标签名...")
-        self.new_tag_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #2A2A2A;
-                border: 1px solid #404040;
-                border-radius: 6px;
+        self.new_tag_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {tokens.NEUTRAL_800};
+                border: 1px solid {tokens.NEUTRAL_600};
+                border-radius: {tokens.RADIUS_MD}px;
                 padding: 8px 12px;
-                color: #E0E0E0;
-            }
-            QLineEdit:focus {
-                border-color: #0A84FF;
-            }
+                color: {tokens.NEUTRAL_200};
+            }}
+            QLineEdit:focus {{
+                border-color: {tokens.PRIMARY_500};
+            }}
         """)
         create_row.addWidget(self.new_tag_input, 1)
         
         self.color_btn = QPushButton()
         self.color_btn.setFixedSize(36, 36)
-        self._current_color = "#808080"
+        self._current_color = tokens.NEUTRAL_500
         self._update_color_button()
         self.color_btn.clicked.connect(self._pick_color)
         create_row.addWidget(self.color_btn)
         
         self.add_btn = QPushButton("添加")
-        self.add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0A84FF;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #006ADB;
-            }
-        """)
+        self.add_btn.setStyleSheet(ThemeManager.get_primary_button_style())
         self.add_btn.clicked.connect(self._create_tag)
         create_row.addWidget(self.add_btn)
         
@@ -192,45 +182,33 @@ class TagDialog(QDialog):
         buttons_layout.addStretch()
         
         cancel_btn = QPushButton("取消")
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3A3A3A;
-                color: #E0E0E0;
+        cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {tokens.NEUTRAL_750};
+                color: {tokens.NEUTRAL_200};
                 border: none;
-                border-radius: 6px;
+                border-radius: {tokens.RADIUS_MD}px;
                 padding: 10px 24px;
-            }
-            QPushButton:hover {
-                background-color: #4A4A4A;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {tokens.NEUTRAL_700};
+            }}
         """)
         cancel_btn.clicked.connect(self.reject)
         buttons_layout.addWidget(cancel_btn)
         
         save_btn = QPushButton("保存")
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #30D158;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 24px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #28B84C;
-            }
-        """)
+        save_btn.setStyleSheet(ThemeManager.get_primary_button_style())
         save_btn.clicked.connect(self._save)
         buttons_layout.addWidget(save_btn)
         
         layout.addLayout(buttons_layout)
         
         # 设置对话框样式
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #1C1C1E;
-            }
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {tokens.NEUTRAL_850};
+            }}
         """)
     
     def _update_color_button(self):
@@ -238,11 +216,11 @@ class TagDialog(QDialog):
         self.color_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {self._current_color};
-                border: 2px solid #555;
+                border: 2px solid {tokens.NEUTRAL_700};
                 border-radius: 18px;
             }}
             QPushButton:hover {{
-                border-color: #888;
+                border-color: {tokens.NEUTRAL_600};
             }}
         """)
     
@@ -269,7 +247,7 @@ class TagDialog(QDialog):
         
         if not all_tags:
             empty = QLabel("暂无标签，请先创建")
-            empty.setStyleSheet("color: #666; padding: 20px;")
+            empty.setStyleSheet(f"color: {tokens.NEUTRAL_500}; padding: 20px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.tags_layout.addWidget(empty)
             return
@@ -312,7 +290,7 @@ class TagDialog(QDialog):
         tag = self.tag_service.create_tag(name, self._current_color)
         if tag:
             self.new_tag_input.clear()
-            self._current_color = "#808080"
+            self._current_color = tokens.NEUTRAL_500
             self._update_color_button()
             
             # 重新加载标签列表

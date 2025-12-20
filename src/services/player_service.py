@@ -259,7 +259,8 @@ class PlayerService:
         
         current = self._queue[self._current_index]
         
-        if self._engine.load(current.file_path):
+        # 尝试加载文件，支持 VLC 回退
+        if self._load_with_fallback(current.file_path):
             if self._engine.play():
                 # 添加到历史
                 self._history.append(self._current_index)
@@ -271,6 +272,83 @@ class PlayerService:
                 return True
         
         return False
+
+    def _load_with_fallback(self, file_path: str) -> bool:
+        """
+        加载文件，支持 VLC 回退
+        
+        当主引擎加载失败（抛出 UnsupportedFormatError）时，
+        尝试切换到 VLC 引擎播放。
+        
+        Args:
+            file_path: 音频文件路径
+            
+        Returns:
+            bool: 是否加载成功
+        """
+        try:
+            # 尝试使用当前引擎加载
+            return self._engine.load(file_path)
+        except Exception as e:
+            # 检查是否为不支持的格式错误
+            error_type = type(e).__name__
+            if error_type == 'UnsupportedFormatError':
+                logger.info("主引擎不支持此格式，尝试 VLC 回退: %s", file_path)
+                return self._try_vlc_fallback(file_path)
+            else:
+                logger.error("加载文件失败: %s", e)
+                return False
+
+    def _try_vlc_fallback(self, file_path: str) -> bool:
+        """
+        尝试使用 VLC 引擎作为回退
+        
+        Args:
+            file_path: 音频文件路径
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            from core.engine_factory import AudioEngineFactory
+            
+            # 检查 VLC 是否可用
+            if not AudioEngineFactory.is_available("vlc"):
+                logger.warning("VLC 引擎不可用，无法播放此格式")
+                self._event_bus.publish_sync(EventType.ERROR_OCCURRED, {
+                    "source": "PlayerService",
+                    "error": f"不支持的音频格式，请安装 FFmpeg 或 VLC: {file_path}"
+                })
+                return False
+            
+            # 保存当前引擎状态
+            old_engine = self._engine
+            old_volume = old_engine.volume
+            
+            # 创建 VLC 引擎
+            vlc_engine = AudioEngineFactory.create("vlc")
+            vlc_engine.set_volume(old_volume)
+            vlc_engine.set_on_end(self._on_engine_end)
+            vlc_engine.set_on_error(self._on_error)
+            
+            # 尝试加载
+            if vlc_engine.load(file_path):
+                # 切换到 VLC 引擎
+                if hasattr(old_engine, 'cleanup'):
+                    old_engine.cleanup()
+                self._engine = vlc_engine
+                logger.info("已切换到 VLC 引擎播放: %s", file_path)
+                return True
+            else:
+                # VLC 也失败了
+                if hasattr(vlc_engine, 'cleanup'):
+                    vlc_engine.cleanup()
+                logger.warning("VLC 引擎也无法播放: %s", file_path)
+                return False
+                
+        except Exception as e:
+            logger.error("VLC 回退失败: %s", e)
+            return False
     
     def pause(self) -> None:
         """暂停播放"""

@@ -18,6 +18,7 @@ from models.track import Track
 from services.playlist_service import PlaylistService
 from services.player_service import PlayerService
 from ui.models.track_list_model import TrackListModel
+from ui.styles.theme_manager import ThemeManager
 
 
 class PlaylistDetailWidget(QWidget):
@@ -68,7 +69,7 @@ class PlaylistDetailWidget(QWidget):
         header.addWidget(self.back_btn)
         
         self.title_label = QLabel("歌单详情")
-        self.title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
+        self.title_label.setStyleSheet(ThemeManager.get_section_title_style())
         header.addWidget(self.title_label)
         
         header.addStretch()
@@ -81,7 +82,7 @@ class PlaylistDetailWidget(QWidget):
         
         # 描述
         self.desc_label = QLabel()
-        self.desc_label.setStyleSheet("color: #B3B3B3; font-size: 13px;")
+        self.desc_label.setStyleSheet(ThemeManager.get_secondary_label_style())
         self.desc_label.setWordWrap(True)
         layout.addWidget(self.desc_label)
         
@@ -109,7 +110,7 @@ class PlaylistDetailWidget(QWidget):
         
         # 底部信息
         self.info_label = QLabel("0 首曲目")
-        self.info_label.setStyleSheet("color: #B3B3B3; font-size: 12px;")
+        self.info_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.info_label)
     
     def set_playlist(self, playlist: Playlist):

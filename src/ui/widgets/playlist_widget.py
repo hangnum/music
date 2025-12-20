@@ -16,6 +16,7 @@ from models.track import Track
 from services.player_service import PlayerService
 from core.event_bus import EventBus, EventType
 from ui.models.track_list_model import TrackListModel
+from ui.styles.theme_manager import ThemeManager
 
 
 class PlaylistWidget(QWidget):
@@ -47,7 +48,7 @@ class PlaylistWidget(QWidget):
         header = QHBoxLayout()
         
         title = QLabel("播放队列")
-        title.setStyleSheet("font-size: 18px; font-weight: bold;")
+        title.setStyleSheet(ThemeManager.get_section_title_style())
         header.addWidget(title)
         
         header.addStretch()
@@ -89,7 +90,7 @@ class PlaylistWidget(QWidget):
         
         # 底部信息
         self.info_label = QLabel("0 首曲目")
-        self.info_label.setStyleSheet("color: #B3B3B3; font-size: 12px;")
+        self.info_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.info_label)
     
     def _connect_signals(self):

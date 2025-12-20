@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import (
 from services.config_service import ConfigService
 from core.engine_factory import AudioEngineFactory
 from models.eq_preset import EQPreset, EQ_PRESETS, EQ_BAND_LABELS, get_preset_bands
+from ui.resources.design_tokens import tokens
 
 
 class EQBandSlider(QWidget):
@@ -49,7 +50,7 @@ class EQBandSlider(QWidget):
         self._value_label = QLabel("0")
         self._value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._value_label.setFixedWidth(32)
-        self._value_label.setStyleSheet("font-size: 11px;")
+        self._value_label.setStyleSheet(f"font-size: {tokens.FONT_SIZE_XS}px;")
         
         # 滑块 (垂直)
         self._slider = QSlider(Qt.Orientation.Vertical)
@@ -62,7 +63,7 @@ class EQBandSlider(QWidget):
         # 频率标签
         self._freq_label = QLabel(label)
         self._freq_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._freq_label.setStyleSheet("font-size: 10px; color: #888;")
+        self._freq_label.setStyleSheet(f"font-size: 10px; color: {tokens.NEUTRAL_500};")
         
         layout.addWidget(self._value_label, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._slider, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -148,7 +149,7 @@ class AudioSettingsDialog(QDialog):
         
         # 当前后端信息
         self._backend_info_label = QLabel()
-        self._backend_info_label.setStyleSheet("color: #888; font-size: 11px;")
+        self._backend_info_label.setStyleSheet(f"color: {tokens.NEUTRAL_500}; font-size: {tokens.FONT_SIZE_XS}px;")
         layout.addRow("", self._backend_info_label)
         
         self._backend_combo.currentIndexChanged.connect(self._update_backend_info)

@@ -1,4 +1,4 @@
-"""
+﻿"""
 精细标注对话框
 
 对单首曲目进行详细的 AI 标注，显示网络搜索结果和 LLM 分析。
@@ -112,7 +112,7 @@ class DetailedTaggingDialog(QDialog):
         
         self._status_label = QLabel('点击"开始标注"进行 AI 精细分析')
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._status_label.setStyleSheet("color: #888;")
+        self._status_label.setStyleSheet("color: #6C7686;")
         layout.addWidget(self._status_label)
         
         # === 结果区域（可滚动）===
@@ -181,7 +181,7 @@ class DetailedTaggingDialog(QDialog):
         self._start_btn.setEnabled(False)
         self._progress_bar.setVisible(True)
         self._status_label.setText("正在搜索和分析...")
-        self._status_label.setStyleSheet("color: #1DB954;")
+        self._status_label.setStyleSheet("color: #3FB7A6;")
         
         # 隐藏结果区域
         self._tags_group.setVisible(False)
@@ -209,11 +209,11 @@ class DetailedTaggingDialog(QDialog):
         
         if tags:
             self._status_label.setText(f"✓ 生成了 {len(tags)} 个标签")
-            self._status_label.setStyleSheet("color: #1DB954;")
+            self._status_label.setStyleSheet("color: #3FB7A6;")
             
             # 显示标签（避免双重转义）
             tags_html = " ".join(
-                f'<span style="background: #7e57c2; color: white; '
+                f'<span style="background: #3FB7A6; color: white; '
                 f'padding: 4px 10px; border-radius: 12px; margin: 2px;">{html.escape(html.unescape(t))}</span>'
                 for t in tags
             )
@@ -223,7 +223,7 @@ class DetailedTaggingDialog(QDialog):
             self.tagging_completed.emit(tags)
         else:
             self._status_label.setText("未生成标签")
-            self._status_label.setStyleSheet("color: #ff6b6b;")
+            self._status_label.setStyleSheet("color: #E46868;")
         
         # 显示分析
         if analysis:
@@ -242,10 +242,11 @@ class DetailedTaggingDialog(QDialog):
         self._progress_bar.setVisible(False)
         self._start_btn.setEnabled(True)
         self._status_label.setText(f"✗ 标注失败: {error}")
-        self._status_label.setStyleSheet("color: #ff6b6b;")
+        self._status_label.setStyleSheet("color: #E46868;")
     
     def closeEvent(self, event):
         """关闭时等待线程"""
         if self._worker and self._worker.isRunning():
             self._worker.wait(1000)
         event.accept()
+

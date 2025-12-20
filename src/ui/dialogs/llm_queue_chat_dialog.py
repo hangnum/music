@@ -29,6 +29,7 @@ from services.library_service import LibraryService
 from services.player_service import PlayerService
 
 from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
+from ui.resources.design_tokens import tokens
 
 
 class ChatInputWidget(QPlainTextEdit):
@@ -125,29 +126,29 @@ class LLMQueueChatDialog(QDialog):
         """设置现代化样式"""
         self.setStyleSheet("""
             LLMQueueChatDialog {
-                background-color: #1a1a1a;
+                background-color: #121722;
             }
             QTextEdit#chatArea {
-                background-color: #242424;
-                border: 1px solid #3a3a3a;
+                background-color: #151B26;
+                border: 1px solid #253043;
                 border-radius: 8px;
                 padding: 12px;
                 font-size: 14px;
-                color: #e0e0e0;
+                color: #E6E8EC;
             }
             QPlainTextEdit#inputArea {
-                background-color: #2a2a2a;
-                border: 2px solid #3a3a3a;
+                background-color: #141923;
+                border: 2px solid #263041;
                 border-radius: 8px;
                 padding: 10px;
                 font-size: 14px;
-                color: #ffffff;
+                color: #E6E8EC;
             }
             QPlainTextEdit#inputArea:focus {
-                border-color: #1DB954;
+                border-color: #3FB7A6;
             }
             QPushButton#sendBtn {
-                background-color: #1DB954;
+                background-color: #3FB7A6;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -156,30 +157,30 @@ class LLMQueueChatDialog(QDialog):
                 font-weight: bold;
             }
             QPushButton#sendBtn:hover {
-                background-color: #1ed760;
+                background-color: #5BC0B0;
             }
             QPushButton#sendBtn:pressed {
-                background-color: #169c46;
+                background-color: #2FA191;
             }
             QPushButton#sendBtn:disabled {
-                background-color: #555;
-                color: #888;
+                background-color: #3A465C;
+                color: #7B8595;
             }
             QPushButton#settingsBtn {
                 background-color: transparent;
-                color: #888;
-                border: 1px solid #444;
+                color: #9AA2AF;
+                border: 1px solid #2A3342;
                 border-radius: 6px;
                 padding: 8px 16px;
                 font-size: 12px;
             }
             QPushButton#settingsBtn:hover {
-                background-color: #333;
-                color: #fff;
+                background-color: #1C2734;
+                color: #E6E8EC;
             }
             QListWidget#historyList {
-                background-color: #242424;
-                border: 1px solid #3a3a3a;
+                background-color: #151B26;
+                border: 1px solid #253043;
                 border-radius: 8px;
                 padding: 4px;
             }
@@ -189,24 +190,24 @@ class LLMQueueChatDialog(QDialog):
                 margin: 2px;
             }
             QListWidget#historyList::item:hover {
-                background-color: #333;
+                background-color: #1C2734;
             }
             QListWidget#historyList::item:selected {
-                background-color: #1DB954;
+                background-color: #3FB7A6;
             }
             QLineEdit#historyFilter {
-                background-color: #2a2a2a;
-                border: 1px solid #3a3a3a;
+                background-color: #141923;
+                border: 1px solid #263041;
                 border-radius: 6px;
                 padding: 8px;
-                color: #e0e0e0;
+                color: #E6E8EC;
             }
             QLabel#statusLabel {
-                color: #1DB954;
+                color: #3FB7A6;
                 font-size: 13px;
             }
             QLabel#hintLabel {
-                color: #666;
+                color: #6C7686;
                 font-size: 11px;
             }
         """)
@@ -277,7 +278,7 @@ class LLMQueueChatDialog(QDialog):
 
         history_box = QVBoxLayout()
         history_label = QLabel("📜 历史（双击加载）")
-        history_label.setStyleSheet("color: #888; font-size: 12px; margin-bottom: 4px;")
+        history_label.setStyleSheet(f"color: {tokens.NEUTRAL_600}; font-size: {tokens.FONT_SIZE_XS}px; margin-bottom: 4px;")
         history_box.addWidget(history_label)
         history_box.addWidget(self._history_filter)
         history_box.addWidget(self._history_list, 1)

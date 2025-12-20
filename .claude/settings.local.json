@@ -8,7 +8,12 @@
       "Bash(dir:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(gh api:*)",
+      "Bash(git log:*)",
+      "WebSearch",
+      "Skill(plan)",
+      "Bash(python:*)"
     ]
   }
 }

@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a high-quality desktop music player application built with Python, featuring a modular architecture, modern UI design inspired by Apple Music, and comprehensive audio format support.
 
+## Claude Preferences
+
+When working on this project, Claude should:
+- Use the "plan" skill for creating implementation plans for complex features
+- Default to structured planning with clear action items, testing, and risk assessment
+- Save plans to the plans directory for future reference
+
 **Technology Stack:**
 
 - GUI Framework: PyQt6 (cross-platform desktop interface)

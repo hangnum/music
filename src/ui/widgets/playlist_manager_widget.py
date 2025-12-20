@@ -16,6 +16,7 @@ from typing import Optional
 from models.playlist import Playlist
 from services.playlist_service import PlaylistService
 from core.event_bus import EventBus, EventType
+from ui.styles.theme_manager import ThemeManager
 
 
 class PlaylistManagerWidget(QWidget):
@@ -58,7 +59,7 @@ class PlaylistManagerWidget(QWidget):
         header = QHBoxLayout()
         
         title = QLabel("我的歌单")
-        title.setStyleSheet("font-size: 18px; font-weight: bold;")
+        title.setStyleSheet(ThemeManager.get_section_title_style())
         header.addWidget(title)
         
         header.addStretch()
@@ -80,7 +81,7 @@ class PlaylistManagerWidget(QWidget):
         
         # 底部信息
         self.info_label = QLabel("0 个歌单")
-        self.info_label.setStyleSheet("color: #B3B3B3; font-size: 12px;")
+        self.info_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.info_label)
     
     def _connect_signals(self):
