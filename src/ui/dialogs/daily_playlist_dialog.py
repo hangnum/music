@@ -520,7 +520,7 @@ class DailyPlaylistDialog(QDialog):
         
         try:
             self._player_service.set_queue(self._result.tracks, 0)
-            self._player_service.play_pause()
+            self._player_service.play()
             self.accept()  # 关闭对话框
         except Exception as e:
             QMessageBox.critical(self, "播放失败", str(e))
@@ -539,17 +539,16 @@ class DailyPlaylistDialog(QDialog):
         name = f"每日歌单 {datetime.now().strftime('%Y-%m-%d')}"
         
         try:
-            playlist = self._playlist_service.create_playlist(name)
+            playlist = self._playlist_service.create(name)
             if playlist:
-                track_ids = [t.id for t in self._result.tracks]
                 # TODO: 优化为批量插入以提高性能
-                for track_id in track_ids:
-                    self._playlist_service.add_track_to_playlist(playlist.id, track_id)
+                for track in self._result.tracks:
+                    self._playlist_service.add_track(playlist.id, track)
                 
                 QMessageBox.information(
                     self, 
                     "保存成功", 
-                    f"播放列表 \"{name}\" 已创建，包含 {len(track_ids)} 首歌曲"
+                    f"播放列表 \"{name}\" 已创建，包含 {len(self._result.tracks)} 首歌曲"
                 )
         except Exception as e:
             QMessageBox.critical(self, "保存失败", str(e))

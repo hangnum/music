@@ -113,6 +113,11 @@ class PlaylistDetailWidget(QWidget):
         self.info_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.info_label)
     
+    @property
+    def playlist(self) -> Optional[Playlist]:
+        """获取当前显示的歌单"""
+        return self._current_playlist
+    
     def set_playlist(self, playlist: Playlist):
         """
         设置当前显示的歌单

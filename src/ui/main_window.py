@@ -193,6 +193,11 @@ class MainWindow(QMainWindow):
         self.nav_library.clicked.connect(lambda: self._switch_page(0))
         layout.addWidget(self.nav_library)
         
+        self.nav_daily_playlist = QPushButton("✨  每日歌单")
+        self.nav_daily_playlist.setCheckable(True)
+        self.nav_daily_playlist.clicked.connect(self._on_daily_playlist_clicked)
+        layout.addWidget(self.nav_daily_playlist)
+        
         self.nav_discover = QPushButton("🌟  浏览")
         self.nav_discover.setCheckable(True)
         self.nav_discover.setEnabled(False) # 暂未实现
@@ -452,7 +457,19 @@ class MainWindow(QMainWindow):
         # 更新导航按钮状态
         self.nav_library.setChecked(index == 0)
         self.nav_queue.setChecked(index == 1)
-        self.nav_playlists.setChecked(index in (2, 3))
+        
+        # 处理歌单和每日歌单的选中状态
+        is_daily = False
+        if index == 3:
+            current_playlist = self.playlist_detail.playlist
+            if current_playlist:
+                from datetime import datetime
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                if current_playlist.name == f"每日歌单 {today_str}":
+                    is_daily = True
+        
+        self.nav_daily_playlist.setChecked(is_daily)
+        self.nav_playlists.setChecked(index == 2 or (index == 3 and not is_daily))
         
         # 根据页面刷新内容
         if index == 1:
@@ -512,6 +529,25 @@ class MainWindow(QMainWindow):
         """曲目开始播放"""
         if track:
             self.setWindowTitle(f"{track.title} - Python Music Player")
+    
+    def _on_daily_playlist_clicked(self):
+        """点击每日歌单导航按钮"""
+        from datetime import datetime
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        target_name = f"每日歌单 {today_str}"
+        
+        # 查找今日歌单
+        playlists = self.playlist_service.get_all()
+        today_playlist = next((p for p in playlists if p.name == target_name), None)
+        
+        if today_playlist:
+            # 如果已存在，直接跳转
+            self._on_playlist_selected(today_playlist)
+            self.nav_daily_playlist.setChecked(True)
+        else:
+            # 如果不存在，打开生成对话框
+            self.nav_daily_playlist.setChecked(False)
+            self._open_daily_playlist()
     
     def _update_status(self):
         """更新状态信息"""
