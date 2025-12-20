@@ -12,7 +12,6 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
-    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -37,6 +36,7 @@ from services.player_service import PlayerService
 from services.playlist_service import PlaylistService
 from services.tag_service import TagService
 from services.llm_providers import create_llm_provider
+from ui.resources.design_tokens import tokens
 
 
 class _GenerateWorker(QObject):
@@ -101,148 +101,149 @@ class DailyPlaylistDialog(QDialog):
         self._load_tags()
     
     def _setup_styles(self):
-        """设置现代化样式"""
-        self.setStyleSheet("""
-            DailyPlaylistDialog {
-                background-color: #121722;
-            }
-            QGroupBox {
-                color: #E6E8EC;
-                font-size: 14px;
+        """设置现代化样式，使用 DesignTokens"""
+        self.setStyleSheet(f"""
+            DailyPlaylistDialog {{
+                background-color: {tokens.NEUTRAL_900};
+            }}
+            QGroupBox {{
+                color: {tokens.NEUTRAL_200};
+                font-size: {tokens.FONT_SIZE_BASE}px;
                 font-weight: bold;
-                border: 1px solid #253043;
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 12px;
-            }
-            QGroupBox::title {
+                border: 1px solid {tokens.NEUTRAL_700};
+                border-radius: {tokens.RADIUS_MD}px;
+                margin-top: {tokens.SPACING_3}px;
+                padding-top: {tokens.SPACING_3}px;
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-            }
-            QLabel {
-                color: #9AA2AF;
-            }
-            QLabel#titleLabel {
-                color: #E6E8EC;
-                font-size: 20px;
+                left: {tokens.SPACING_3}px;
+                padding: 0 {tokens.SPACING_2}px;
+            }}
+            QLabel {{
+                color: {tokens.NEUTRAL_500};
+            }}
+            QLabel#titleLabel {{
+                color: {tokens.NEUTRAL_200};
+                font-size: {tokens.FONT_SIZE_2XL}px;
                 font-weight: bold;
-            }
-            QLabel#subtitleLabel {
-                color: #6C7686;
-                font-size: 13px;
-            }
-            QLabel#summaryLabel {
-                color: #3FB7A6;
-                font-size: 13px;
-            }
-            QLineEdit {
-                background-color: #141923;
-                border: 1px solid #263041;
-                border-radius: 6px;
+            }}
+            QLabel#subtitleLabel {{
+                color: {tokens.NEUTRAL_300};
+                font-size: {tokens.FONT_SIZE_SM}px;
+            }}
+            QLabel#summaryLabel {{
+                color: {tokens.PRIMARY_500};
+                font-size: {tokens.FONT_SIZE_SM}px;
+            }}
+            QLineEdit {{
+                background-color: {tokens.NEUTRAL_800};
+                border: 1px solid {tokens.NEUTRAL_600};
+                border-radius: {tokens.RADIUS_SM}px;
                 padding: 10px;
-                color: #E6E8EC;
-                font-size: 14px;
-            }
-            QLineEdit:focus {
-                border-color: #3FB7A6;
-            }
-            QSpinBox {
-                background-color: #141923;
-                border: 1px solid #263041;
-                border-radius: 6px;
-                padding: 8px;
-                color: #E6E8EC;
-            }
-            QCheckBox {
-                color: #9AA2AF;
-                spacing: 6px;
-            }
-            QCheckBox::indicator {
+                color: {tokens.NEUTRAL_200};
+                font-size: {tokens.FONT_SIZE_BASE}px;
+            }}
+            QLineEdit:focus {{
+                border-color: {tokens.PRIMARY_500};
+            }}
+            QSpinBox {{
+                background-color: {tokens.NEUTRAL_800};
+                border: 1px solid {tokens.NEUTRAL_600};
+                border-radius: {tokens.RADIUS_SM}px;
+                padding: {tokens.SPACING_2}px;
+                color: {tokens.NEUTRAL_200};
+            }}
+            QCheckBox {{
+                color: {tokens.NEUTRAL_500};
+                spacing: {tokens.SPACING_2}px;
+            }}
+            QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border-radius: 4px;
-                border: 1px solid #3A465C;
-                background-color: #1C2734;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #3FB7A6;
-                border-color: #3FB7A6;
-            }
-            QCheckBox:hover {
-                color: #E6E8EC;
-            }
-            QPushButton#generateBtn {
-                background-color: #3FB7A6;
-                color: white;
+                border-radius: {tokens.RADIUS_SM}px;
+                border: 1px solid {tokens.NEUTRAL_700};
+                background-color: {tokens.NEUTRAL_750};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {tokens.PRIMARY_500};
+                border-color: {tokens.PRIMARY_500};
+            }}
+            QCheckBox:hover {{
+                color: {tokens.NEUTRAL_200};
+            }}
+            QPushButton#generateBtn {{
+                background-color: {tokens.PRIMARY_500};
+                color: {tokens.NEUTRAL_50};
                 border: none;
-                border-radius: 8px;
+                border-radius: {tokens.RADIUS_MD}px;
                 padding: 14px 32px;
-                font-size: 16px;
+                font-size: {tokens.FONT_SIZE_LG}px;
                 font-weight: bold;
-            }
-            QPushButton#generateBtn:hover {
-                background-color: #5BC0B0;
-            }
-            QPushButton#generateBtn:pressed {
-                background-color: #2FA191;
-            }
-            QPushButton#generateBtn:disabled {
-                background-color: #3A465C;
-                color: #7B8595;
-            }
-            QPushButton#actionBtn {
-                background-color: #1C2734;
-                color: #E6E8EC;
-                border: 1px solid #3A465C;
-                border-radius: 6px;
+            }}
+            QPushButton#generateBtn:hover {{
+                background-color: {tokens.PRIMARY_600};
+            }}
+            QPushButton#generateBtn:pressed {{
+                background-color: {tokens.PRIMARY_700};
+            }}
+            QPushButton#generateBtn:disabled {{
+                background-color: {tokens.NEUTRAL_700};
+                color: {tokens.NEUTRAL_300};
+            }}
+            QPushButton#actionBtn {{
+                background-color: {tokens.NEUTRAL_750};
+                color: {tokens.NEUTRAL_200};
+                border: 1px solid {tokens.NEUTRAL_700};
+                border-radius: {tokens.RADIUS_SM}px;
                 padding: 10px 20px;
-                font-size: 13px;
-            }
-            QPushButton#actionBtn:hover {
-                background-color: #263041;
-            }
-            QPushButton#actionBtn:disabled {
-                color: #5A6473;
-            }
-            QListWidget {
-                background-color: #151B26;
-                border: 1px solid #253043;
-                border-radius: 8px;
-                padding: 4px;
-            }
-            QListWidget::item {
-                padding: 8px 12px;
-                border-radius: 4px;
-                color: #E6E8EC;
-            }
-            QListWidget::item:hover {
-                background-color: #1C2734;
-            }
-            QListWidget::item:selected {
-                background-color: #3FB7A6;
-            }
-            QProgressBar {
+                font-size: {tokens.FONT_SIZE_SM}px;
+            }}
+            QPushButton#actionBtn:hover {{
+                background-color: {tokens.NEUTRAL_600};
+            }}
+            QPushButton#actionBtn:disabled {{
+                color: {tokens.NEUTRAL_300};
+            }}
+            QListWidget {{
+                background-color: {tokens.NEUTRAL_850};
+                border: 1px solid {tokens.NEUTRAL_700};
+                border-radius: {tokens.RADIUS_MD}px;
+                padding: {tokens.SPACING_1}px;
+            }}
+            QListWidget::item {{
+                padding: {tokens.SPACING_2}px {tokens.SPACING_3}px;
+                border-radius: {tokens.RADIUS_SM}px;
+                color: {tokens.NEUTRAL_200};
+            }}
+            QListWidget::item:hover {{
+                background-color: {tokens.NEUTRAL_750};
+            }}
+            QListWidget::item:selected {{
+                background-color: {tokens.PRIMARY_500};
+            }}
+            QProgressBar {{
                 border: none;
-                background-color: #1C2734;
-                border-radius: 4px;
+                background-color: {tokens.NEUTRAL_750};
+                border-radius: {tokens.RADIUS_SM}px;
                 height: 6px;
-            }
-            QProgressBar::chunk {
-                background-color: #3FB7A6;
-                border-radius: 4px;
-            }
-            QScrollArea {
+            }}
+            QProgressBar::chunk {{
+                background-color: {tokens.PRIMARY_500};
+                border-radius: {tokens.RADIUS_SM}px;
+            }}
+            QScrollArea {{
                 border: none;
                 background-color: transparent;
-            }
+            }}
         """)
     
     def _setup_ui(self):
         """设置 UI 布局"""
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
-        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(tokens.SPACING_4)
+        layout.setContentsMargins(tokens.SPACING_6, tokens.SPACING_6, 
+                                   tokens.SPACING_6, tokens.SPACING_6)
         
         # 标题区
         title = QLabel("🎵 今天想听什么？")
@@ -253,7 +254,7 @@ class DailyPlaylistDialog(QDialog):
         
         layout.addWidget(title)
         layout.addWidget(subtitle)
-        layout.addSpacing(8)
+        layout.addSpacing(tokens.SPACING_2)
         
         # 标签输入区
         tag_group = QGroupBox("选择标签")
@@ -272,14 +273,14 @@ class DailyPlaylistDialog(QDialog):
         
         self._tag_container = QWidget()
         self._tag_grid = QGridLayout(self._tag_container)
-        self._tag_grid.setSpacing(8)
+        self._tag_grid.setSpacing(tokens.SPACING_2)
         scroll.setWidget(self._tag_container)
         
         tag_layout.addWidget(scroll)
         
         # 手动输入标签
         manual_label = QLabel("或手动输入标签（逗号分隔）:")
-        manual_label.setStyleSheet("font-size: 12px;")
+        manual_label.setStyleSheet(f"font-size: {tokens.FONT_SIZE_XS}px;")
         self._manual_tags = QLineEdit()
         self._manual_tags.setPlaceholderText("例如: 流行, 轻松, 周杰伦")
         
@@ -379,7 +380,7 @@ class DailyPlaylistDialog(QDialog):
         
         if not tags:
             no_tag_label = QLabel("暂无标签，请先为音乐添加标签")
-            no_tag_label.setStyleSheet("color: #6C7686;")
+            no_tag_label.setStyleSheet(f"color: {tokens.NEUTRAL_300};")
             self._tag_grid.addWidget(no_tag_label, 0, 0)
     
     def _filter_tags(self, text: str):
@@ -541,6 +542,7 @@ class DailyPlaylistDialog(QDialog):
             playlist = self._playlist_service.create_playlist(name)
             if playlist:
                 track_ids = [t.id for t in self._result.tracks]
+                # TODO: 优化为批量插入以提高性能
                 for track_id in track_ids:
                     self._playlist_service.add_track_to_playlist(playlist.id, track_id)
                 

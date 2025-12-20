@@ -12,9 +12,9 @@ from services.daily_playlist_service import DailyPlaylistService, DailyPlaylistR
 from models.track import Track
 
 
-def _make_track(id: str, title: str = "Track") -> Track:
+def _make_track(track_id: str, title: str = "Track") -> Track:
     """创建测试用 Track 对象"""
-    return Track(id=id, title=f"{title} {id}", file_path=f"/path/to/{id}.mp3")
+    return Track(id=track_id, title=f"{title} {track_id}", file_path=f"/path/to/{track_id}.mp3")
 
 
 class TestDailyPlaylistResult:
