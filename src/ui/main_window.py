@@ -72,6 +72,7 @@ class MainWindow(QMainWindow):
         self.library = container._library
         self.playlist_service = container._playlist_service
         self.queue_persistence = container._queue_persistence
+        self.favorites_service = container._favorites_service
         
         # 加载样式
         self._load_styles()
@@ -128,6 +129,7 @@ class MainWindow(QMainWindow):
         # 媒体库页面
         self.library_widget = LibraryWidget(
             self.library, self.player, self.playlist_service,
+            favorites_service=self.favorites_service,
             tag_service=self._container._tag_service,
             llm_tagging_service=self._container._llm_tagging_service,
         )
@@ -219,7 +221,12 @@ class MainWindow(QMainWindow):
         self.nav_all_music.setCheckable(True)
         self.nav_all_music.clicked.connect(lambda: self._switch_page(0))
         layout.addWidget(self.nav_all_music)
-        
+
+        self.nav_favorites = QPushButton("❤️  我的喜欢")
+        self.nav_favorites.setCheckable(True)
+        self.nav_favorites.clicked.connect(self._open_favorites_playlist)
+        layout.addWidget(self.nav_favorites)
+
         self.nav_queue = QPushButton("📋  播放队列")
         self.nav_queue.setCheckable(True)
         self.nav_queue.clicked.connect(lambda: self._switch_page(1))
@@ -460,6 +467,7 @@ class MainWindow(QMainWindow):
         
         # 处理歌单和每日歌单的选中状态
         is_daily = False
+        is_favorites = False
         if index == 3:
             current_playlist = self.playlist_detail.playlist
             if current_playlist:
@@ -467,9 +475,15 @@ class MainWindow(QMainWindow):
                 today_str = datetime.now().strftime('%Y-%m-%d')
                 if current_playlist.name == f"每日歌单 {today_str}":
                     is_daily = True
+                if self.favorites_service:
+                    try:
+                        is_favorites = current_playlist.id == self.favorites_service.get_playlist_id()
+                    except Exception:
+                        is_favorites = False
         
         self.nav_daily_playlist.setChecked(is_daily)
-        self.nav_playlists.setChecked(index == 2 or (index == 3 and not is_daily))
+        self.nav_favorites.setChecked(is_favorites)
+        self.nav_playlists.setChecked(index == 2 or (index == 3 and not is_daily and not is_favorites))
         
         # 根据页面刷新内容
         if index == 1:
@@ -548,6 +562,18 @@ class MainWindow(QMainWindow):
             # 如果不存在，打开生成对话框
             self.nav_daily_playlist.setChecked(False)
             self._open_daily_playlist()
+
+    def _open_favorites_playlist(self):
+        """打开我的喜欢"""
+        if not self.favorites_service:
+            QMessageBox.information(
+                self, "提示", "收藏服务不可用。"
+            )
+            return
+
+        playlist = self.favorites_service.get_or_create_playlist()
+        self._on_playlist_selected(playlist)
+        self.nav_favorites.setChecked(True)
     
     def _update_status(self):
         """更新状态信息"""

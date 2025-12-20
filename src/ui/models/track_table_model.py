@@ -4,7 +4,7 @@
 使用 QAbstractTableModel 实现虚拟化渲染，优化大列表性能。
 """
 
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Set
 
 from PyQt6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSortFilterProxyModel
 from PyQt6.QtGui import QColor
@@ -23,12 +23,13 @@ class TrackTableModel(QAbstractTableModel):
         COLUMNS: 列定义 (标题, 艺术家, 专辑, 时长, 格式)
     """
     
-    COLUMNS = ["标题", "艺术家", "专辑", "时长", "格式"]
+    COLUMNS = ["??", "???", "??", "??", "??", "??"]
     
     def __init__(self, parent=None):
         """初始化模型"""
         super().__init__(parent)
         self._tracks: List[Track] = []
+        self._favorite_ids: Set[str] = set()
     
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         """返回行数"""
@@ -75,6 +76,8 @@ class TrackTableModel(QAbstractTableModel):
                 return track.duration_str
             elif col == 4:
                 return track.format
+            elif col == 5:
+                return "???" if track.id in self._favorite_ids else ""
         
         elif role == Qt.ItemDataRole.UserRole:
             # 返回完整 Track 对象
@@ -108,6 +111,14 @@ class TrackTableModel(QAbstractTableModel):
         self._tracks = tracks
         self.endResetModel()
     
+    def setFavoriteIds(self, favorite_ids: Set[str]) -> None:
+        """??????? ID ???"""
+        self._favorite_ids = set(favorite_ids)
+        if self._tracks:
+            top_left = self.index(0, len(self.COLUMNS) - 1)
+            bottom_right = self.index(len(self._tracks) - 1, len(self.COLUMNS) - 1)
+            self.dataChanged.emit(top_left, bottom_right)
+
     def getTracks(self) -> List[Track]:
         """获取所有曲目"""
         return self._tracks
@@ -144,6 +155,7 @@ class TrackTableModel(QAbstractTableModel):
             2: lambda t: (t.album_name or "").lower(),
             3: lambda t: t.duration_ms,
             4: lambda t: t.format.lower(),
+            5: lambda t: t.id in self._favorite_ids,
         }
         
         key_func = key_funcs.get(column, lambda t: t.title.lower())

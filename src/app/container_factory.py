@@ -60,6 +60,7 @@ class AppContainerFactory:
         from services.music_app_facade import MusicAppFacade
         from services.player_service import PlayerService
         from services.playlist_service import PlaylistService
+        from services.favorites_service import FavoritesService
         from services.queue_persistence_service import QueuePersistenceService
         from services.tag_service import TagService
         
@@ -96,6 +97,7 @@ class AppContainerFactory:
         player = PlayerService(audio_engine=audio_engine)
         library = LibraryService(db=db)
         playlist_service = PlaylistService(db=db)
+        favorites_service = FavoritesService(db=db, playlist_service=playlist_service)
         tag_service = TagService(db=db)
         
         # 队列持久化服务
@@ -148,6 +150,7 @@ class AppContainerFactory:
             _player=player,
             _library=library,
             _playlist_service=playlist_service,
+            _favorites_service=favorites_service,
             _queue_persistence=queue_persistence,
             _tag_service=tag_service,
             _llm_tagging_service=llm_tagging_service,
@@ -181,6 +184,7 @@ class AppContainerFactory:
         from services.music_app_facade import MusicAppFacade
         from services.player_service import PlayerService
         from services.playlist_service import PlaylistService
+        from services.favorites_service import FavoritesService
         from services.queue_persistence_service import QueuePersistenceService
         from services.tag_service import TagService
         
@@ -194,6 +198,7 @@ class AppContainerFactory:
         player = PlayerService(audio_engine=None)
         library = LibraryService(db=db)
         playlist_service = PlaylistService(db=db)
+        favorites_service = FavoritesService(db=db, playlist_service=playlist_service)
         tag_service = TagService(db=db)
         
         queue_persistence = QueuePersistenceService(
@@ -218,6 +223,7 @@ class AppContainerFactory:
             _player=player,
             _library=library,
             _playlist_service=playlist_service,
+            _favorites_service=favorites_service,
             _queue_persistence=queue_persistence,
             _tag_service=tag_service,
         )

@@ -19,6 +19,7 @@ from models.track import Track
 from services.library_service import LibraryService
 from services.player_service import PlayerService
 from services.playlist_service import PlaylistService
+from services.favorites_service import FavoritesService
 from services.tag_service import TagService
 from core.event_bus import EventBus, EventType
 from ui.models.track_table_model import TrackTableModel, TrackFilterProxyModel
@@ -97,6 +98,7 @@ class LibraryWidget(QWidget):
     def __init__(self, library_service: LibraryService,
                  player_service: PlayerService, 
                  playlist_service: PlaylistService = None,
+                 favorites_service: FavoritesService = None,
                  tag_service: TagService = None,
                  llm_tagging_service=None,
                  parent=None):
@@ -104,9 +106,11 @@ class LibraryWidget(QWidget):
         self.library = library_service
         self.player = player_service
         self._playlist_service = playlist_service
+        self._favorites_service = favorites_service
         self._tag_service = tag_service
         self._llm_tagging_service = llm_tagging_service
         self.event_bus = EventBus()
+        self._favorite_ids = set()
         
         self.all_tracks: List[Track] = []
         
@@ -164,8 +168,10 @@ class LibraryWidget(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(3, 70)
         self.table.setColumnWidth(4, 60)
+        self.table.setColumnWidth(5, 80)
         
         # 视图属性
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -205,11 +211,14 @@ class LibraryWidget(QWidget):
         self.event_bus.subscribe(EventType.LIBRARY_SCAN_COMPLETED, 
                                   self._on_scan_completed)
         self.event_bus.subscribe(EventType.TRACK_ADDED, self._on_track_added)
+        self.event_bus.subscribe(EventType.PLAYLIST_UPDATED, self._on_playlist_updated)
+        self.event_bus.subscribe(EventType.PLAYLIST_DELETED, self._on_playlist_deleted)
     
     def _load_tracks(self):
         """加载所有曲目"""
         self.all_tracks = self.library.get_all_tracks()
         self._display_tracks(self.all_tracks)
+        self._refresh_favorites()
     
     def _display_tracks(self, tracks: List[Track]):
         """显示曲目列表 - 使用 Model 实现 O(1) 更新"""
@@ -262,6 +271,56 @@ class LibraryWidget(QWidget):
                 tracks.append(track)
         return tracks
     
+    def _refresh_favorites(self) -> None:
+        """刷新收藏状态"""
+        if not self._favorites_service:
+            self._favorite_ids = set()
+            self._source_model.setFavoriteIds(self._favorite_ids)
+            return
+
+        self._favorite_ids = self._favorites_service.get_favorite_ids()
+        self._source_model.setFavoriteIds(self._favorite_ids)
+
+    def _set_favorite_for_tracks(self, tracks: List[Track], make_favorite: bool) -> None:
+        """设置曲目收藏状态"""
+        if not self._favorites_service:
+            return
+
+        if make_favorite:
+            self._favorites_service.add_tracks(tracks)
+        else:
+            self._favorites_service.remove_tracks([t.id for t in tracks])
+
+        self._refresh_favorites()
+
+    def _on_playlist_updated(self, playlist) -> None:
+        """歌单更新时刷新收藏"""
+        if not self._favorites_service:
+            return
+
+        try:
+            favorites_id = self._favorites_service.get_playlist_id()
+        except Exception:
+            return
+
+        if hasattr(playlist, "id") and playlist.id == favorites_id:
+            self._refresh_favorites()
+
+    def _on_playlist_deleted(self, playlist_id: str) -> None:
+        """歌单删除时重建收藏歌单"""
+        if not self._favorites_service:
+            return
+
+        try:
+            favorites_id = self._favorites_service.get_playlist_id()
+        except Exception:
+            return
+
+        if playlist_id == favorites_id:
+            self._favorites_service.get_or_create_playlist()
+            self._refresh_favorites()
+
+
     def _show_context_menu(self, pos):
         """显示右键菜单"""
         rows = set(index.row() for index in self.table.selectedIndexes())
@@ -294,6 +353,20 @@ class LibraryWidget(QWidget):
         add_to_queue = QAction(f"添加到队列 ({len(selected_tracks)}首)", self)
         add_to_queue.triggered.connect(lambda: self._add_tracks_to_queue(selected_tracks))
         menu.addAction(add_to_queue)
+
+        if self._favorites_service:
+            all_favorite = all(t.id in self._favorite_ids for t in selected_tracks)
+            if all_favorite:
+                label = "从收藏移除"
+                make_favorite = False
+            else:
+                label = f"添加到收藏 ({len(selected_tracks)}首)"
+                make_favorite = True
+            favorite_action = QAction(label, self)
+            favorite_action.triggered.connect(
+                lambda: self._set_favorite_for_tracks(selected_tracks, make_favorite)
+            )
+            menu.addAction(favorite_action)
         
         # 添加到歌单子菜单
         if self._playlist_service:

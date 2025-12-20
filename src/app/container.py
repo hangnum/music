@@ -51,6 +51,7 @@ class AppContainer:
     _player: Any = field(default=None, repr=False)
     _library: Any = field(default=None, repr=False)
     _playlist_service: Any = field(default=None, repr=False)
+    _favorites_service: Any = field(default=None, repr=False)
     _queue_persistence: Any = field(default=None, repr=False)
     _tag_service: Any = field(default=None, repr=False)
     _llm_tagging_service: Any = field(default=None, repr=False)
