@@ -12,13 +12,19 @@ import time
 import uuid
 import concurrent.futures
 import weakref
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from core.database import DatabaseManager
+from models.llm_tagging import LLMTaggingError, TaggingJobStatus
 from services.config_service import ConfigService
 from services.tag_service import TagService
+from services.llm_response_parser import (
+    strip_code_fences,
+    try_parse_json,
+    parse_tags_from_content,
+    LLMParseError,
+)
 
 if TYPE_CHECKING:
     from core.llm_provider import LLMProvider
@@ -26,30 +32,6 @@ if TYPE_CHECKING:
     from services.web_search_service import WebSearchService
 
 logger = logging.getLogger(__name__)
-
-
-class LLMTaggingError(RuntimeError):
-    """LLM 标注错误"""
-    pass
-
-
-@dataclass
-class TaggingJobStatus:
-    """标注任务状态"""
-    job_id: str
-    status: str  # pending | running | completed | failed | stopped
-    total_tracks: int
-    processed_tracks: int
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    error_message: Optional[str]
-    
-    @property
-    def progress(self) -> float:
-        """进度百分比 (0.0 - 1.0)"""
-        if self.total_tracks == 0:
-            return 0.0
-        return self.processed_tracks / self.total_tracks
 
 
 class LLMTaggingService:
@@ -552,107 +534,10 @@ class LLMTaggingService:
         known_ids: set,
     ) -> Dict[str, List[str]]:
         """解析 LLM 标注响应（增强版）"""
-        data = self._try_parse_json(content)
-        
-        tags_data = data.get("tags", {})
-        if not isinstance(tags_data, dict):
-            return {}
-        
-        result: Dict[str, List[str]] = {}
-        for track_id, tags in tags_data.items():
-            if track_id not in known_ids:
-                continue
-            if not isinstance(tags, list):
-                continue
-            
-            # 过滤有效标签
-            valid_tags = []
-            for tag in tags:
-                if isinstance(tag, str):
-                    tag = tag.strip()
-                    if tag and len(tag) <= 50:
-                        valid_tags.append(tag)
-            
-            if valid_tags:
-                result[track_id] = valid_tags
-        
-        return result
-    
-    def _try_parse_json(self, text: str) -> dict:
-        """
-        尝试解析 JSON，包含多种自动修复策略
-        
-        解析顺序:
-        1. 直接解析
-        2. 移除代码块后解析
-        3. 正则提取 JSON 对象
-        4. 修复常见格式问题（尾部逗号等）
-        """
-        import re
-        
-        # 策略1: 直接解析
-        text = text.strip()
         try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-        
-        # 策略2: 移除代码块后解析
-        raw = self._strip_code_fences(text)
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            pass
-        
-        # 策略3: 正则提取 JSON 对象
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            extracted = match.group()
-            try:
-                return json.loads(extracted)
-            except json.JSONDecodeError:
-                # 策略4: 修复尾部逗号问题
-                fixed = re.sub(r',(\s*[}\]])', r'\1', extracted)
-                try:
-                    return json.loads(fixed)
-                except json.JSONDecodeError:
-                    pass
-        
-        # 所有策略都失败
-        logger.warning("LLM 返回无法解析的内容: %s", raw[:200])
-        raise LLMTaggingError(f"LLM 返回非 JSON: {raw[:200]}")
-    
-    @staticmethod
-    def _strip_code_fences(text: str) -> str:
-        """
-        移除各种代码块格式
-        
-        处理格式:
-        - ```json\n...\n```
-        - ```\n...\n```
-        - `...`
-        - 前后空白
-        """
-        t = text.strip()
-        
-        # 处理 ```...``` 格式（可能带语言标识）
-        if t.startswith("```"):
-            lines = t.splitlines()
-            if len(lines) >= 2:
-                # 找到结束的 ```
-                end_idx = len(lines)
-                for i in range(len(lines) - 1, 0, -1):
-                    if lines[i].strip().startswith("```"):
-                        end_idx = i
-                        break
-                # 移除首行和末行
-                return "\n".join(lines[1:end_idx]).strip()
-        
-        # 处理单个反引号 `{...}`
-        if t.startswith("`") and t.endswith("`") and not t.startswith("```"):
-            return t[1:-1].strip()
-        
-        return t
+            return parse_tags_from_content(content, known_ids)
+        except LLMParseError as e:
+            raise LLMTaggingError(str(e)) from e
     
     def get_job_status(self, job_id: str) -> Optional[TaggingJobStatus]:
         """
@@ -880,7 +765,7 @@ class LLMTaggingService:
     
     def _parse_detailed_response(self, content: str) -> Dict[str, Any]:
         """解析精细标注响应"""
-        raw = self._strip_code_fences(content).strip()
+        raw = strip_code_fences(content).strip()
         
         try:
             data = json.loads(raw)

@@ -7,13 +7,15 @@ LLM 播放队列管理服务
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 import json
 import logging
 
 from services.config_service import ConfigService
 from models.track import Track
+from models.queue_plan import LLMQueueError, LibraryQueueRequest, QueueReorderPlan
+from services.llm_response_parser import strip_code_fences
 
 if TYPE_CHECKING:
     from core.llm_provider import LLMProvider
@@ -22,30 +24,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-class LLMQueueError(RuntimeError):
-    pass
-
-
-@dataclass(frozen=True)
-class LibraryQueueRequest:
-    mode: str = "replace"  # replace|append
-    query: str = ""
-    genre: str = ""
-    artist: str = ""
-    album: str = ""
-    limit: int = 30
-    shuffle: bool = True
-    semantic_fallback: bool = True
-
-
-@dataclass(frozen=True)
-class QueueReorderPlan:
-    ordered_track_ids: List[str]
-    reason: str = ""
-    clear_queue: bool = False
-    library_request: Optional[LibraryQueueRequest] = None
-    instruction: str = ""
 
 class LLMQueueService:
     """
@@ -481,7 +459,7 @@ class LLMQueueService:
         ]
 
     def _parse_selected_track_ids(self, content: str, known_ids: set[str]) -> List[str]:
-        raw = self._strip_code_fences(content).strip()
+        raw = strip_code_fences(content).strip()
         try:
             data = json.loads(raw)
         except Exception as e:
@@ -562,7 +540,7 @@ class LLMQueueService:
         ]
 
     def _parse_reorder_plan(self, content: str, known_ids: set[str]) -> QueueReorderPlan:
-        raw = self._strip_code_fences(content).strip()
+        raw = strip_code_fences(content).strip()
 
         try:
             data = json.loads(raw)
@@ -768,13 +746,3 @@ class LLMQueueService:
         
         # 失败时返回前 limit 个
         return candidates[:limit]
-
-    @staticmethod
-    def _strip_code_fences(text: str) -> str:
-        t = text.strip()
-        if t.startswith("```"):
-            lines = t.splitlines()
-            if len(lines) >= 3 and lines[0].startswith("```") and lines[-1].startswith("```"):
-                return "\n".join(lines[1:-1])
-        return t
-
