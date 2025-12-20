@@ -48,6 +48,7 @@ graph TB
         TS[TagService<br/>标签服务]
         LLM[LLMQueueService<br/>智能队列服务]
         LTS[LLMTaggingService<br/>智能打标服务]
+        DPS[DailyPlaylistService<br/>每日歌单服务]
     end
     
     subgraph Core Layer
@@ -109,6 +110,7 @@ graph TB
 | TagService | 标签CRUD及关联管理 | ITagService |
 | LLMQueueService | 基于自然语言的队列重排 | ILLMQueueService |
 | LLMTaggingService | 批量自动为曲目打标 | ILLMTaggingService |
+| DailyPlaylistService | 基于标签生成每日歌单 | - |
 | TagQueryParser | 自然语言解析为标签查询 | - |
 | ConfigService | 配置读写、热更新 | IConfigService |
 

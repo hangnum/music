@@ -31,6 +31,7 @@ from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
 from ui.dialogs.llm_queue_chat_dialog import LLMQueueChatDialog
 from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
 from ui.dialogs.audio_settings_dialog import AudioSettingsDialog
+from ui.dialogs.daily_playlist_dialog import DailyPlaylistDialog
 from core.event_bus import EventType
 
 if TYPE_CHECKING:
@@ -314,6 +315,13 @@ class MainWindow(QMainWindow):
         llm_tagging.triggered.connect(self._start_llm_tagging)
         ai_menu.addAction(llm_tagging)
         
+        ai_menu.addSeparator()
+        
+        daily_playlist = QAction("每日歌单…", self)
+        daily_playlist.setShortcut("Ctrl+D")
+        daily_playlist.triggered.connect(self._open_daily_playlist)
+        ai_menu.addAction(daily_playlist)
+        
         # 设置菜单
         settings_menu = menubar.addMenu("设置")
         
@@ -365,6 +373,18 @@ class MainWindow(QMainWindow):
         from ui.dialogs.llm_tagging_progress_dialog import LLMTaggingProgressDialog
         dlg = LLMTaggingProgressDialog(
             llm_tagging_service=self._container._llm_tagging_service,
+            parent=self,
+        )
+        dlg.exec()
+    
+    def _open_daily_playlist(self):
+        """打开每日歌单对话框"""
+        dlg = DailyPlaylistDialog(
+            tag_service=self._container._tag_service,
+            library_service=self.library,
+            config_service=self.config,
+            player_service=self.player,
+            playlist_service=self.playlist_service,
             parent=self,
         )
         dlg.exec()

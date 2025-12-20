@@ -10,6 +10,7 @@ from .llm_queue_service import LLMQueueService, QueueReorderPlan, LLMQueueError
 from .queue_persistence_service import QueuePersistenceService
 from .llm_queue_cache_service import LLMQueueCacheService, LLMQueueHistoryEntry
 from .tag_service import TagService
+from .daily_playlist_service import DailyPlaylistService, DailyPlaylistResult
 
 # LLM 提供商模块
 from .llm_providers import (
@@ -38,6 +39,8 @@ __all__ = [
     'LLMQueueCacheService',
     'LLMQueueHistoryEntry',
     'TagService',
+    'DailyPlaylistService',
+    'DailyPlaylistResult',
     # LLM 提供商
     'SiliconFlowProvider',
     'SiliconFlowSettings',
