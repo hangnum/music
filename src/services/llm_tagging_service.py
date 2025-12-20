@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
 import concurrent.futures
 import weakref
@@ -103,6 +104,27 @@ class LLMTaggingService:
         else:
             from services.llm_providers import create_llm_provider
             self._client = create_llm_provider(self._config)
+        
+        # 从配置读取批次参数（带范围校验）
+        raw_batch_size = self._config.get("llm.tagging.batch_request_size", 12)
+        self._batch_request_size = max(1, min(50, int(raw_batch_size)))
+        
+        raw_batch_size_ws = self._config.get(
+            "llm.tagging.batch_request_size_with_web_search", 6
+        )
+        self._batch_request_size_with_web_search = max(1, min(20, int(raw_batch_size_ws)))
+        
+        raw_delay = self._config.get("llm.tagging.batch_delay_seconds", 0.5)
+        self._batch_delay_seconds = max(0.0, min(10.0, float(raw_delay)))
+        
+        raw_retries = self._config.get("llm.tagging.max_retries", 3)
+        self._max_retries = max(0, min(10, int(raw_retries)))
+        
+        if raw_batch_size != self._batch_request_size:
+            logger.warning(
+                "llm.tagging.batch_request_size=%s clamped to %d",
+                raw_batch_size, self._batch_request_size
+            )
         
         self._stop_flag: Dict[str, bool] = {}
         # Run tagging jobs in a background thread to avoid blocking UI.
@@ -267,16 +289,13 @@ class LLMTaggingService:
                     batch_tracks, tags_per_track, use_web_search
                 )
             except Exception as e:
-                logger.warning("Batch processing failed, skipping: %s", e)
-                self._db.update(
-                    "llm_tagging_jobs",
-                    {"processed_tracks": processed},
-                    "id = ?",
-                    (job_id,)
+                logger.warning(
+                    "Batch processing failed, attempting per-track retry: %s", e
                 )
-                if progress_callback:
-                    progress_callback(processed, total)
-                continue
+                # 批次失败时进行单曲逐一重试
+                tags_result = self._retry_tracks_individually(
+                    batch_tracks, tags_per_track, use_web_search
+                )
 
             for track_id in batch_ids:
                 if self._stop_flag.get(job_id, False):
@@ -313,6 +332,57 @@ class LLMTaggingService:
 
         return False
 
+    def _retry_tracks_individually(
+        self,
+        tracks: List[Any],
+        tags_per_track: int,
+        use_web_search: bool = False,
+    ) -> Dict[str, List[str]]:
+        """
+        对批次中的曲目进行单曲逐一重试
+        
+        当批次处理失败时调用，尝试对每首曲目单独请求标签。
+        这样可以最大化标注覆盖率，避免因单个曲目问题导致整批跳过。
+        
+        Args:
+            tracks: 需要重试的曲目列表
+            tags_per_track: 每首曲目的最大标签数量
+            use_web_search: 是否使用网络搜索增强
+            
+        Returns:
+            成功标注的曲目标签字典
+        """
+        result: Dict[str, List[str]] = {}
+        failed_count = 0
+        
+        for track in tracks:
+            try:
+                # 对单首曲目调用批量方法（批大小为1）
+                single_result = self._request_tags_for_batch(
+                    [track], tags_per_track, use_web_search
+                )
+                result.update(single_result)
+            except Exception as e:
+                failed_count += 1
+                track_id = getattr(track, 'id', 'unknown')
+                logger.warning(
+                    "Per-track retry failed for track %s: %s",
+                    track_id, e
+                )
+                # 单曲失败后继续处理下一首
+                continue
+            
+            # 单曲之间短暂延迟，避免过于频繁的 API 调用
+            time.sleep(self._batch_delay_seconds * 0.5)
+        
+        if failed_count > 0:
+            logger.info(
+                "Per-track retry completed: %d/%d succeeded",
+                len(tracks) - failed_count, len(tracks)
+            )
+        
+        return result
+
     def _request_tags_for_batch(
         self,
         tracks: List[Any],
@@ -320,48 +390,96 @@ class LLMTaggingService:
         use_web_search: bool = False,
     ) -> Dict[str, List[str]]:
         """
-        请求 LLM 为批量曲目生成标签
-        
-        Args:
-            tracks: 曲目列表
-            tags_per_track: 每首曲目的最大标签数量
-            use_web_search: 是否使用网络搜索增强
-            
-        Returns:
-            {track_id: [tag1, tag2, ...]}
+        Request tags for tracks in smaller LLM batches.
         """
-        # 构建曲目摘要
-        track_briefs = []
-        for t in tracks:
-            brief = {
-                "id": t.id,
-                "title": t.title or "",
-                "artist": getattr(t, "artist_name", "") or "",
-                "album": getattr(t, "album_name", "") or "",
-                "genre": getattr(t, "genre", "") or "",
-            }
-            
-            # 如果启用网络搜索，添加搜索上下文
-            if use_web_search and self._web_search:
+        result: Dict[str, List[str]] = {}
+        if not tracks:
+            return result
+
+        max_request_tracks = (
+            self._batch_request_size_with_web_search 
+            if use_web_search 
+            else self._batch_request_size
+        )
+
+        for start in range(0, len(tracks), max_request_tracks):
+            batch = tracks[start:start + max_request_tracks]
+            track_briefs: List[Dict[str, str]] = []
+            known_ids = set()
+
+            for track in batch:
+                artist = getattr(track, "artist_name", "") or ""
+                title = track.title or ""
+                album = getattr(track, "album_name", "") or ""
+                genre = getattr(track, "genre", "") or ""
+
+                brief: Dict[str, str] = {
+                    "id": track.id,
+                    "title": title,
+                    "artist": artist,
+                    "album": album,
+                    "genre": genre,
+                }
+                known_ids.add(track.id)
+
+                if use_web_search and self._web_search:
+                    try:
+                        search_context = self._web_search.get_music_context(
+                            artist=artist,
+                            title=title,
+                            album=album,
+                            max_total_chars=300,
+                        )
+                        if search_context:
+                            brief["web_context"] = search_context
+                    except Exception as e:
+                        logger.warning(
+                            "Batch tagging search failed (track %s): %s",
+                            track.id,
+                            e,
+                        )
+
+                track_briefs.append(brief)
+
+            messages = self._build_tagging_messages(
+                track_briefs,
+                tags_per_track,
+                use_web_search,
+            )
+
+            content = None
+            for retry in range(self._max_retries):
                 try:
-                    context = self._web_search.get_music_context(
-                        artist=brief["artist"],
-                        title=brief["title"],
-                        album=brief["album"],
-                        max_total_chars=300,
-                    )
-                    if context:
-                        brief["web_context"] = context
+                    content = self._client.chat_completions(messages)
+                    break
                 except Exception as e:
-                    logger.debug("Web search failed for %s: %s", t.id, e)
-            
-            track_briefs.append(brief)
-        
-        messages = self._build_tagging_messages(track_briefs, tags_per_track, use_web_search)
-        content = self._client.chat_completions(messages)
-        
-        return self._parse_tagging_response(content, {t["id"] for t in track_briefs})
-    
+                    if retry < self._max_retries - 1:
+                        wait_time = 2 * (retry + 1)
+                        logger.warning(
+                            "Batch LLM call failed (retry %d): %s; waiting %d sec",
+                            retry + 1,
+                            e,
+                            wait_time,
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        logger.warning("Batch LLM call failed, skipping batch: %s", e)
+
+            if not content:
+                continue
+
+            batch_result = self._parse_tagging_response(content, known_ids)
+            if not batch_result:
+                logger.warning(
+                    "Batch LLM returned empty/invalid result: tracks=%d",
+                    len(batch),
+                )
+            result.update(batch_result)
+
+            time.sleep(self._batch_delay_seconds)
+
+        return result
+
     def _build_tagging_messages(
         self,
         tracks: List[Dict[str, str]],

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 from typing import TYPE_CHECKING, Optional, List
 
@@ -210,10 +211,10 @@ class DetailedTaggingDialog(QDialog):
             self._status_label.setText(f"✓ 生成了 {len(tags)} 个标签")
             self._status_label.setStyleSheet("color: #1DB954;")
             
-            # 显示标签
+            # 显示标签（避免双重转义）
             tags_html = " ".join(
                 f'<span style="background: #7e57c2; color: white; '
-                f'padding: 4px 10px; border-radius: 12px; margin: 2px;">{t}</span>'
+                f'padding: 4px 10px; border-radius: 12px; margin: 2px;">{html.escape(html.unescape(t))}</span>'
                 for t in tags
             )
             self._tags_label.setText(tags_html)

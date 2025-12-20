@@ -186,6 +186,9 @@ class LLMSettingsDialog(QDialog):
 
         try:
             sf_timeout = float(sf_timeout_raw) if sf_timeout_raw else 20.0
+            if sf_timeout <= 0:
+                QMessageBox.warning(self, "提示", "SiliconFlow Timeout 必须是正数")
+                return
         except ValueError:
             QMessageBox.warning(self, "提示", "SiliconFlow Timeout 必须是数字")
             return
@@ -199,6 +202,9 @@ class LLMSettingsDialog(QDialog):
 
         try:
             gm_timeout = float(gm_timeout_raw) if gm_timeout_raw else 30.0
+            if gm_timeout <= 0:
+                QMessageBox.warning(self, "提示", "Gemini Timeout 必须是正数")
+                return
         except ValueError:
             QMessageBox.warning(self, "提示", "Gemini Timeout 必须是数字")
             return

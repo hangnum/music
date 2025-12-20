@@ -109,7 +109,7 @@ class AppContainerFactory:
         # === 5. LLM 相关服务 ===
         # 网络搜索服务（用于增强 LLM 标注）
         from services.web_search_service import WebSearchService
-        web_search_service = WebSearchService(timeout=10.0)
+        web_search_service = WebSearchService(config=config)
         
         # LLM 标注服务
         llm_tagging_service = None

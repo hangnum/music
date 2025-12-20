@@ -188,6 +188,12 @@ class ConfigService:
                         'per_batch_pick': 8,         # 每批最多挑选的曲目数量
                     },
                 },
+                'web_search': {
+                    'enabled': True,      # 是否启用网络搜索增强
+                    'timeout': 10.0,      # 搜索超时时间（秒）
+                    'max_cache_size': 100, # 最大缓存条目数
+                    'region': 'cn-zh',    # 搜索区域
+                },
             },
         }
     

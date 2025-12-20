@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import List, Optional, Set
 
@@ -50,16 +52,47 @@ class WebSearchService:
         r"点击.*查看|立即.*体验",
     ]
     
-    def __init__(self, timeout: float = 10.0):
+    def __init__(self, timeout: float = None, config=None):
         """
         初始化搜索服务
         
         Args:
-            timeout: 请求超时时间（秒）
+            timeout: 请求超时时间（秒），如果为None则从配置读取
+            config: ConfigService实例，可选。如果提供则从配置读取参数
         """
-        self._timeout = timeout
+        # 从配置或参数获取超时时间
+        if timeout is not None:
+            self._timeout = timeout
+        else:
+            # 尝试从配置读取，否则使用默认值
+            try:
+                from services.config_service import ConfigService
+                config_obj = config or ConfigService()
+                self._timeout = config_obj.get("llm.web_search.timeout", 10.0)
+            except ImportError:
+                self._timeout = 10.0
+        
+        # 是否启用网络搜索
+        try:
+            from services.config_service import ConfigService
+            config_obj = config or ConfigService()
+            self._enabled = config_obj.get("llm.web_search.enabled", True)
+        except ImportError:
+            self._enabled = True
+        
         self._ddgs = None
         self._noise_re = re.compile("|".join(self.NOISE_PATTERNS))
+        # 缓存：使用OrderedDict实现LRU缓存
+        self._cache = OrderedDict()
+        # 线程锁保护缓存访问
+        self._cache_lock = threading.RLock()
+        # 最大缓存条目数，从配置读取或使用默认值
+        try:
+            from services.config_service import ConfigService
+            config_obj = config or ConfigService()
+            self._max_cache_size = config_obj.get("llm.web_search.max_cache_size", 100)
+        except ImportError:
+            self._max_cache_size = 100
     
     def _get_ddgs(self):
         """懒加载 DDGS 客户端"""
@@ -202,6 +235,14 @@ class WebSearchService:
         filtered = [r for r in results if album.lower() in r.lower()]
         return filtered[:max_results] if filtered else results[:max_results]
     
+    def _manage_cache_size(self):
+        """管理缓存大小，如果超过限制则清理最旧的条目（LRU）"""
+        with self._cache_lock:
+            while len(self._cache) > self._max_cache_size:
+                # 删除最旧的条目（OrderedDict的第一个键）
+                self._cache.popitem(last=False)
+            logger.debug("缓存清理: 保留 %d 个条目", len(self._cache))
+    
     def _do_search(
         self,
         query: str,
@@ -217,6 +258,21 @@ class WebSearchService:
         Returns:
             结果摘要列表
         """
+        # 检查服务是否启用
+        if not self._enabled:
+            logger.debug("网络搜索服务已禁用，跳过搜索: %s", query)
+            return []
+        
+        cache_key = (query, max_results)
+        
+        # 检查缓存（线程安全，LRU更新）
+        with self._cache_lock:
+            if cache_key in self._cache:
+                logger.debug("缓存命中: %s", query)
+                # 移动键到末尾表示最近使用
+                self._cache.move_to_end(cache_key)
+                return self._cache[cache_key]
+        
         ddgs = self._get_ddgs()
         if ddgs is None:
             return []
@@ -246,6 +302,14 @@ class WebSearchService:
                 summaries.append(body)
             
             logger.debug("搜索 '%s' 返回 %d 条有效结果", query, len(summaries))
+            
+            # 缓存成功的结果（线程安全）
+            with self._cache_lock:
+                self._cache[cache_key] = summaries
+                # 移动新键到末尾
+                self._cache.move_to_end(cache_key)
+                self._manage_cache_size()
+            
             return summaries
             
         except Exception as e:

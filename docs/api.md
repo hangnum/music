@@ -195,6 +195,26 @@
 | `stop_tagging_job(job_id)` | `str` | `bool` | 停止任务 |
 | `get_job_status(job_id)` | `str` | `TaggingJobStatus` | 获取任务状态 |
 
+> [!IMPORTANT]
+> **跨线程安全注意事项**
+>
+> `start_tagging_job()` 方法接受一个 `progress_callback` 参数，该回调会在后台工作线程中被调用。
+> 如果需要在回调中更新 UI，**必须**使用 Qt 信号机制将调用安全地转发到主线程。
+>
+> ```python
+> # 定义信号
+> progress_updated = pyqtSignal(int, int)
+>
+> # 回调中发射信号（线程安全）
+> def progress_callback(current: int, total: int):
+>     self.progress_updated.emit(current, total)
+>
+> # 在主线程中处理信号
+> self.progress_updated.connect(self._on_progress_updated)
+> ```
+>
+> 参考实现：`LLMTaggingProgressDialog` 使用此模式确保线程安全。
+
 ---
 
 ### 2.11 TagQueryParser - 标签查询解析器

@@ -32,6 +32,8 @@ class LLMTaggingProgressDialog(QDialog):
     
     # 任务完成信号
     tagging_completed = pyqtSignal(dict)
+    # 进度更新信号
+    progress_updated = pyqtSignal(int, int)
     
     def __init__(
         self,
@@ -47,6 +49,9 @@ class LLMTaggingProgressDialog(QDialog):
         self.setWindowTitle("AI 标签标注")
         self.setMinimumWidth(450)
         self.setModal(True)
+        
+        # 连接信号
+        self.progress_updated.connect(self._on_progress_updated)
         
         self._setup_ui()
         self._update_stats()
@@ -142,15 +147,24 @@ class LLMTaggingProgressDialog(QDialog):
             logger.warning("获取统计信息失败: %s", e)
             self._stats_label.setText("获取统计信息失败")
     
+    def _on_progress_updated(self, current: int, total: int):
+        """处理进度更新信号"""
+        if total > 0:
+            progress_percent = int((current / total) * 100)
+            self._progress_bar.setValue(progress_percent)
+            self._progress_label.setText(
+                f"{current} / {total} ({progress_percent}%)"
+            )
+    
     def _on_start_clicked(self):
         """点击开始按钮"""
         use_web_search = self._web_search_checkbox.isChecked()
         
         try:
-            # 进度回调（在后台线程调用，通过 QTimer 更新 UI）
+            # 进度回调（在后台线程调用，通过信号更新 UI）
             def progress_callback(current: int, total: int):
-                # 这个回调在后台线程，不能直接更新 UI
-                pass
+                # 通过信号发送进度更新（线程安全）
+                self.progress_updated.emit(current, total)
             
             # 启动任务
             job_id = self._service.start_tagging_job(
@@ -175,10 +189,10 @@ class LLMTaggingProgressDialog(QDialog):
             self._web_search_checkbox.setEnabled(False)
             self._progress_label.setText("正在标注...")
             
-            # 启动轮询定时器
+            # 启动轮询定时器（降低频率，作为备用）
             self._poll_timer = QTimer(self)
             self._poll_timer.timeout.connect(self._poll_progress)
-            self._poll_timer.start(1000)  # 每秒更新
+            self._poll_timer.start(5000)  # 每5秒更新（信号为主）
             
         except Exception as e:
             logger.error("启动标注任务失败: %s", e)

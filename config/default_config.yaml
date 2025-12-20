@@ -49,6 +49,10 @@ llm:
     tags_per_track: 5
     batch_size: 50
     temperature: 0.3
+    batch_request_size: 12  # 每个LLM请求的最大曲目数（不使用网络搜索时）
+    batch_request_size_with_web_search: 6  # 使用网络搜索时的批次大小
+    batch_delay_seconds: 0.5  # 批次之间的延迟秒数
+    max_retries: 3  # LLM调用最大重试次数
   siliconflow:
     api_key: ""
     api_key_env: SILICONFLOW_API_KEY
@@ -61,6 +65,11 @@ llm:
     base_url: https://generativelanguage.googleapis.com/v1beta
     model: gemini-2.0-flash
     timeout_seconds: 30.0
+  web_search:
+    enabled: true  # 是否启用网络搜索增强
+    timeout: 10.0  # 搜索超时时间（秒）
+    max_cache_size: 100  # 最大缓存条目数
+    region: cn-zh  # 搜索区域
 playback:
   default_volume: 0.8
   fade_duration: 500
