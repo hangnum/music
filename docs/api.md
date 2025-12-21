@@ -185,7 +185,45 @@ Manage music tags and their associations with tracks.
 
 ---
 
-### 2.10 ILLMTaggingService - Intelligent Tagging Service Interface
+---
+
+### 2.9 IFavoritesService - Favorites Service Interface
+
+Manage user favorite tracks.
+
+| Method | Parameters | Return Value | Description |
+|------|------|--------|------|
+| `add_favorite(track_id)` | `str` | `bool` | Add track to favorites |
+| `remove_favorite(track_id)` | `str` | `bool` | Remove track from favorites |
+| `is_favorite(track_id)` | `str` | `bool` | Check if track is favorite |
+| `get_favorites()` | - | `List[Track]` | Get all favorite tracks |
+| `toggle_favorite(track_id)` | `str` | `bool` | Toggle favorite status |
+
+---
+
+### 2.10 IDailyPlaylistService - Daily Playlist Service Interface
+
+Generate daily playlists based on tags and listening history.
+
+| Method | Parameters | Return Value | Description |
+|------|------|--------|------|
+| `generate_daily_playlist()` | - | `Playlist` | Generate today's playlist |
+| `get_daily_playlists(limit)` | `int` | `List[Playlist]` | Get recent daily playlists |
+
+---
+
+### 2.11 IWebSearchService - Web Search Service Interface
+
+Search the web for lyrics and metadata.
+
+| Method | Parameters | Return Value | Description |
+|------|------|--------|------|
+| `search_lyrics(track)` | `Track` | `str?` | Search for lyrics |
+| `search_metadata(query)` | `str` | `List[dict]` | Search for metadata |
+
+---
+
+### 2.12 ILLMTaggingService - Intelligent Tagging Service Interface
 
 Automatically generate tags for media library tracks in batches.
 
@@ -217,7 +255,7 @@ Automatically generate tags for media library tracks in batches.
 
 ---
 
-### 2.11 TagQueryParser - Tag Query Parser
+### 2.13 TagQueryParser - Tag Query Parser
 
 Parses natural language instructions into structured tag queries.
 
@@ -227,7 +265,7 @@ Parses natural language instructions into structured tag queries.
 
 ---
 
-### 2.12 ILLMProvider - LLM Provider Interface
+### 2.14 ILLMProvider - LLM Provider Interface
 
 Unified interface for underlying LLM clients.
 

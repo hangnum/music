@@ -154,8 +154,65 @@ class TestTagQueryParser:
         assert "Parsing failed" in result.reason or "non-JSON" in result.reason
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+class TestMultilingualTagQuery:
+    """Tests for multilingual tag query parsing."""
+    
+    def test_chinese_query_matches_english_tag(self):
+        """Test that Chinese query '摇滚' matches English tag 'Rock'."""
+        response = '{"matched_tags": ["Rock"], "match_mode": "any", "confidence": 0.9, "reason": "User wants rock music"}'
+        client = _FakeClient(response)
+        parser = TagQueryParser(client)
+        
+        result = parser.parse("播放摇滚音乐", ["Rock", "Pop", "Jazz"])
+        
+        assert result.is_valid
+        assert "Rock" in result.tags
+        assert result.confidence >= 0.8
+    
+    def test_english_query_matches_chinese_tag(self):
+        """Test that English query matches Chinese tag when available."""
+        response = '{"matched_tags": ["流行"], "match_mode": "any", "confidence": 0.9, "reason": "User wants pop music"}'
+        client = _FakeClient(response)
+        parser = TagQueryParser(client)
+        
+        result = parser.parse("Play some pop music", ["流行", "摇滚", "古典"])
+        
+        assert result.is_valid
+        assert "流行" in result.tags
+    
+    def test_mixed_language_query(self):
+        """Test parsing query with mixed Chinese and English."""
+        response = '{"matched_tags": ["Jay Chou", "Pop"], "match_mode": "all", "confidence": 0.85, "reason": "Mixed language query"}'
+        client = _FakeClient(response)
+        parser = TagQueryParser(client)
+        
+        result = parser.parse("我想听Jay Chou的流行歌", ["Jay Chou", "Pop", "Rock"])
+        
+        assert result.is_valid
+        assert len(result.tags) >= 1
+    
+    def test_chinese_mood_query(self):
+        """Test Chinese mood query matches English mood tags."""
+        response = '{"matched_tags": ["Relaxing"], "match_mode": "any", "confidence": 0.88, "reason": "Relaxing music"}'
+        client = _FakeClient(response)
+        parser = TagQueryParser(client)
+        
+        result = parser.parse("我想听轻松的音乐", ["Relaxing", "Energetic", "Sad"])
+        
+        assert result.is_valid
+        assert "Relaxing" in result.tags
+    
+    def test_bilingual_tags_available(self):
+        """Test query when both language versions of tags are available."""
+        response = '{"matched_tags": ["Rock", "摇滚"], "match_mode": "any", "confidence": 0.95, "reason": "Both versions matched"}'
+        client = _FakeClient(response)
+        parser = TagQueryParser(client)
+        
+        result = parser.parse("摇滚音乐", ["Rock", "摇滚", "Pop", "流行"])
+        
+        assert result.is_valid
+        # Should match at least one
+        assert len(result.tags) >= 1
 
 
 if __name__ == "__main__":

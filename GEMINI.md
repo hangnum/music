@@ -53,7 +53,7 @@ The project adheres to SOLID principles and separates concerns into four main la
 ### 1. UI Layer (`src/ui/`)
 
 * **Responsibility:** Handles user interaction and display.
-* **Components:** `MainWindow`, `PlayerControls`, `LibraryWidget`, `AudioSettingsDialog`.
+* **Components:** `MainWindow` (split into `main_window_*.py`), `PlayerControls`, `LibraryWidget`, `AudioSettingsDialog`.
 * **Note:** The UI layer subscribes to events from the `EventBus` to update itself (e.g., progress bar, current track).
 
 ### 2. Service Layer (`src/services/`)
@@ -63,7 +63,10 @@ The project adheres to SOLID principles and separates concerns into four main la
   * `PlayerService`: Manages playback state, queue, and engine selection (via Factory).
   * `LibraryService`: Handles scanning and indexing music files.
   * `PlaylistService`: Manages user playlists.
+  * `FavoritesService`: Manages user favorites.
+  * `DailyPlaylistService`: Manages daily generated playlists.
   * `TagService`: Manages music tags.
+  * `WebSearchService`: Performs web searches for metadata/lyrics.
   * `LLMQueueService`: Orchestrates LLM-based reordering.
   * `LLMTaggingService`: Manages batch tagging of tracks using LLM.
   * `TagQueryParser`: Parses natural language into tag queries.
@@ -73,6 +76,7 @@ The project adheres to SOLID principles and separates concerns into four main la
 * `EventBus`: A thread-safe, singleton event system that enables decoupled communication. It handles dispatching events to the main Qt thread when necessary.
 * `DatabaseManager`: Handles SQLite connections.
 * `AudioEngineFactory`: Creates audio engine instances (`miniaudio`, `vlc`, `pygame`).
+* `FFmpegTranscoder`: Handles transcoding of unsupported formats.
 
 ### 4. Data Layer (`src/models/`, `config/`)
 
@@ -85,11 +89,17 @@ The project adheres to SOLID principles and separates concerns into four main la
 ```text
 src/
 ├── app/            # Application Bootstrap & DI Container
-├── core/           # Low-level logic (AudioEngine, EventBus, Database, LLMProvider)
+├── core/           # Low-level logic
+│   ├── dsp/        # Digital Signal Processing
+│   ├── ports/      # Interfaces/Ports
+│   └── ...         # AudioEngine, EventBus, Database, FFmpegTranscoder
 ├── models/         # Data classes (Track, Album, Tag, etc.)
-├── services/       # Business logic (PlayerService, LibraryService, TagService)
+├── services/       # Business logic (Player, Library, Favorites, etc.)
 │   └── llm_providers/ # LLM implementations (Gemini, SiliconFlow)
 ├── ui/             # PyQt6 Widgets and Windows
+│   ├── dialogs/    # Modal dialogs
+│   ├── widgets/    # Reusable widgets
+│   └── ...         # main_window_*.py parts
 └── main.py         # Application Entry Point
 docs/               # Detailed documentation (Architecture, API)
 tests/              # Unit and Integration tests

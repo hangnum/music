@@ -85,8 +85,24 @@ class MiniaudioEngine(AudioEngineBase):
     """
     Miniaudio-based high-performance audio engine
     Supports: Gapless, Crossfade, ReplayGain, 10-Band EQ (Biquad Filter)
+    Fallback: Uses FFmpegTranscoder for unsupported formats
     """
     pass
+
+# src/core/ffmpeg_transcoder.py
+
+class FFmpegTranscoder:
+    """FFmpeg Transcoder"""
+    
+    @staticmethod
+    def is_available() -> bool:
+        """Check if FFmpeg is available"""
+        pass
+
+    @staticmethod
+    def transcode_to_wav(input_path: str) -> Optional[str]:
+        """Transcode audio to WAV format for compatibility"""
+        pass
 ```
 
 #### 1.1.3 Equalizer Model (EQPreset)

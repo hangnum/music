@@ -104,7 +104,7 @@ class TagQueryParser:
         instruction: str,
         available_tags: List[str],
     ) -> List[Dict[str, str]]:
-        """Build parsing request messages."""
+        """Build parsing request messages with multilingual support."""
         # Limit the number of available tags to avoid excessive token usage
         max_tags = 500
         tags_sample = available_tags[:max_tags]
@@ -116,6 +116,29 @@ class TagQueryParser:
             "note": f"Total {len(available_tags)} tags available" + (
                 f", showing the first {max_tags}" if len(available_tags) > max_tags else ""
             ),
+            "multilingual_hints": {
+                "instruction_language": "auto-detect",
+                "common_mappings": [
+                    {"zh": "摇滚", "en": "Rock"},
+                    {"zh": "流行", "en": "Pop"},
+                    {"zh": "古典", "en": "Classical"},
+                    {"zh": "电子", "en": "Electronic"},
+                    {"zh": "爵士", "en": "Jazz"},
+                    {"zh": "嘻哈", "en": "Hip-Hop"},
+                    {"zh": "节奏蓝调", "en": "R&B"},
+                    {"zh": "民谣", "en": "Folk"},
+                    {"zh": "乡村", "en": "Country"},
+                    {"zh": "轻松", "en": "Relaxing"},
+                    {"zh": "活力", "en": "Energetic"},
+                    {"zh": "悲伤", "en": "Sad"},
+                    {"zh": "欢快", "en": "Happy"},
+                    {"zh": "浪漫", "en": "Romantic"},
+                    {"zh": "华语", "en": "Chinese"},
+                    {"zh": "英文", "en": "English"},
+                    {"zh": "日语", "en": "Japanese"},
+                    {"zh": "韩语", "en": "Korean"},
+                ],
+            },
             "response_schema": {
                 "matched_tags": ["tag1", "tag2"],
                 "match_mode": "any|all",
@@ -125,6 +148,9 @@ class TagQueryParser:
             "rules": [
                 "Only output pure JSON (no markdown, no code blocks).",
                 "matched_tags must come from available_tags (case-insensitive).",
+                "The user instruction may be in any language (Chinese, English, etc.).",
+                "Match tags semantically across languages - e.g., '摇滚' matches 'Rock', '流行' matches 'Pop'.",
+                "Use multilingual_hints.common_mappings to help with cross-language matching.",
                 "If the instruction implies all conditions must be met, use match_mode='all'.",
                 "If the instruction implies any condition is enough, use match_mode='any'.",
                 "confidence represents the matching confidence (0.0-1.0).",
@@ -133,8 +159,12 @@ class TagQueryParser:
         }
         
         system = (
-            "You are a music query parsing assistant. Based on the user's natural language instruction, "
+            "You are a multilingual music query parsing assistant. "
+            "Based on the user's natural language instruction (which may be in Chinese, English, or other languages), "
             "find the most relevant tags from the available list. "
+            "Understand the semantic meaning across languages - for example, if the user says '播放摇滚音乐', "
+            "you should match tags like 'Rock' even if the tag is in English. "
+            "Similarly, if the user says 'play pop music', match '流行' if that's available. "
             "Strictly output JSON according to the schema, and do not output anything other than JSON."
         )
         

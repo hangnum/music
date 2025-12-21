@@ -9,6 +9,7 @@ This is a high-quality desktop music player application built with Python, featu
 ## Claude Preferences
 
 When working on this project, Claude should:
+
 - Use the "plan" skill for creating implementation plans for complex features
 - Default to structured planning with clear action items, testing, and risk assessment
 - Save plans to the plans directory for future reference
@@ -145,6 +146,9 @@ The application follows a strict 4-layer architecture pattern to ensure separati
   - `PlayerService.py` - Playback control and queue management
   - `LibraryService.py` - Media library operations
   - `PlaylistService.py` - Playlist CRUD operations
+  - `FavoritesService.py` - Favorites management
+  - `DailyPlaylistService.py` - AI/Daily playlist generation
+  - `WebSearchService.py` - Web connectivity for metadata
   - `ConfigService.py` - Configuration management
   - `LLMQueueService.py` - AI-powered queue management with semantic fetch
   - `LLMTaggingService.py` - Batch tagging of tracks using LLM
@@ -159,6 +163,7 @@ The application follows a strict 4-layer architecture pattern to ensure separati
   - `audio_engine.py` - Audio playback base and interfaces
   - `engine_factory.py` - Audio engine creation and fallback logic
   - `miniaudio_engine.py` - High-fidelity audio backend
+  - `ffmpeg_transcoder.py` - Audio format transcoding
   - `event_bus.py` - Publish-subscribe event system
   - `metadata.py` - Audio file metadata extraction
   - `database.py` - SQLite operations with connection pooling
@@ -254,6 +259,7 @@ src/
 │   ├── audio_engine.py # Audio playback base
 │   ├── engine_factory.py # Engine factory
 │   ├── miniaudio_engine.py # Miniaudio backend
+│   ├── ffmpeg_transcoder.py # Transcoder
 │   ├── event_bus.py   # Event system
 │   ├── metadata.py     # Metadata extraction
 │   └── database.py     # Database operations
@@ -261,6 +267,9 @@ src/
 │   ├── player_service.py
 │   ├── library_service.py
 │   ├── playlist_service.py
+│   ├── favorites_service.py
+│   ├── daily_playlist_service.py
+│   ├── web_search_service.py
 │   ├── config_service.py
 │   ├── tag_service.py
 │   ├── llm_queue_service.py  # AI queue management

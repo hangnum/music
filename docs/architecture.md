@@ -49,6 +49,8 @@ graph TB
         LLM[LLMQueueService]
         LTS[LLMTaggingService]
         DPS[DailyPlaylistService]
+        FS[FavoritesService]
+        WS[WebSearchService]
     end
     
     subgraph Core Layer
@@ -57,6 +59,7 @@ graph TB
         DB[DatabaseManager]
         EM[EventBus]
         LP[LLMProvider]
+        FT[FFmpegTranscoder]
     end
     
     subgraph Data Layer
@@ -91,13 +94,15 @@ Responsible for user interface display and interaction, containing no business l
 
 | Component | Responsibility | Dependency |
 |-----------|----------------|------------|
-| MainWindow | Main window layout management | All UI components |
+| MainWindow | Main window layout management (split into `main_window_*.py`) | All UI components |
 | PlayerControls | Play/Pause/Progress control | PlayerService |
 | PlaylistView | Playlist display and operation | PlaylistService |
 | LibraryView | Media library browsing and search | LibraryService |
 | SettingsView | Application settings interface | ConfigService |
 | ThemeManager | Theme management and DesignTokens | ConfigService |
 | AudioSettingsDialog | Audio parameter settings (Backend/EQ/Crossfade) | ConfigService/PlayerService |
+| FavoritesWidget | Favorites display and management | FavoritesService |
+| DailyPlaylistWidget | Daily playlist generation interface | DailyPlaylistService |
 
 #### 2.2.2 Service Layer
 
@@ -111,7 +116,9 @@ The core of business logic, coordinating interactions between modules.
 | TagService | Tag CRUD and relationship management | ITagService |
 | LLMQueueService | Natural language-based queue reordering | ILLMQueueService |
 | LLMTaggingService | Batch automatic tagging for tracks | ILLMTaggingService |
-| DailyPlaylistService | Tag-based daily playlist generation | - |
+| DailyPlaylistService | Tag-based daily playlist generation | IDailyPlaylistService |
+| FavoritesService | Favorites management | IFavoritesService |
+| WebSearchService | Web search for lyrics/metadata | IWebSearchService |
 | TagQueryParser | Natural language parsing for tag queries | - |
 | ConfigService | Configuration read/write, hot updates | IConfigService |
 
@@ -124,6 +131,7 @@ Low-level functionality implementation, providing foundational capabilities.
 | AudioEngineFactory| Audio engine factory | Supports backend auto-selection and fallback (Miniaudio->VLC) |
 | MiniaudioEngine | High-fidelity audio engine | Gapless, Crossfade, EQ, ReplayGain |
 | VLCEngine | VLC audio engine | Extensive format support |
+| FFmpegTranscoder | Audio format transcoder | Handles unsupported formats for Miniaudio |
 | MetadataParser | Metadata parsing and writing | Multi-format support |
 | DatabaseManager | SQLite operation encapsulation | Connection pool, transactions, concurrency optimization |
 | EventBus | Event publish-subscribe | Thread-safe, decoupled |
@@ -160,10 +168,13 @@ music/
 │   │   └── metadata.py
 │   ├── services/             # Service layer
 │   │   ├── config_service.py
+│   │   ├── daily_playlist_service.py
+│   │   ├── favorites_service.py
 │   │   ├── library_service.py
 │   │   ├── llm_queue_service.py # LLM-enhanced services
 │   │   ├── player_service.py
-│   │   └── playlist_service.py
+│   │   ├── playlist_service.py
+│   │   └── web_search_service.py
 │   ├── ui/                   # UI layer
 │   │   ├── main_window.py
 │   │   ├── models/           # UI data models (List Virtualization)

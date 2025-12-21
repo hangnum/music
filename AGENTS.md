@@ -3,10 +3,10 @@
 ## Project Structure
 
 - `src/`: application code (Python package)
-  - `src/core/`: infrastructure + low-level utilities (`audio_engine.py`, `engine_factory.py`, `miniaudio_engine.py`, `event_bus.py`, `metadata.py`, `database.py`)
+  - `src/core/`: infrastructure + low-level utilities (`audio_engine.py`, `engine_factory.py`, `miniaudio_engine.py`, `event_bus.py`, `metadata.py`, `database.py`, `ffmpeg_transcoder.py`, `dsp/`, `ports/`)
   - `src/models/`: domain models (`Track`, `Album`, `Artist`, `Playlist`)
-  - `src/services/`: orchestration/business logic (`PlayerService`, `LibraryService`, `PlaylistService`, `ConfigService`, `LLMQueueService`, `LLMTaggingService`, `TagQueryParser`)
-  - `src/ui/`: PyQt6 UI (`main_window.py`, `widgets/`, `dialogs/`, `styles/`, `resources/`)
+  - `src/services/`: orchestration/business logic (`PlayerService`, `LibraryService`, `PlaylistService`, `FavoritesService`, `DailyPlaylistService`, `WebSearchService`, `ConfigService`, `LLMQueueService`, `LLMTaggingService`, `TagQueryParser`)
+  - `src/ui/`: PyQt6 UI (`main_window.py` split into `main_window_*.py`, `widgets/`, `dialogs/`, `styles/`, `resources/`)
   - `src/main.py`: app entry point
 - `config/`: YAML configuration (`config/default_config.yaml`)
 - `tests/`: pytest test suite (`test_*.py`, plus `pytest-qt` for Qt/UI tests)

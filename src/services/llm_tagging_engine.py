@@ -174,22 +174,37 @@ class LLMTaggingEngine:
         tags_per_track: int,
         use_web_search: bool = False,
     ) -> List[Dict[str, str]]:
-        """Build tagging request messages."""
-        # Build example output
-        example_output = '{"tags": {"track_id_1": ["Pop", "Mandarin", "Jay Chou"], "track_id_2": ["Rock", "English"]}}'
+        """Build tagging request messages with bilingual (English/Chinese) support."""
+        # Build example output with bilingual tags
+        example_output = (
+            '{"tags": {'
+            '"track_id_1": ["Pop", "流行", "Mandarin", "华语", "Jay Chou", "周杰伦"], '
+            '"track_id_2": ["Rock", "摇滚", "English", "英文", "Energetic", "活力"]}}'
+        )
         
         payload = {
             "task": "music_tagging",
             "tracks": tracks,
             "max_tags_per_track": tags_per_track,
             "tag_categories": [
-                "Artist/Singer name",
-                "Music style/genre (e.g., Rock, Pop, Classical, Electronic, Jazz, Hip-Hop, R&B, Folk, etc.)",
-                "Mood/Atmosphere (e.g., Relaxing, Energetic, Sad, Happy, Romantic, etc.)",
+                "Artist/Singer name (include transliterations if applicable, e.g., 'Jay Chou' and '周杰伦')",
+                "Music style/genre - include BOTH English and Chinese (e.g., Rock/摇滚, Pop/流行, Classical/古典, Electronic/电子, Jazz/爵士, Hip-Hop/嘻哈)",
+                "Mood/Atmosphere - include BOTH English and Chinese (e.g., Relaxing/轻松, Energetic/活力, Sad/悲伤, Happy/欢快, Romantic/浪漫)",
                 "Era/Period (e.g., 80s, 90s, Classic, Modern, etc.)",
-                "Language (e.g., Chinese, English, Japanese, Korean, etc.)",
+                "Language - include BOTH English and native names (e.g., Chinese/华语/中文, English/英文, Japanese/日语, Korean/韩语)",
                 "Other characteristics (e.g., Instrumental, Live, Cover, etc.)",
             ],
+            "multilingual_tagging": {
+                "enabled": True,
+                "languages": ["en", "zh"],
+                "instruction": "For genre/mood/language tags, generate BOTH English and Chinese versions.",
+                "examples": [
+                    {"en": "Rock", "zh": "摇滚"},
+                    {"en": "Pop", "zh": "流行"},
+                    {"en": "Relaxing", "zh": "轻松"},
+                    {"en": "Chinese", "zh": "华语"},
+                ],
+            },
             "response_format": {
                 "type": "json_object",
                 "schema": {"tags": {"<track_id>": ["tag1", "tag2"]}},
@@ -198,16 +213,22 @@ class LLMTaggingEngine:
             "rules": [
                 "[IMPORTANT] Output pure JSON only, without any markdown code blocks (NO ```).",
                 "[IMPORTANT] Output must be valid JSON, ensuring quotes are matched and no trailing commas exist.",
-                f"Generate 1-{tags_per_track} tags per track.",
-                "Tags should be concise (2-10 words) and descriptive.",
+                f"Generate 1-{tags_per_track} tags per track (bilingual pairs count as 2 tags).",
+                "For genre and mood tags, ALWAYS include both English and Chinese versions.",
+                "For artist names, include common transliterations (e.g., 'Taylor Swift' and '泰勒·斯威夫特').",
+                "Tags should be concise (1-5 words) and descriptive.",
                 "Omit categories if you cannot determine a suitable tag.",
-                "Prefer English tags for common styles (e.g., Rock, Pop, R&B).",
             ],
         }
         
         # Adjust system prompt based on web search availability
         base_instruction = (
-            "You are a professional music tagging assistant. Your task is to generate accurate descriptive tags for music tracks.\n\n"
+            "You are a professional bilingual music tagging assistant. "
+            "Your task is to generate accurate descriptive tags for music tracks in BOTH English and Chinese.\n\n"
+            "【Multilingual Requirement】\n"
+            "- For genre/mood/language tags, generate BOTH English and Chinese versions\n"
+            "- Example: If the genre is Rock, generate both 'Rock' and '摇滚'\n"
+            "- For artist names, use common transliterations (e.g., 'Jay Chou' and '周杰伦')\n\n"
             "【Output Format Requirements】\n"
             "- Output pure JSON object only\n"
             "- Prohibit the use of markdown code blocks (do not write ```)\n"
@@ -220,13 +241,13 @@ class LLMTaggingEngine:
                 f"{base_instruction}\n\n"
                 "【Data Source】\n"
                 "You will receive song titles, artists, album info, and context from web searches (web_context)."
-                "Please synthesize this info to generate accurate tags."
+                "Please synthesize this info to generate accurate bilingual tags."
             )
         else:
             system = (
                 f"{base_instruction}\n\n"
                 "【Data Source】\n"
-                "Generate tags based on song title, artist, album, and genre info."
+                "Generate bilingual tags based on song title, artist, album, and genre info."
             )
         
         return [
