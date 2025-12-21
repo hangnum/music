@@ -1,10 +1,10 @@
 """
-LLM 队列缓存 / 查询历史服务
+LLM Queue Cache / Query History Service
 
-目标：
-- 将 LLM 生成的播放队列持久化到本地 DB，支持重启后复用
-- 对相同/相近的指令命中缓存，避免重复消耗 token
-- 提供“查询历史 -> 一键加载上次队列”的基础能力
+Goals:
+- Persist LLM-generated playback queues to the local DB, supporting reuse after restart.
+- Hit cache for identical/similar instructions to avoid repeated token consumption.
+- Provide "Query History -> One-click load previous queue" capability.
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ class LLMQueueCacheService:
             return 0
 
         normalized = self.normalize_instruction(instruction)
-        label_text = (label or instruction or "").strip() or normalized or "未命名"
+        label_text = (label or instruction or "").strip() or normalized or "Unnamed"
 
         ids = [t for t in track_ids if isinstance(t, str) and t]
         if not ids:

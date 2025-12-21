@@ -1,9 +1,9 @@
 """
-播放队列持久化服务
+Playback Queue Persistence Service
 
-支持：
-- 退出/重启后自动恢复上一次播放队列
-- 在队列变化/开始播放时持续保存当前队列状态
+Supports:
+- Automatically restoring the last playback queue after exit/restart.
+- Continuously saving the current queue state when the queue changes or playback starts.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ class QueuePersistenceService:
         self._suppress = False
 
     def attach(self, player: Any) -> None:
-        """绑定 player 并开始监听事件以自动持久化。"""
+        """Bind player and start listening to events for automatic persistence."""
         self._player = player
         if not self._enabled:
             return
@@ -50,7 +50,7 @@ class QueuePersistenceService:
         self._sub_ids.append(self._event_bus.subscribe(EventType.TRACK_STARTED, self._on_track_started))
 
     def shutdown(self) -> None:
-        """取消订阅（用于窗口关闭时清理）。"""
+        """Unsubscribe from events (used for cleanup when window closes)."""
         for sub_id in self._sub_ids:
             try:
                 self._event_bus.unsubscribe(sub_id)
@@ -60,7 +60,7 @@ class QueuePersistenceService:
         self._player = None
 
     def save_last_queue(self, track_ids: List[str], current_track_id: Optional[str]) -> None:
-        """保存播放队列（track id 列表 + 当前曲目 id）。"""
+        """Save playback queue (list of track IDs + current track ID)."""
         if not self._enabled:
             return
 
@@ -81,7 +81,7 @@ class QueuePersistenceService:
         self._db.commit()
 
     def load_last_queue(self) -> Tuple[List[str], Optional[str]]:
-        """读取播放队列（track id 列表 + 当前曲目 id）。"""
+        """Read playback queue (list of track IDs + current track ID)."""
         row = self._db.fetch_one("SELECT value FROM app_state WHERE key = ?", (self.LAST_QUEUE_KEY,))
         if not row or not row.get("value"):
             return ([], None)
@@ -100,7 +100,7 @@ class QueuePersistenceService:
         return (ids, cur)
 
     def restore_last_queue(self, player: Any, library: LibraryService) -> bool:
-        """从持久化状态恢复队列并设置到 player。"""
+        """Restore queue from persisted state and apply to player."""
         if not self._enabled:
             return False
 
@@ -130,7 +130,7 @@ class QueuePersistenceService:
         return True
 
     def persist_from_player(self) -> None:
-        """从已绑定的 player 读取状态并持久化。"""
+        """Read state from the bound player and persist it."""
         if not self._enabled or self._player is None:
             return
 
@@ -148,3 +148,4 @@ class QueuePersistenceService:
         if self._suppress:
             return
         self.persist_from_player()
+

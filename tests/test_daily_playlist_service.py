@@ -1,5 +1,5 @@
 """
-DailyPlaylistService 单元测试
+DailyPlaylistService Unit Tests
 """
 
 from __future__ import annotations
@@ -13,20 +13,20 @@ from models.track import Track
 
 
 def _make_track(track_id: str, title: str = "Track") -> Track:
-    """创建测试用 Track 对象"""
+    """Create a Track object for testing."""
     return Track(id=track_id, title=f"{title} {track_id}", file_path=f"/path/to/{track_id}.mp3")
 
 
 class TestDailyPlaylistResult:
-    """DailyPlaylistResult 测试"""
+    """Tests for DailyPlaylistResult."""
     
     def test_total_returns_track_count(self):
-        """测试 total 属性返回曲目数量"""
+        """Test that the total property returns the number of tracks."""
         result = DailyPlaylistResult(tracks=[_make_track("1"), _make_track("2")])
         assert result.total == 2
     
     def test_summary_with_all_sources(self):
-        """测试 summary 属性包含所有来源"""
+        """Test that the summary property includes all sources."""
         result = DailyPlaylistResult(
             tracks=[_make_track("1")],
             matched_by_tags=5,
@@ -34,21 +34,21 @@ class TestDailyPlaylistResult:
             filled_random=2,
         )
         summary = result.summary
-        assert "标签匹配 5 首" in summary
-        assert "语义扩展 3 首" in summary
-        assert "随机补充 2 首" in summary
+        assert "Tag match 5 tracks" in summary
+        assert "Semantic expansion 3 tracks" in summary
+        assert "Random supplement 2 tracks" in summary
     
     def test_summary_with_no_matches(self):
-        """测试无匹配时的 summary"""
+        """Test the summary property when there are no matches."""
         result = DailyPlaylistResult()
-        assert result.summary == "无匹配结果"
+        assert result.summary == "No matching results"
 
 
 class TestDailyPlaylistService:
-    """DailyPlaylistService 测试"""
+    """Tests for DailyPlaylistService."""
     
     def setup_method(self):
-        """测试准备"""
+        """Setup before each test."""
         self.mock_tag_service = Mock()
         self.mock_library_service = Mock()
         self.mock_llm_provider = Mock()
@@ -60,85 +60,85 @@ class TestDailyPlaylistService:
         )
     
     def test_generate_with_sufficient_tags(self):
-        """测试标签直接匹配足够时的情况"""
-        # 模拟标签匹配返回足够的曲目
+        """Test generation when direct tag matching yields enough tracks."""
+        # Mock tag matching to return enough tracks
         track_ids = [f"track_{i}" for i in range(50)]
         tracks = [_make_track(id) for id in track_ids]
         
         self.mock_tag_service.get_tracks_by_tags.return_value = track_ids
         self.mock_library_service.get_tracks_by_ids.return_value = tracks
         
-        result = self.service.generate(["流行"], limit=50, shuffle=False)
+        result = self.service.generate(["Pop"], limit=50, shuffle=False)
         
         assert result.total == 50
         assert result.matched_by_tags == 50
         assert result.matched_by_semantic == 0
         assert result.filled_random == 0
         
-        # 不应调用 LLM 扩展
+        # LLM expansion should not be called
         self.mock_llm_provider.chat_completions.assert_not_called()
     
     def test_generate_with_semantic_expansion(self):
-        """测试需要 LLM 语义扩展的情况"""
-        # 直接标签匹配只返回 20 首
+        """Test generation when LLM semantic expansion is needed."""
+        # Direct tag matching returns only 20 tracks
         initial_ids = [f"track_{i}" for i in range(20)]
         initial_tracks = [_make_track(id) for id in initial_ids]
         
-        # 语义扩展额外返回 30 首
+        # Semantic expansion returns an additional 30 tracks
         expanded_ids = [f"track_{i}" for i in range(20, 50)]
         expanded_tracks = [_make_track(id) for id in expanded_ids]
         
-        # 设置 mock 行为
+        # Set up mock behavior
         self.mock_tag_service.get_tracks_by_tags.side_effect = [
-            initial_ids,  # 第一次调用：直接标签匹配
-            expanded_ids,  # 第二次调用：语义扩展后的标签匹配
+            initial_ids,  # First call: direct tag matching
+            expanded_ids,  # Second call: matching after semantic expansion
         ]
         self.mock_library_service.get_tracks_by_ids.side_effect = [
             initial_tracks,
             expanded_tracks,
         ]
-        self.mock_tag_service.get_all_tag_names.return_value = ["流行", "轻松", "古典", "摇滚"]
+        self.mock_tag_service.get_all_tag_names.return_value = ["Pop", "Relax", "Classical", "Rock"]
         
-        # 模拟 LLM 返回语义扩展的标签
-        self.mock_llm_provider.chat_completions.return_value = '{"expanded_tags": ["轻松", "古典"], "reason": "语义相近"}'
+        # Mock LLM to return semantically expanded tags
+        self.mock_llm_provider.chat_completions.return_value = '{"expanded_tags": ["Relax", "Classical"], "reason": "Semantically close"}'
         
-        result = self.service.generate(["流行"], limit=50, shuffle=False)
+        result = self.service.generate(["Pop"], limit=50, shuffle=False)
         
         assert result.total == 50
         assert result.matched_by_tags == 20
         assert result.matched_by_semantic == 30
         assert result.filled_random == 0
-        assert "轻松" in result.expanded_tags or "古典" in result.expanded_tags
+        assert "Relax" in result.expanded_tags or "Classical" in result.expanded_tags
     
     def test_generate_with_random_fallback(self):
-        """测试需要随机补充的情况"""
-        # 标签匹配只返回 10 首
+        """Test generation when random supplement is needed."""
+        # Tag matching returns only 10 tracks
         tag_ids = [f"track_{i}" for i in range(10)]
         tag_tracks = [_make_track(id) for id in tag_ids]
         
-        # 随机补充的曲目
+        # Tracks for random supplement
         random_tracks = [_make_track(f"random_{i}") for i in range(40)]
         
         self.mock_tag_service.get_tracks_by_tags.return_value = tag_ids
         self.mock_library_service.get_tracks_by_ids.return_value = tag_tracks
-        self.mock_tag_service.get_all_tag_names.return_value = []  # 没有更多标签可扩展
+        self.mock_tag_service.get_all_tag_names.return_value = []  # No more tags to expand
         self.mock_library_service.query_tracks.return_value = random_tracks
         
-        result = self.service.generate(["流行"], limit=50, shuffle=False)
+        result = self.service.generate(["Pop"], limit=50, shuffle=False)
         
         assert result.total == 50
         assert result.matched_by_tags == 10
         assert result.filled_random == 40
     
     def test_generate_no_llm_provider(self):
-        """测试无 LLM Provider 时直接跳到随机补充"""
+        """Test skipping directly to random supplement when no LLM provider is available."""
         service = DailyPlaylistService(
             tag_service=self.mock_tag_service,
             library_service=self.mock_library_service,
-            llm_provider=None,  # 无 LLM
+            llm_provider=None,  # No LLM
         )
         
-        # 标签匹配只返回 10 首
+        # Tag matching returns only 10 tracks
         tag_ids = [f"track_{i}" for i in range(10)]
         tag_tracks = [_make_track(id) for id in tag_ids]
         random_tracks = [_make_track(f"random_{i}") for i in range(40)]
@@ -147,7 +147,7 @@ class TestDailyPlaylistService:
         self.mock_library_service.get_tracks_by_ids.return_value = tag_tracks
         self.mock_library_service.query_tracks.return_value = random_tracks
         
-        result = service.generate(["流行"], limit=50, shuffle=False)
+        result = service.generate(["Pop"], limit=50, shuffle=False)
         
         assert result.total == 50
         assert result.matched_by_tags == 10
@@ -155,8 +155,8 @@ class TestDailyPlaylistService:
         assert result.filled_random == 40
     
     def test_deduplication(self):
-        """测试去重逻辑"""
-        # 标签匹配返回重复的曲目 ID
+        """Test deduplication logic."""
+        # Tag matching returns duplicate track IDs
         tag_ids = ["track_1", "track_2", "track_1", "track_2"]
         tracks = [_make_track("track_1"), _make_track("track_2")]
         
@@ -164,18 +164,18 @@ class TestDailyPlaylistService:
         self.mock_library_service.get_tracks_by_ids.return_value = tracks
         self.mock_tag_service.get_all_tag_names.return_value = []
         
-        # 随机补充也可能有重复
+        # Random supplement might also contain duplicates
         random_tracks = [_make_track("track_1")] + [_make_track(f"random_{i}") for i in range(10)]
         self.mock_library_service.query_tracks.return_value = random_tracks
         
-        result = self.service.generate(["流行"], limit=10, shuffle=False)
+        result = self.service.generate(["Pop"], limit=10, shuffle=False)
         
-        # 验证没有重复
+        # Verify no duplicates
         track_ids = [t.id for t in result.tracks]
         assert len(track_ids) == len(set(track_ids))
     
     def test_empty_tags_uses_random_only(self):
-        """测试空标签时只使用随机"""
+        """Test using only random tracks when no tags are provided."""
         random_tracks = [_make_track(f"random_{i}") for i in range(50)]
         self.mock_library_service.query_tracks.return_value = random_tracks
         
@@ -186,12 +186,12 @@ class TestDailyPlaylistService:
         assert result.matched_by_semantic == 0
         assert result.filled_random == 50
         
-        # 不应调用标签服务
+        # Tag service should not be called
         self.mock_tag_service.get_tracks_by_tags.assert_not_called()
 
 
 class TestLLMTagExpansion:
-    """LLM 标签扩展测试"""
+    """Tests for LLM tag expansion."""
     
     def setup_method(self):
         self.mock_tag_service = Mock()
@@ -205,43 +205,43 @@ class TestLLMTagExpansion:
         )
     
     def test_expand_tags_filters_invalid(self):
-        """测试 LLM 返回的无效标签被过滤"""
-        self.mock_tag_service.get_all_tag_names.return_value = ["流行", "摇滚", "古典"]
+        """Test that invalid tags returned by LLM are filtered out."""
+        self.mock_tag_service.get_all_tag_names.return_value = ["Pop", "Rock", "Classical"]
         
-        # LLM 返回包含无效标签
+        # LLM returns some invalid tags
         self.mock_llm_provider.chat_completions.return_value = '''
-        {"expanded_tags": ["流行", "不存在的标签", "摇滚"], "reason": "测试"}
+        {"expanded_tags": ["Pop", "Invalid Tag", "Rock"], "reason": "Test"}
         '''
         
-        expanded = self.service._expand_tags_with_llm(["古典"])
+        expanded = self.service._expand_tags_with_llm(["Classical"])
         
-        # 只应包含有效标签
-        assert "流行" in expanded
-        assert "摇滚" in expanded
-        assert "不存在的标签" not in expanded
+        # Should only contain valid tags
+        assert "Pop" in expanded
+        assert "Rock" in expanded
+        assert "Invalid Tag" not in expanded
     
     def test_expand_tags_handles_json_error(self):
-        """测试 LLM 返回非 JSON 时的处理"""
-        self.mock_tag_service.get_all_tag_names.return_value = ["流行"]
+        """Test handling of non-JSON responses from LLM."""
+        self.mock_tag_service.get_all_tag_names.return_value = ["Pop"]
         
-        # LLM 返回无效 JSON
-        self.mock_llm_provider.chat_completions.return_value = "这不是 JSON"
+        # LLM returns invalid JSON
+        self.mock_llm_provider.chat_completions.return_value = "This is not JSON"
         
-        expanded = self.service._expand_tags_with_llm(["古典"])
+        expanded = self.service._expand_tags_with_llm(["Classical"])
         
-        # 应返回空列表
+        # Should return an empty list
         assert expanded == []
     
     def test_expand_tags_handles_exception(self):
-        """测试 LLM 调用异常时的处理"""
-        self.mock_tag_service.get_all_tag_names.return_value = ["流行"]
+        """Test handling of exceptions during LLM calls."""
+        self.mock_tag_service.get_all_tag_names.return_value = ["Pop"]
         
-        # LLM 调用抛出异常
+        # LLM call raises an exception
         self.mock_llm_provider.chat_completions.side_effect = Exception("API Error")
         
-        expanded = self.service._expand_tags_with_llm(["古典"])
+        expanded = self.service._expand_tags_with_llm(["Classical"])
         
-        # 应返回空列表而不是抛出异常
+        # Should return an empty list instead of raising an exception
         assert expanded == []
 
 

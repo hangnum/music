@@ -1,10 +1,10 @@
 """
-LLM 响应解析工具模块
+LLM Response Parsing Utilities Module
 
-提供 LLM 响应的共享解析功能：
-- 移除代码块格式
-- JSON 解析与自动修复
-- Track ID 提取
+Provides shared parsing functionality for LLM responses:
+- Removing code block formatting
+- JSON parsing with automatic recovery
+- Track ID extraction
 """
 
 from __future__ import annotations
@@ -19,42 +19,42 @@ logger = logging.getLogger(__name__)
 
 
 class LLMParseError(RuntimeError):
-    """LLM 响应解析错误"""
+    """LLM response parsing error"""
     pass
 
 
 def strip_code_fences(text: str) -> str:
     """
-    移除各种代码块格式
+    Remove various code block formats.
     
-    处理格式:
+    Handles:
     - ```json\\n...\\n```
     - ```\\n...\\n```
     - `...`
-    - 前后空白
+    - Surrounding whitespace
     
     Args:
-        text: 原始文本
+        text: Original text
         
     Returns:
-        移除代码块后的文本
+        Text after removing code blocks
     """
     t = text.strip()
     
-    # 处理 ```...``` 格式（可能带语言标识）
+    # Handle ```...``` format (optionally with language identifier)
     if t.startswith("```"):
         lines = t.splitlines()
         if len(lines) >= 2:
-            # 找到结束的 ```
+            # Find the ending ```
             end_idx = len(lines)
             for i in range(len(lines) - 1, 0, -1):
                 if lines[i].strip().startswith("```"):
                     end_idx = i
                     break
-            # 移除首行和末行
+            # Remove first and last line
             return "\n".join(lines[1:end_idx]).strip()
     
-    # 处理单个反引号 `{...}`
+    # Handle single backticks `{...}`
     if t.startswith("`") and t.endswith("`") and not t.startswith("```"):
         return t[1:-1].strip()
     
@@ -66,56 +66,56 @@ def try_parse_json(
     raise_on_error: bool = True,
 ) -> Optional[dict]:
     """
-    尝试解析 JSON，包含多种自动修复策略
+    Attempt to parse JSON with multiple recovery strategies.
     
-    解析顺序:
-    1. 直接解析
-    2. 移除代码块后解析
-    3. 正则提取 JSON 对象
-    4. 修复常见格式问题（尾部逗号等）
+    Parsing sequence:
+    1. Direct parse
+    2. Parse after stripping code blocks
+    3. Regex extraction of JSON object
+    4. Repair common formatting issues (e.g., trailing commas)
     
     Args:
-        text: 待解析文本
-        raise_on_error: 解析失败时是否抛出异常
+        text: Text to parse
+        raise_on_error: Whether to raise an exception on failure
         
     Returns:
-        解析后的字典，失败时返回 None 或抛出异常
+        Parsed dictionary, or None/exception on failure
         
     Raises:
-        LLMParseError: 当 raise_on_error=True 且解析失败时
+        LLMParseError: When raise_on_error=True and parsing fails
     """
-    # 策略1: 直接解析
+    # Strategy 1: Direct parse
     text = text.strip()
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
     
-    # 策略2: 移除代码块后解析
+    # Strategy 2: Strip code blocks and parse
     raw = strip_code_fences(text)
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
         pass
     
-    # 策略3: 正则提取 JSON 对象
+    # Strategy 3: Regex extraction of JSON object
     match = re.search(r'\{[\s\S]*\}', raw)
     if match:
         extracted = match.group()
         try:
             return json.loads(extracted)
         except json.JSONDecodeError:
-            # 策略4: 修复尾部逗号问题
+            # Strategy 4: Fix trailing comma issue
             fixed = re.sub(r',(\s*[}\]])', r'\1', extracted)
             try:
                 return json.loads(fixed)
             except json.JSONDecodeError:
                 pass
     
-    # 所有策略都失败
-    logger.warning("LLM 返回无法解析的内容: %s", raw[:200])
+    # All strategies failed
+    logger.warning("LLM returned unparseable content: %s", raw[:200])
     if raise_on_error:
-        raise LLMParseError(f"LLM 返回非 JSON: {raw[:200]}")
+        raise LLMParseError(f"LLM returned non-JSON content: {raw[:200]}")
     return None
 
 
@@ -125,27 +125,27 @@ def parse_track_ids_from_content(
     id_field: str = "track_ids",
 ) -> List[str]:
     """
-    从 LLM 响应中提取 Track ID 列表
+    Extract a list of Track IDs from an LLM response.
     
     Args:
-        content: LLM 响应内容
-        known_ids: 已知的有效 ID 集合
-        id_field: JSON 中的 ID 字段名
+        content: LLM response content
+        known_ids: Set of known valid IDs
+        id_field: Field name for IDs in the JSON
         
     Returns:
-        过滤后的有效 Track ID 列表
+        List of valid Track IDs
     """
     data = try_parse_json(content, raise_on_error=False)
     if not data:
         return []
     
-    # 尝试多种字段名
+    # Try multiple field names
     ids = data.get(id_field) or data.get("selected_ids") or []
     
     if not isinstance(ids, list):
         return []
     
-    # 过滤无效 ID
+    # Filter for valid IDs
     result = []
     for track_id in ids:
         if isinstance(track_id, str) and track_id in known_ids:
@@ -161,16 +161,16 @@ def parse_tags_from_content(
     max_tag_length: int = 50,
 ) -> Dict[str, List[str]]:
     """
-    从 LLM 响应中提取标签字典
+    Extract a dictionary of tags from an LLM response.
     
     Args:
-        content: LLM 响应内容
-        known_ids: 已知的有效 Track ID 集合
-        tags_field: JSON 中的标签字段名
-        max_tag_length: 单个标签最大长度
+        content: LLM response content
+        known_ids: Set of known valid Track IDs
+        tags_field: Field name for tags in the JSON
+        max_tag_length: Maximum length for a single tag
         
     Returns:
-        {track_id: [tag1, tag2, ...]} 字典
+        Dictionary mapping track_id to a list of tags
     """
     data = try_parse_json(content, raise_on_error=False)
     if not data:
@@ -187,7 +187,7 @@ def parse_tags_from_content(
         if not isinstance(tags, list):
             continue
         
-        # 过滤有效标签
+        # Filter for valid tags
         valid_tags = []
         for tag in tags:
             if isinstance(tag, str):

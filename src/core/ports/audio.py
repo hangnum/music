@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-音频引擎端口接口
+Audio Engine Port Interface
 
-定义音频引擎的抽象接口，使播放服务不依赖具体的音频后端实现。
+Defines an abstract interface for audio engines, ensuring the playback service 
+does not depend on specific audio backend implementations.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from typing import Callable, Optional, Protocol, runtime_checkable
 
 
 class PlayerState(Enum):
-    """播放器状态"""
+    """Player Status"""
     STOPPED = "stopped"
     PLAYING = "playing"
     PAUSED = "paused"
@@ -21,152 +22,152 @@ class PlayerState(Enum):
 
 @runtime_checkable
 class IAudioEngine(Protocol):
-    """音频引擎接口
+    """Audio Engine Interface
     
-    提供音频播放的核心功能。
-    当前实现：MiniaudioEngine, PygameEngine, VLCEngine
+    Provides core functionality for audio playback.
+    Current implementations: MiniaudioEngine, PygameEngine, VLCEngine
     """
     
     @property
     def state(self) -> PlayerState:
-        """当前播放状态"""
+        """Current playback state"""
         ...
     
     @property
     def volume(self) -> float:
-        """当前音量 (0.0 - 1.0)"""
+        """Current volume (0.0 - 1.0)"""
         ...
     
     def load(self, file_path: str) -> bool:
-        """加载音频文件
+        """Load an audio file
         
         Args:
-            file_path: 音频文件路径
+            file_path: Path to the audio file
             
         Returns:
-            是否加载成功
+            True if loading was successful
         """
         ...
     
     def play(self) -> bool:
-        """开始播放
+        """Start playback
         
         Returns:
-            是否成功开始播放
+            True if playback started successfully
         """
         ...
     
     def pause(self) -> bool:
-        """暂停播放
+        """Pause playback
         
         Returns:
-            是否成功暂停
+            True if paused successfully
         """
         ...
     
     def resume(self) -> bool:
-        """恢复播放
+        """Resume playback
         
         Returns:
-            是否成功恢复
+            True if resumed successfully
         """
         ...
     
     def stop(self) -> bool:
-        """停止播放
+        """Stop playback
         
         Returns:
-            是否成功停止
+            True if stopped successfully
         """
         ...
     
     def seek(self, position_ms: int) -> bool:
-        """跳转到指定位置
+        """Seek to a specified position
         
         Args:
-            position_ms: 目标位置（毫秒）
+            position_ms: Target position in milliseconds
             
         Returns:
-            是否成功跳转
+            True if seek was successful
         """
         ...
     
     def get_position(self) -> int:
-        """获取当前播放位置
+        """Get current playback position
         
         Returns:
-            当前位置（毫秒）
+            Current position in milliseconds
         """
         ...
     
     def get_duration(self) -> int:
-        """获取音频时长
+        """Get audio duration
         
         Returns:
-            时长（毫秒）
+            Duration in milliseconds
         """
         ...
     
     def set_volume(self, volume: float) -> None:
-        """设置音量
+        """Set volume
         
         Args:
-            volume: 音量值 (0.0 - 1.0)
+            volume: Volume value (0.0 - 1.0)
         """
         ...
     
     def set_on_end(self, callback: Optional[Callable]) -> None:
-        """设置播放结束回调
+        """Set playback completion callback
         
         Args:
-            callback: 回调函数，接收 PlaybackEndInfo
+            callback: Callback function, receives PlaybackEndInfo
         """
         ...
     
     def set_on_error(self, callback: Optional[Callable[[str], None]]) -> None:
-        """设置错误回调
+        """Set error callback
         
         Args:
-            callback: 回调函数，接收错误消息
+            callback: Callback function, receives an error message
         """
         ...
     
     def set_next_track(self, file_path: Optional[str]) -> None:
-        """设置下一曲（用于 gapless/crossfade）
+        """Set the next track (for gapless/crossfade)
         
         Args:
-            file_path: 下一曲文件路径，None 清除
+            file_path: Path to the next file, None to clear
         """
         ...
     
     def get_engine_name(self) -> str:
-        """获取引擎名称"""
+        """Get the engine name"""
         ...
     
     def cleanup(self) -> None:
-        """清理资源"""
+        """Clean up resources"""
         ...
 
 
 @runtime_checkable
 class IAudioEngineFactory(Protocol):
-    """音频引擎工厂接口"""
+    """Audio Engine Factory Interface"""
     
     def create(self, backend: str = "miniaudio") -> IAudioEngine:
-        """创建音频引擎
+        """Create an audio engine
         
         Args:
-            backend: 后端名称
+            backend: Backend name
             
         Returns:
-            音频引擎实例
+            An audio engine instance
         """
         ...
     
     def create_best_available(self) -> IAudioEngine:
-        """创建最佳可用引擎"""
+        """Create the best available engine"""
         ...
     
     def get_available_backends(self) -> list:
-        """获取可用后端列表"""
+        """Get a list of available backends"""
         ...

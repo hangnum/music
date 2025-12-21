@@ -1,7 +1,7 @@
 """
-播放服务模块
+Playback Service Module
 
-管理播放队列、播放状态和播放控制。
+Manages playback queue, playback state, and playback control.
 """
 
 from typing import List, Optional, Callable
@@ -19,16 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 class PlayMode(Enum):
-    """播放模式"""
-    SEQUENTIAL = "sequential"      # 顺序播放
-    REPEAT_ALL = "repeat_all"      # 列表循环
-    REPEAT_ONE = "repeat_one"      # 单曲循环
-    SHUFFLE = "shuffle"            # 随机播放
+    """Playback mode"""
+    SEQUENTIAL = "sequential"      # Sequential playback
+    REPEAT_ALL = "repeat_all"      # Repeat list
+    REPEAT_ONE = "repeat_one"      # Repeat one
+    SHUFFLE = "shuffle"            # Shuffle playback
 
 
 @dataclass
 class PlaybackState:
-    """播放状态"""
+    """Playback state"""
     current_track: Optional[Track] = None
     position_ms: int = 0
     duration_ms: int = 0
@@ -39,20 +39,20 @@ class PlaybackState:
 
 class PlayerService:
     """
-    播放服务
+    Playback Service
     
-    管理音乐播放的核心服务，包括播放队列、播放控制、播放模式等。
+    The core service for managing music playback, including playback queue, playback control, playback modes, etc.
     
-    使用示例:
+    Example:
         player = PlayerService()
         
-        # 设置播放队列
+        # Set playback queue
         player.set_queue(tracks)
         
-        # 播放
+        # Play
         player.play()
         
-        # 下一曲
+        # Next track
         player.next_track()
     """
     
@@ -62,7 +62,7 @@ class PlayerService:
         if audio_engine:
             self._engine = audio_engine
         else:
-            # 发出废弃警告：内部创建依赖的模式将被移除
+            # Deprecation warning: the pattern of creating dependencies internally will be removed.
             warnings.warn(
                 "Creating AudioEngine internally in PlayerService is deprecated. "
                 "Use AppContainerFactory.create() to get a properly configured PlayerService instance. "
@@ -71,10 +71,10 @@ class PlayerService:
                 stacklevel=2
             )
             
-            # 使用工厂模式创建引擎
+            # Use factory pattern to create engine
             from core.engine_factory import AudioEngineFactory
             try:
-                # 尝试从配置获取后端设置
+                # Try to get backend settings from configuration
                 from services.config_service import ConfigService
                 config = ConfigService()
                 backend = config.get("audio.backend", "miniaudio")
@@ -82,25 +82,25 @@ class PlayerService:
                 backend = "miniaudio"
             
             self._engine = AudioEngineFactory.create(backend)
-            logger.info("PlayerService 使用音频后端: %s", self._engine.get_engine_name())
+            logger.info("PlayerService using audio backend: %s", self._engine.get_engine_name())
         
         self._event_bus = EventBus()
         self._engine.set_on_end(self._on_engine_end)
         self._engine.set_on_error(self._on_error)
         
-        # 线程安全锁（保护队列和索引访问）
+        # Thread safety lock (protects queue and index access)
         self._lock = threading.RLock()
         
-        # 播放队列
+        # Playback queue
         self._queue: List[Track] = []
         self._current_index: int = -1
         
-        # 播放模式
+        # Playback mode
         self._play_mode: PlayMode = PlayMode.SEQUENTIAL
         self._shuffle_indices: List[int] = []
         self._shuffle_position: int = 0
         
-        # 历史记录（用于上一曲）
+        # History record (used for previous track)
         self._history: List[int] = []
     
     def check_playback_ended(self) -> bool:
@@ -109,7 +109,7 @@ class PlayerService:
 
     @property
     def state(self) -> PlaybackState:
-        """获取当前播放状态"""
+        """Get current playback state"""
         with self._lock:
             current_track = None
             if 0 <= self._current_index < len(self._queue):
@@ -126,7 +126,7 @@ class PlayerService:
     
     @property
     def current_track(self) -> Optional[Track]:
-        """获取当前曲目"""
+        """Get current track"""
         with self._lock:
             if 0 <= self._current_index < len(self._queue):
                 return self._queue[self._current_index]
@@ -134,28 +134,28 @@ class PlayerService:
     
     @property
     def queue(self) -> List[Track]:
-        """获取播放队列"""
+        """Get playback queue"""
         with self._lock:
             return self._queue.copy()
     
     @property
     def is_playing(self) -> bool:
-        """是否正在播放"""
+        """Whether music is playing"""
         return self._engine.state == PlayerState.PLAYING
     
     def set_queue(self, tracks: List[Track], start_index: int = 0) -> None:
         """
-        设置播放队列
+        Set playback queue
         
         Args:
-            tracks: 曲目列表
-            start_index: 起始索引
+            tracks: List of tracks
+            start_index: Starting index
         """
         with self._lock:
             self._queue = tracks.copy()
             self._current_index = start_index if tracks else -1
             
-            # 重置随机播放索引
+            # Reset shuffle indices
             self._shuffle_indices = list(range(len(tracks)))
             if self._play_mode == PlayMode.SHUFFLE:
                 random.shuffle(self._shuffle_indices)
@@ -166,7 +166,7 @@ class PlayerService:
         self._update_next_track_preload()
 
     def add_to_queue(self, track: Track) -> None:
-        """添加曲目到队列末尾"""
+        """Add track to end of queue"""
         with self._lock:
             self._queue.append(track)
             self._shuffle_indices.append(len(self._queue) - 1)
@@ -174,12 +174,12 @@ class PlayerService:
         self._update_next_track_preload()
 
     def insert_next(self, track: Track) -> None:
-        """插入曲目到当前曲目之后"""
+        """Insert track after current track"""
         with self._lock:
             insert_pos = self._current_index + 1
             self._queue.insert(insert_pos, track)
             
-            # 更新shuffle索引
+            # Update shuffle indices
             self._shuffle_indices = list(range(len(self._queue)))
             if self._play_mode == PlayMode.SHUFFLE:
                 random.shuffle(self._shuffle_indices)
@@ -190,26 +190,26 @@ class PlayerService:
 
     def remove_from_queue(self, index: int) -> bool:
         """
-        从队列移除曲目
+        Remove track from queue
         
         Args:
-            index: 队列索引
+            index: Queue index
             
         Returns:
-            bool: 是否成功移除
+            bool: Whether removal was successful
         """
         with self._lock:
             if 0 <= index < len(self._queue):
                 self._queue.pop(index)
                 
-                # 调整当前索引
+                # Adjust current index
                 if index < self._current_index:
                     self._current_index -= 1
                 elif index == self._current_index:
                     if self._current_index >= len(self._queue):
                         self._current_index = len(self._queue) - 1
                 
-                # 更新shuffle索引
+                # Update shuffle indices
                 self._shuffle_indices = list(range(len(self._queue)))
                 if self._play_mode == PlayMode.SHUFFLE:
                     random.shuffle(self._shuffle_indices)
@@ -221,7 +221,7 @@ class PlayerService:
             return False
     
     def clear_queue(self) -> None:
-        """清空队列"""
+        """Clear queue"""
         self.stop()
         with self._lock:
             self._queue.clear()
@@ -233,16 +233,16 @@ class PlayerService:
 
     def play(self, track: Optional[Track] = None) -> bool:
         """
-        播放曲目
+        Play track
         
         Args:
-            track: 指定曲目，None则播放当前曲目
+            track: Specified track, or None to play current track
             
         Returns:
-            bool: 是否成功播放
+            bool: Whether playback was successful
         """
         if track:
-            # P1-4 修复：使用 file_path 作为稳定键判重，而非依赖 dataclass 默认相等性
+            # P1-4 fix: use file_path as a stable key for deduplication instead of default dataclass equality
             existing_index = next(
                 (i for i, t in enumerate(self._queue) if t.file_path == track.file_path),
                 None
@@ -259,12 +259,12 @@ class PlayerService:
         
         current = self._queue[self._current_index]
         
-        # 尝试加载文件，支持 VLC 回退
+        # Try loading file, supports VLC fallback
         if self._load_with_fallback(current.file_path):
             if self._engine.play():
-                # 添加到历史
+                # Add to history
                 self._history.append(self._current_index)
-                if len(self._history) > 100:  # 限制历史长度
+                if len(self._history) > 100:  # Limit history length
                     self._history.pop(0)
                 
                 self._event_bus.publish_sync(EventType.TRACK_STARTED, current)
@@ -275,95 +275,93 @@ class PlayerService:
 
     def _load_with_fallback(self, file_path: str) -> bool:
         """
-        加载文件，支持 VLC 回退
+        Load file with VLC fallback support
         
-        当主引擎加载失败（抛出 UnsupportedFormatError）时，
-        尝试切换到 VLC 引擎播放。
+        When the main engine fails to load (throws UnsupportedFormatError),
+        attempt to switch to the VLC engine for playback.
         
         Args:
-            file_path: 音频文件路径
+            file_path: Audio file path
             
         Returns:
-            bool: 是否加载成功
+            bool: Whether loading was successful
         """
         try:
-            # 尝试使用当前引擎加载
+            # Attempt to load using the current engine
             return self._engine.load(file_path)
         except Exception as e:
-            # 检查是否为不支持的格式错误
+            # Check if it is an unsupported format error
             error_type = type(e).__name__
             if error_type == 'UnsupportedFormatError':
-                logger.info("主引擎不支持此格式，尝试 VLC 回退: %s", file_path)
+                logger.info("Main engine does not support this format, trying VLC fallback: %s", file_path)
                 return self._try_vlc_fallback(file_path)
             else:
-                logger.error("加载文件失败: %s", e)
+                logger.error("Failed to load file: %s", e)
                 return False
 
     def _try_vlc_fallback(self, file_path: str) -> bool:
         """
-        尝试使用 VLC 引擎作为回退
+        Attempt to use VLC engine as fallback
         
         Args:
-            file_path: 音频文件路径
+            file_path: Audio file path
             
         Returns:
-            bool: 是否成功
+            bool: Whether successful
         """
         try:
-            from core.engine_factory import AudioEngineFactory
-            
-            # 检查 VLC 是否可用
+            # Check if VLC is available
             if not AudioEngineFactory.is_available("vlc"):
-                logger.warning("VLC 引擎不可用，无法播放此格式")
+                logger.warning("VLC engine unavailable, cannot play this format")
                 self._event_bus.publish_sync(EventType.ERROR_OCCURRED, {
                     "source": "PlayerService",
-                    "error": f"不支持的音频格式，请安装 FFmpeg 或 VLC: {file_path}"
+                    "error": f"Unsupported audio format, please install FFmpeg or VLC: {file_path}"
                 })
                 return False
             
-            # 保存当前引擎状态
+            # Save current engine state
             old_engine = self._engine
             old_volume = old_engine.volume
             
-            # 创建 VLC 引擎
+            # Create VLC engine
             vlc_engine = AudioEngineFactory.create("vlc")
             vlc_engine.set_volume(old_volume)
             vlc_engine.set_on_end(self._on_engine_end)
             vlc_engine.set_on_error(self._on_error)
             
-            # 尝试加载
+            # Attempt to load
             if vlc_engine.load(file_path):
-                # 切换到 VLC 引擎
+                # Switch to VLC engine
                 if hasattr(old_engine, 'cleanup'):
                     old_engine.cleanup()
                 self._engine = vlc_engine
-                logger.info("已切换到 VLC 引擎播放: %s", file_path)
+                logger.info("Switched to VLC engine for playback: %s", file_path)
                 return True
             else:
-                # VLC 也失败了
+                # VLC also failed
                 if hasattr(vlc_engine, 'cleanup'):
                     vlc_engine.cleanup()
-                logger.warning("VLC 引擎也无法播放: %s", file_path)
+                logger.warning("VLC engine also failed to play: %s", file_path)
                 return False
                 
         except Exception as e:
-            logger.error("VLC 回退失败: %s", e)
+            logger.error("VLC fallback failed: %s", e)
             return False
     
     def pause(self) -> None:
-        """暂停播放"""
+        """Pause playback"""
         if self._engine.state == PlayerState.PLAYING:
             self._engine.pause()
             self._event_bus.publish_sync(EventType.TRACK_PAUSED)
     
     def resume(self) -> None:
-        """恢复播放"""
+        """Resume playback"""
         if self._engine.state == PlayerState.PAUSED:
             self._engine.resume()
             self._event_bus.publish_sync(EventType.TRACK_RESUMED)
     
     def toggle_play(self) -> None:
-        """切换播放/暂停"""
+        """Toggle play/pause"""
         if self._engine.state == PlayerState.PLAYING:
             self.pause()
         elif self._engine.state == PlayerState.PAUSED:
@@ -372,11 +370,11 @@ class PlayerService:
             self.play()
     
     def stop(self) -> None:
-        """停止播放"""
+        """Stop playback"""
         current = self.current_track
         self._engine.stop()
         self._engine.set_next_track(None)
-        # P1-5 修复：使用 PLAYBACK_STOPPED 而非 TRACK_ENDED，避免误触发自动切歌逻辑
+        # P1-5 fix: use PLAYBACK_STOPPED instead of TRACK_ENDED to avoid mis-triggering auto-advance logic
         self._event_bus.publish_sync(EventType.PLAYBACK_STOPPED, {
             "track": current,
             "reason": "stopped"
@@ -384,10 +382,10 @@ class PlayerService:
     
     def next_track(self) -> Optional[Track]:
         """
-        下一曲
+        Next track
         
         Returns:
-            Track: 下一首曲目，无下一曲返回None
+            Track: The next track, or None if no next track
         """
         if not self._queue:
             return None
@@ -403,25 +401,25 @@ class PlayerService:
     
     def previous_track(self) -> Optional[Track]:
         """
-        上一曲
+        Previous track
         
         Returns:
-            Track: 上一首曲目
+            Track: The previous track
         """
         if not self._queue:
             return None
         
-        # 如果播放超过3秒，重新播放当前曲目
+        # If playback duration > 3 seconds, replay the current track
         if self._engine.get_position() > 3000:
             self.seek(0)
             return self.current_track
         
-        # 从历史中获取
+        # Get from history
         if len(self._history) > 1:
-            self._history.pop()  # 移除当前
+            self._history.pop()  # Remove current
             self._current_index = self._history[-1]
         else:
-            # 顺序上一曲
+            # Sequential previous track
             if self._current_index > 0:
                 self._current_index -= 1
             elif self._play_mode == PlayMode.REPEAT_ALL:
@@ -431,7 +429,7 @@ class PlayerService:
         return self.current_track
     
     def _get_next_index(self) -> Optional[int]:
-        """获取下一曲索引"""
+        """Get next track index"""
         if not self._queue:
             return None
         
@@ -439,13 +437,13 @@ class PlayerService:
             return self._current_index
         
         if self._play_mode == PlayMode.SHUFFLE:
-            # 在shuffle列表中找到当前位置的下一个
+            # Find the next position after the current in the shuffle list
             try:
                 current_shuffle_pos = self._shuffle_indices.index(self._current_index)
                 if current_shuffle_pos < len(self._shuffle_indices) - 1:
                     return self._shuffle_indices[current_shuffle_pos + 1]
                 else:
-                    # Shuffle 到末尾，重新 shuffle 并循环播放
+                    # After reaching end of shuffle, re-shuffle and repeat
                     random.shuffle(self._shuffle_indices)
                     return self._shuffle_indices[0]
             except ValueError:
@@ -453,7 +451,7 @@ class PlayerService:
                     return self._shuffle_indices[0]
             return None
         
-        # 顺序播放
+        # Sequential playback
         if self._current_index < len(self._queue) - 1:
             return self._current_index + 1
         elif self._play_mode == PlayMode.REPEAT_ALL:
@@ -489,10 +487,10 @@ class PlayerService:
 
     def seek(self, position_ms: int) -> None:
         """
-        跳转到指定位置
+        Seek to specified position
         
         Args:
-            position_ms: 目标位置（毫秒）
+            position_ms: Target position (ms)
         """
         self._engine.seek(position_ms)
         self._event_bus.publish_sync(EventType.POSITION_CHANGED, {
@@ -502,24 +500,24 @@ class PlayerService:
     
     def set_volume(self, volume: float) -> None:
         """
-        设置音量
+        Set volume
         
         Args:
-            volume: 音量值 (0.0 - 1.0)
+            volume: Volume value (0.0 - 1.0)
         """
         self._engine.set_volume(volume)
         self._event_bus.publish_sync(EventType.VOLUME_CHANGED, volume)
     
     def get_volume(self) -> float:
-        """获取音量"""
+        """Get volume"""
         return self._engine.volume
     
     def set_play_mode(self, mode: PlayMode) -> None:
         """
-        设置播放模式
+        Set playback mode
         
         Args:
-            mode: 播放模式
+            mode: Playback mode
         """
         self._play_mode = mode
         
@@ -529,11 +527,11 @@ class PlayerService:
         self._update_next_track_preload()
     
     def get_play_mode(self) -> PlayMode:
-        """获取播放模式"""
+        """Get playback mode"""
         return self._play_mode
     
     def cycle_play_mode(self) -> PlayMode:
-        """循环切换播放模式"""
+        """Cycle through playback modes"""
         modes = list(PlayMode)
         current_idx = modes.index(self._play_mode)
         next_idx = (current_idx + 1) % len(modes)
@@ -569,14 +567,14 @@ class PlayerService:
         self.next_track()
 
     def _on_error(self, error: str) -> None:
-        """错误回调"""
+        """Error callback"""
         self._event_bus.publish_sync(EventType.ERROR_OCCURRED, {
             "source": "PlayerService",
             "error": error
         })
     
     def cleanup(self) -> None:
-        """清理资源"""
+        """Clean up resources"""
         self.stop()
         if hasattr(self._engine, 'cleanup'):
             self._engine.cleanup()

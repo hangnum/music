@@ -1,5 +1,5 @@
 """
-服务层模块
+Service Layer Module
 """
 
 from .player_service import PlayerService, PlayMode, PlaybackState
@@ -12,7 +12,7 @@ from .llm_queue_cache_service import LLMQueueCacheService, LLMQueueHistoryEntry
 from .tag_service import TagService
 from .daily_playlist_service import DailyPlaylistService, DailyPlaylistResult
 
-# LLM 提供商模块
+# LLM provider modules
 from .llm_providers import (
     SiliconFlowProvider,
     SiliconFlowSettings,
@@ -22,7 +22,7 @@ from .llm_providers import (
     AVAILABLE_PROVIDERS,
 )
 
-# 向后兼容别名
+# Backward compatibility alias
 SiliconFlowClient = SiliconFlowProvider
 
 __all__ = [
@@ -41,10 +41,10 @@ __all__ = [
     'TagService',
     'DailyPlaylistService',
     'DailyPlaylistResult',
-    # LLM 提供商
+    # LLM providers
     'SiliconFlowProvider',
     'SiliconFlowSettings',
-    'SiliconFlowClient',  # 向后兼容
+    'SiliconFlowClient',  # Backward compatibility
     'GeminiProvider',
     'GeminiSettings',
     'create_llm_provider',

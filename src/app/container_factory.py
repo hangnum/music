@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-容器工厂模块
+Container Factory Module
 
-负责创建和装配所有应用程序依赖。
+Responsible for creating and assembling all application dependencies.
 
-这是应用程序的**唯一**实例创建点（Composition Root）。
-所有服务实例的创建都应在此处完成，而非在各个服务内部。
+This is the **only** instance creation point (Composition Root) for the application.
+All service instance creation should be done here, not within individual services.
 """
 
 from __future__ import annotations
@@ -20,16 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 class AppContainerFactory:
-    """应用容器工厂
+    """Application Container Factory
     
-    创建并装配所有应用程序依赖。
+    Creates and assembles all application dependencies.
     
-    使用示例:
-        # 在 main.py 中
+    Usage Example:
+        # In main.py
         container = AppContainerFactory.create(use_qt_dispatcher=True)
         window = MainWindow(container)
         
-        # 在测试中（不使用 Qt）
+        # In tests (no Qt)
         container = AppContainerFactory.create(use_qt_dispatcher=False)
     """
     
@@ -38,18 +38,18 @@ class AppContainerFactory:
         config_path: str = "config/default_config.yaml",
         use_qt_dispatcher: bool = True,
     ) -> "AppContainer":
-        """创建应用容器
+        """Create Application Container
         
-        按依赖顺序创建所有服务实例并装配到容器中。
+        Creates all service instances in dependency order and assembles them into the container.
         
         Args:
-            config_path: 配置文件路径
-            use_qt_dispatcher: 是否使用 Qt 主线程派发
-                              - True: UI 运行时使用 QtEventBusAdapter
-                              - False: 单元测试/非 UI 使用纯 EventBus
+            config_path: Configuration file path
+            use_qt_dispatcher: Whether to use Qt main thread dispatching
+                              - True: Use QtEventBusAdapter during UI runtime
+                              - False: Use pure EventBus for unit tests/non-UI
                               
         Returns:
-            配置完成的 AppContainer 实例
+            A configured AppContainer instance
         """
         from app.container import AppContainer
         from core.database import DatabaseManager
@@ -64,43 +64,43 @@ class AppContainerFactory:
         from services.queue_persistence_service import QueuePersistenceService
         from services.tag_service import TagService
         
-        logger.info("正在创建应用容器...")
+        logger.info("Creating application container...")
         
-        # === 1. 基础设施层 ===
+        # === 1. Infrastructure Layer ===
         config = ConfigService(config_path)
         db = DatabaseManager()
         
-        # === 2. 事件总线（根据环境选择适配器）===
+        # === 2. Event Bus (Select adapter based on environment) ===
         pure_bus = EventBus()
         if use_qt_dispatcher:
             try:
                 from ui.qt_event_bus import QtEventBusAdapter
                 event_bus = QtEventBusAdapter(pure_bus)
-                logger.debug("使用 QtEventBusAdapter")
+                logger.debug("Using QtEventBusAdapter")
             except ImportError:
-                logger.warning("无法导入 QtEventBusAdapter，使用纯 EventBus")
+                logger.warning("Failed to import QtEventBusAdapter, using pure EventBus")
                 event_bus = pure_bus
         else:
             event_bus = pure_bus
-            logger.debug("使用纯 EventBus（非 Qt 模式）")
+            logger.debug("Using pure EventBus (Non-Qt mode)")
         
-        # === 3. 音频引擎 ===
+        # === 3. Audio Engine ===
         backend = config.get("audio.backend", "miniaudio")
         try:
             audio_engine = AudioEngineFactory.create(backend)
-            logger.info("创建音频引擎: %s", backend)
+            logger.info("Created audio engine: %s", backend)
         except RuntimeError as e:
-            logger.error("创建音频引擎失败: %s", e)
+            logger.error("Failed to create audio engine: %s", e)
             raise
         
-        # === 4. 服务层 ===
+        # === 4. Service Layer ===
         player = PlayerService(audio_engine=audio_engine)
         library = LibraryService(db=db)
         playlist_service = PlaylistService(db=db)
         favorites_service = FavoritesService(db=db, playlist_service=playlist_service)
         tag_service = TagService(db=db)
         
-        # 队列持久化服务
+        # Queue Persistence Service
         queue_persistence = QueuePersistenceService(
             db=db,
             config=config,
@@ -108,12 +108,12 @@ class AppContainerFactory:
         )
         queue_persistence.attach(player)
         
-        # === 5. LLM 相关服务 ===
-        # 网络搜索服务（用于增强 LLM 标注）
+        # === 5. LLM Related Services ===
+        # Web Search Service (for enhanced LLM tagging)
         from services.web_search_service import WebSearchService
         web_search_service = WebSearchService(config=config)
         
-        # LLM 标注服务
+        # LLM Tagging Service
         llm_tagging_service = None
         try:
             from services.llm_tagging_service import LLMTaggingService
@@ -128,20 +128,22 @@ class AppContainerFactory:
                 client=llm_client,
                 web_search=web_search_service,
             )
-            logger.info("LLM 标注服务创建成功")
+            logger.info("LLM Tagging Service created successfully")
         except Exception as e:
-            logger.warning("LLM 标注服务创建失败（可能缺少 API Key）: %s", e)
+            logger.warning("LLM Tagging Service creation failed (possibly missing API Key): %s", e)
         
-        # === 6. 创建 Facade ===
+        # === 6. Create Facade ===
         facade = MusicAppFacade(
             player=player,
             library=library,
             playlist_service=playlist_service,
             config=config,
             event_bus=event_bus,
+            tag_service=tag_service,
+            favorites_service=favorites_service,
         )
         
-        # === 7. 装配容器 ===
+        # === 7. Assemble Container ===
         container = AppContainer(
             config=config,
             event_bus=event_bus,
@@ -157,7 +159,7 @@ class AppContainerFactory:
             _web_search_service=web_search_service,
         )
         
-        logger.info("应用容器创建完成")
+        logger.info("Application container creation complete")
         return container
     
     @staticmethod
@@ -165,16 +167,16 @@ class AppContainerFactory:
         config_path: str = "config/default_config.yaml",
         db_path: str = ":memory:",
     ) -> "AppContainer":
-        """创建用于测试的容器
+        """Create a container for testing
         
-        使用内存数据库和纯 EventBus，不依赖 Qt。
+        Uses an in-memory database and pure EventBus, independent of Qt.
         
         Args:
-            config_path: 配置文件路径
-            db_path: 数据库路径（默认使用内存数据库）
+            config_path: Configuration file path
+            db_path: Database path (defaults to in-memory database)
             
         Returns:
-            配置完成的测试用 AppContainer 实例
+            A configured test AppContainer instance
         """
         from app.container import AppContainer
         from core.database import DatabaseManager
@@ -188,13 +190,13 @@ class AppContainerFactory:
         from services.queue_persistence_service import QueuePersistenceService
         from services.tag_service import TagService
         
-        logger.info("正在创建测试用应用容器...")
+        logger.info("Creating test application container...")
         
         config = ConfigService(config_path)
         db = DatabaseManager(db_path)
         event_bus = EventBus()
         
-        # 测试时不创建真实音频引擎，使用 None
+        # Do not create a real audio engine during tests, use None
         player = PlayerService(audio_engine=None)
         library = LibraryService(db=db)
         playlist_service = PlaylistService(db=db)
@@ -213,6 +215,8 @@ class AppContainerFactory:
             playlist_service=playlist_service,
             config=config,
             event_bus=event_bus,
+            tag_service=tag_service,
+            favorites_service=favorites_service,
         )
         
         container = AppContainer(
@@ -228,5 +232,5 @@ class AppContainerFactory:
             _tag_service=tag_service,
         )
         
-        logger.info("测试用应用容器创建完成")
+        logger.info("Test application container creation complete")
         return container

@@ -1,8 +1,8 @@
 """
-FFmpeg 音频转码器
+FFmpeg Audio Transcoder
 
-用于将 miniaudio 不支持的音频格式转码为 WAV 格式。
-支持的目标格式：m4a, aac, wma, ape, opus 等。
+Used for transcoding audio formats not supported by miniaudio to WAV format.
+Supported target formats: m4a, aac, wma, ape, opus, etc.
 """
 
 import logging
@@ -14,10 +14,10 @@ from typing import Optional, Set
 
 logger = logging.getLogger(__name__)
 
-# miniaudio 原生支持的格式
+# Formats supported natively by miniaudio
 MINIAUDIO_NATIVE_FORMATS: Set[str] = {'.mp3', '.flac', '.wav', '.ogg'}
 
-# 可以通过 FFmpeg 转码的格式
+# Formats that can be transcoded via FFmpeg
 FFMPEG_TRANSCODABLE_FORMATS: Set[str] = {
     '.m4a', '.aac', '.wma', '.ape', '.opus', '.webm', '.mka', '.ac3', '.dts',
     '.alac', '.aiff', '.aif', '.amr', '.caf', '.mpc', '.tta', '.wv'
@@ -26,15 +26,15 @@ FFMPEG_TRANSCODABLE_FORMATS: Set[str] = {
 
 class FFmpegTranscoder:
     """
-    FFmpeg 音频转码器
+    FFmpeg Audio Transcoder
     
-    将非原生支持的音频格式转码为 WAV 格式，供 miniaudio 播放。
+    Transcodes non-natively supported audio formats to WAV for playback by miniaudio.
     
-    使用示例:
+    Usage Example:
         transcoder = FFmpegTranscoder()
         if transcoder.is_available():
             wav_data = transcoder.transcode_to_wav("/path/to/audio.m4a")
-            # 使用 miniaudio.decode(wav_data, ...) 播放
+            # Use miniaudio.decode(wav_data, ...) for playback
     """
     
     _ffmpeg_path: Optional[str] = None
@@ -43,10 +43,10 @@ class FFmpegTranscoder:
     @classmethod
     def is_available(cls) -> bool:
         """
-        检测 FFmpeg 是否可用
+        Check if FFmpeg is available
         
         Returns:
-            bool: FFmpeg 是否可用
+            bool: Whether FFmpeg is available
         """
         if not cls._checked:
             cls._ffmpeg_path = cls._find_ffmpeg()
@@ -55,14 +55,14 @@ class FFmpegTranscoder:
     
     @classmethod
     def _find_ffmpeg(cls) -> Optional[str]:
-        """查找 FFmpeg 可执行文件"""
-        # 尝试从 PATH 中查找
+        """Find the FFmpeg executable"""
+        # Try to find from PATH
         ffmpeg_path = shutil.which("ffmpeg")
         if ffmpeg_path:
-            logger.debug("找到 FFmpeg: %s", ffmpeg_path)
+            logger.debug("FFmpeg found: %s", ffmpeg_path)
             return ffmpeg_path
         
-        # Windows 常见安装路径
+        # Common installation paths on Windows
         if os.name == 'nt':
             common_paths = [
                 r"C:\ffmpeg\bin\ffmpeg.exe",
@@ -72,15 +72,15 @@ class FFmpegTranscoder:
             ]
             for path in common_paths:
                 if os.path.isfile(path):
-                    logger.debug("找到 FFmpeg: %s", path)
+                    logger.debug("FFmpeg found: %s", path)
                     return path
         
-        logger.debug("未找到 FFmpeg")
+        logger.debug("FFmpeg not found")
         return None
     
     @classmethod
     def get_ffmpeg_path(cls) -> Optional[str]:
-        """获取 FFmpeg 路径"""
+        """Get the FFmpeg path"""
         if not cls._checked:
             cls.is_available()
         return cls._ffmpeg_path
@@ -88,13 +88,13 @@ class FFmpegTranscoder:
     @staticmethod
     def is_native_format(file_path: str) -> bool:
         """
-        检查文件是否为 miniaudio 原生支持的格式
+        Check if the file is in a format natively supported by miniaudio
         
         Args:
-            file_path: 文件路径
+            file_path: Path to the file
             
         Returns:
-            bool: 是否原生支持
+            bool: Whether natively supported
         """
         ext = os.path.splitext(file_path)[1].lower()
         return ext in MINIAUDIO_NATIVE_FORMATS
@@ -102,13 +102,13 @@ class FFmpegTranscoder:
     @staticmethod
     def is_transcodable(file_path: str) -> bool:
         """
-        检查文件是否可以通过 FFmpeg 转码
+        Check if the file can be transcoded via FFmpeg
         
         Args:
-            file_path: 文件路径
+            file_path: Path to the file
             
         Returns:
-            bool: 是否可转码
+            bool: Whether transcodable
         """
         ext = os.path.splitext(file_path)[1].lower()
         return ext in FFMPEG_TRANSCODABLE_FORMATS
@@ -116,38 +116,38 @@ class FFmpegTranscoder:
     @classmethod
     def transcode_to_wav(cls, file_path: str, target_sample_rate: int = 44100) -> bytes:
         """
-        将音频文件转码为 WAV 格式
+        Transcode an audio file to WAV format
         
         Args:
-            file_path: 源文件路径
-            target_sample_rate: 目标采样率
+            file_path: Source file path
+            target_sample_rate: Target sample rate
             
         Returns:
-            bytes: WAV 格式的音频数据
+            bytes: WAV format audio data
             
         Raises:
-            RuntimeError: FFmpeg 不可用或转码失败
+            RuntimeError: If FFmpeg is unavailable or transcoding fails
         """
         if not cls.is_available():
-            raise RuntimeError("FFmpeg 不可用")
+            raise RuntimeError("FFmpeg is unavailable")
         
         if not os.path.isfile(file_path):
-            raise FileNotFoundError(f"文件不存在: {file_path}")
+            raise FileNotFoundError(f"File does not exist: {file_path}")
         
         ffmpeg_path = cls._ffmpeg_path
         
-        # 使用临时文件存储输出
+        # Use a temporary file for output
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
             tmp_path = tmp_file.name
         
         try:
-            # 构建 FFmpeg 命令
-            # -i: 输入文件
-            # -f wav: 输出格式为 WAV
-            # -acodec pcm_f32le: 32位浮点 PCM（与 miniaudio FLOAT32 兼容）
-            # -ar: 采样率
-            # -ac 2: 立体声
-            # -y: 覆盖输出文件
+            # Construct FFmpeg command
+            # -i: Input file
+            # -f wav: Output format is WAV
+            # -acodec pcm_f32le: 32-bit float PCM (compatible with miniaudio FLOAT32)
+            # -ar: Sample rate
+            # -ac 2: Stereo
+            # -y: Overwrite output file
             cmd = [
                 ffmpeg_path,
                 '-i', file_path,
@@ -159,31 +159,31 @@ class FFmpegTranscoder:
                 tmp_path
             ]
             
-            # 执行转码
+            # Execute transcoding
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                timeout=60,  # 60秒超时
+                timeout=60,  # 60 second timeout
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
             )
             
             if result.returncode != 0:
                 error_msg = result.stderr.decode('utf-8', errors='replace')
-                logger.warning("FFmpeg 转码失败: %s", error_msg[:200])
-                raise RuntimeError(f"FFmpeg 转码失败: {error_msg[:200]}")
+                logger.warning("FFmpeg transcoding failed: %s", error_msg[:200])
+                raise RuntimeError(f"FFmpeg transcoding failed: {error_msg[:200]}")
             
-            # 读取转码后的数据
+            # Read the transcoded data
             with open(tmp_path, 'rb') as f:
                 wav_data = f.read()
             
-            logger.debug("FFmpeg 转码成功: %s -> %d bytes", file_path, len(wav_data))
+            logger.debug("FFmpeg transcoding successful: %s -> %d bytes", file_path, len(wav_data))
             return wav_data
             
         except subprocess.TimeoutExpired:
-            logger.warning("FFmpeg 转码超时: %s", file_path)
-            raise RuntimeError(f"FFmpeg 转码超时: {file_path}")
+            logger.warning("FFmpeg transcoding timed out: %s", file_path)
+            raise RuntimeError(f"FFmpeg transcoding timed out: {file_path}")
         finally:
-            # 清理临时文件
+            # Clean up temporary file
             try:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
@@ -193,24 +193,24 @@ class FFmpegTranscoder:
     @classmethod
     def transcode_to_wav_pipe(cls, file_path: str, target_sample_rate: int = 44100) -> bytes:
         """
-        使用管道方式转码（避免临时文件）
+        Transcode using a pipe (avoids temporary file)
         
         Args:
-            file_path: 源文件路径
-            target_sample_rate: 目标采样率
+            file_path: Source file path
+            target_sample_rate: Target sample rate
             
         Returns:
-            bytes: WAV 格式的音频数据
+            bytes: WAV format audio data
         """
         if not cls.is_available():
-            raise RuntimeError("FFmpeg 不可用")
+            raise RuntimeError("FFmpeg is unavailable")
         
         if not os.path.isfile(file_path):
-            raise FileNotFoundError(f"文件不存在: {file_path}")
+            raise FileNotFoundError(f"File does not exist: {file_path}")
         
         ffmpeg_path = cls._ffmpeg_path
         
-        # 使用管道输出
+        # Use pipe for output
         cmd = [
             ffmpeg_path,
             '-i', file_path,
@@ -218,7 +218,7 @@ class FFmpegTranscoder:
             '-acodec', 'pcm_f32le',
             '-ar', str(target_sample_rate),
             '-ac', '2',
-            '-'  # 输出到 stdout
+            '-'  # Output to stdout
         ]
         
         try:
@@ -231,12 +231,12 @@ class FFmpegTranscoder:
             
             if result.returncode != 0:
                 error_msg = result.stderr.decode('utf-8', errors='replace')
-                logger.warning("FFmpeg 管道转码失败: %s", error_msg[:200])
-                raise RuntimeError(f"FFmpeg 转码失败: {error_msg[:200]}")
+                logger.warning("FFmpeg pipe transcoding failed: %s", error_msg[:200])
+                raise RuntimeError(f"FFmpeg transcoding failed: {error_msg[:200]}")
             
-            logger.debug("FFmpeg 管道转码成功: %s -> %d bytes", file_path, len(result.stdout))
+            logger.debug("FFmpeg pipe transcoding successful: %s -> %d bytes", file_path, len(result.stdout))
             return result.stdout
             
         except subprocess.TimeoutExpired:
-            logger.warning("FFmpeg 管道转码超时: %s", file_path)
-            raise RuntimeError(f"FFmpeg 转码超时: {file_path}")
+            logger.warning("FFmpeg pipe transcoding timed out: %s", file_path)
+            raise RuntimeError(f"FFmpeg transcoding timed out: {file_path}")

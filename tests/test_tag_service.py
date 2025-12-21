@@ -1,5 +1,5 @@
 """
-标签服务测试
+Tag Service Tests
 """
 
 import pytest
@@ -8,7 +8,7 @@ import os
 
 
 class TestTagService:
-    """TagService 测试"""
+    """TagService Tests"""
     
     def setup_method(self):
         from core.database import DatabaseManager
@@ -22,88 +22,88 @@ class TestTagService:
             os.remove("test_tag_service.db")
     
     def test_create_tag(self):
-        """测试创建标签"""
+        """Test tag creation."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
-        tag = service.create_tag("喜欢", "#FF5733")
+        tag = service.create_tag("Favorite", "#FF5733")
         
         assert tag is not None
-        assert tag.name == "喜欢"
+        assert tag.name == "Favorite"
         assert tag.color == "#FF5733"
     
     def test_create_duplicate_tag(self):
-        """测试创建重复标签（不区分大小写）"""
+        """Test creating a duplicate tag (case-insensitive)."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         tag1 = service.create_tag("Rock")
-        tag2 = service.create_tag("ROCK")  # 应该返回 None
-        tag3 = service.create_tag("rock")  # 应该返回 None
+        tag2 = service.create_tag("ROCK")  # Should return None
+        tag3 = service.create_tag("rock")  # Should return None
         
         assert tag1 is not None
         assert tag2 is None
         assert tag3 is None
     
     def test_get_tag(self):
-        """测试获取标签"""
+        """Test fetching a tag."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
-        created = service.create_tag("测试")
+        created = service.create_tag("Test")
         
         fetched = service.get_tag(created.id)
         
         assert fetched is not None
         assert fetched.id == created.id
-        assert fetched.name == "测试"
+        assert fetched.name == "Test"
     
     def test_get_tag_by_name(self):
-        """测试按名称获取标签"""
+        """Test fetching a tag by name."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         service.create_tag("Classical")
         
-        # 不区分大小写
+        # Case-insensitive
         tag = service.get_tag_by_name("classical")
         assert tag is not None
         assert tag.name == "Classical"
     
     def test_get_all_tags(self):
-        """测试获取所有标签"""
+        """Test fetching all tags."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
-        service.create_tag("A标签")
-        service.create_tag("B标签")
-        service.create_tag("C标签")
+        service.create_tag("Tag A")
+        service.create_tag("Tag B")
+        service.create_tag("Tag C")
         
         tags = service.get_all_tags()
         
         assert len(tags) == 3
     
     def test_update_tag(self):
-        """测试更新标签"""
+        """Test updating a tag."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
-        tag = service.create_tag("旧名称", "#000000")
+        tag = service.create_tag("Old Name", "#000000")
         
-        result = service.update_tag(tag.id, name="新名称", color="#FFFFFF")
+        result = service.update_tag(tag.id, name="New Name", color="#FFFFFF")
         
         assert result is True
         
         updated = service.get_tag(tag.id)
-        assert updated.name == "新名称"
+        assert updated.name == "New Name"
         assert updated.color == "#FFFFFF"
     
     def test_delete_tag(self):
-        """测试删除标签"""
+        """Test deleting a tag."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
-        tag = service.create_tag("待删除")
+        tag = service.create_tag("To Delete")
         
         result = service.delete_tag(tag.id)
         
@@ -111,72 +111,72 @@ class TestTagService:
         assert service.get_tag(tag.id) is None
     
     def test_add_tag_to_track(self):
-        """测试为曲目添加标签"""
+        """Test adding a tag to a track."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         
-        # 先创建一个曲目
+        # Create a track first
         self.db.insert("tracks", {
             "id": "track-1",
-            "title": "测试歌曲",
+            "title": "Test Song",
             "file_path": "test.mp3",
-            "artist_name": "测试艺术家",
-            "album_name": "测试专辑",
+            "artist_name": "Test Artist",
+            "album_name": "Test Album",
             "track_number": 1,
         })
         
-        # 创建标签
-        tag = service.create_tag("喜欢")
+        # Create a tag
+        tag = service.create_tag("Favorite")
         
-        # 添加标签到曲目
+        # Add tag to track
         result = service.add_tag_to_track("track-1", tag.id)
         
         assert result is True
     
     def test_remove_tag_from_track(self):
-        """测试移除曲目标签"""
+        """Test removing a tag from a track."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         
-        # 创建曲目和标签
+        # Create track and tag
         self.db.insert("tracks", {
             "id": "track-2",
-            "title": "测试歌曲",
+            "title": "Test Song",
             "file_path": "test2.mp3",
             "artist_name": "A",
             "album_name": "B",
             "track_number": 1,
         })
-        tag = service.create_tag("临时")
+        tag = service.create_tag("Temporary")
         service.add_tag_to_track("track-2", tag.id)
         
-        # 移除标签
+        # Remove tag
         result = service.remove_tag_from_track("track-2", tag.id)
         
         assert result is True
         assert len(service.get_track_tags("track-2")) == 0
     
     def test_get_track_tags(self):
-        """测试获取曲目的所有标签"""
+        """Test fetching all tags for a track."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         
-        # 创建曲目
+        # Create track
         self.db.insert("tracks", {
             "id": "track-3",
-            "title": "测试歌曲",
+            "title": "Test Song",
             "file_path": "test3.mp3",
             "artist_name": "A",
             "album_name": "B",
             "track_number": 1,
         })
         
-        # 创建多个标签并添加
-        tag1 = service.create_tag("标签1")
-        tag2 = service.create_tag("标签2")
+        # Create multiple tags and add them
+        tag1 = service.create_tag("Tag 1")
+        tag2 = service.create_tag("Tag 2")
         service.add_tag_to_track("track-3", tag1.id)
         service.add_tag_to_track("track-3", tag2.id)
         
@@ -185,24 +185,24 @@ class TestTagService:
         assert len(tags) == 2
     
     def test_get_tracks_by_tag(self):
-        """测试获取标签下的所有曲目"""
+        """Test fetching all tracks associated with a specific tag."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         
-        # 创建多个曲目
+        # Create multiple tracks
         for i in range(3):
             self.db.insert("tracks", {
                 "id": f"track-{i+10}",
-                "title": f"歌曲{i+1}",
+                "title": f"Song {i+1}",
                 "file_path": f"song{i+10}.mp3",
                 "artist_name": "A",
                 "album_name": "B",
                 "track_number": i+1,
             })
         
-        # 创建标签并添加到曲目
-        tag = service.create_tag("共同标签")
+        # Create tag and add to tracks
+        tag = service.create_tag("Common Tag")
         service.add_tag_to_track("track-10", tag.id)
         service.add_tag_to_track("track-11", tag.id)
         
@@ -213,30 +213,30 @@ class TestTagService:
         assert "track-11" in track_ids
     
     def test_set_track_tags(self):
-        """测试批量设置曲目标签"""
+        """Test bulk setting tags for a track."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         
-        # 创建曲目
+        # Create track
         self.db.insert("tracks", {
             "id": "track-20",
-            "title": "测试歌曲",
+            "title": "Test Song",
             "file_path": "test20.mp3",
             "artist_name": "A",
             "album_name": "B",
             "track_number": 1,
         })
         
-        # 创建标签
-        tag1 = service.create_tag("新标签1")
-        tag2 = service.create_tag("新标签2")
-        tag3 = service.create_tag("新标签3")
+        # Create tags
+        tag1 = service.create_tag("New Tag 1")
+        tag2 = service.create_tag("New Tag 2")
+        tag3 = service.create_tag("New Tag 3")
         
-        # 先添加一个标签
+        # Add an initial tag
         service.add_tag_to_track("track-20", tag1.id)
         
-        # 批量设置（应该替换所有）
+        # Bulk set (should replace all existing)
         result = service.set_track_tags("track-20", [tag2.id, tag3.id])
         
         assert result is True
@@ -245,58 +245,58 @@ class TestTagService:
         tag_names = [t.name for t in tags]
         
         assert len(tags) == 2
-        assert "新标签1" not in tag_names
-        assert "新标签2" in tag_names
-        assert "新标签3" in tag_names
+        assert "New Tag 1" not in tag_names
+        assert "New Tag 2" in tag_names
+        assert "New Tag 3" in tag_names
     
     def test_search_tags(self):
-        """测试搜索标签"""
+        """Test searching for tags."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
-        service.create_tag("摇滚音乐")
-        service.create_tag("流行音乐")
-        service.create_tag("古典")
+        service.create_tag("Rock Music")
+        service.create_tag("Pop Music")
+        service.create_tag("Classical")
         
-        results = service.search_tags("音乐")
+        results = service.search_tags("Music")
         
         assert len(results) == 2
     
     def test_get_tag_count(self):
-        """测试获取标签总数"""
+        """Test fetching the total number of tags."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
-        service.create_tag("标签A")
-        service.create_tag("标签B")
+        service.create_tag("Tag A")
+        service.create_tag("Tag B")
         
         count = service.get_tag_count()
         
         assert count == 2
     
     def test_cascade_delete(self):
-        """测试删除标签时级联删除关联"""
+        """Test cascading deletion of associations when a tag is deleted."""
         from services.tag_service import TagService
         
         service = TagService(self.db)
         
-        # 创建曲目和标签
+        # Create track and tag
         self.db.insert("tracks", {
             "id": "track-30",
-            "title": "测试歌曲",
+            "title": "Test Song",
             "file_path": "test30.mp3",
             "artist_name": "A",
             "album_name": "B",
             "track_number": 1,
         })
         
-        tag = service.create_tag("将被删除")
+        tag = service.create_tag("To Be Deleted")
         service.add_tag_to_track("track-30", tag.id)
         
-        # 删除标签
+        # Delete tag
         service.delete_tag(tag.id)
         
-        # 关联应该也被删除
+        # Associations should also be removed
         tags = service.get_track_tags("track-30")
         assert len(tags) == 0
 

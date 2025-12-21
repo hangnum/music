@@ -1,7 +1,7 @@
 """
-播放列表服务模块
+Playlist Service Module
 
-管理播放列表的CRUD操作。
+Manages CRUD operations for playlists.
 """
 
 from typing import List, Optional
@@ -19,20 +19,20 @@ logger = logging.getLogger(__name__)
 
 class PlaylistService:
     """
-    播放列表服务
+    Playlist Service
     
-    提供播放列表的创建、读取、更新、删除功能。
+    Provides create, read, update, delete functions for playlists.
     
-    使用示例:
+    Usage example:
         service = PlaylistService()
         
-        # 创建播放列表
-        playlist = service.create("我的收藏", "喜欢的歌曲")
+        # Create playlist
+        playlist = service.create("My Favorites", "Favorite songs")
         
-        # 添加曲目
+        # Add track
         service.add_track(playlist.id, track)
         
-        # 获取所有播放列表
+        # Get all playlists
         all_playlists = service.get_all()
     """
     
@@ -42,14 +42,14 @@ class PlaylistService:
     
     def create(self, name: str, description: str = "") -> Playlist:
         """
-        创建播放列表
+        Create playlist
         
         Args:
-            name: 播放列表名称
-            description: 描述
+            name: Playlist name
+            description: Description
             
         Returns:
-            Playlist: 创建的播放列表
+            Playlist: Created playlist
         """
         playlist_id = str(uuid.uuid4())
         now = datetime.now()
@@ -75,13 +75,13 @@ class PlaylistService:
     
     def get(self, playlist_id: str) -> Optional[Playlist]:
         """
-        获取播放列表
+        Get playlist
         
         Args:
-            playlist_id: 播放列表ID
+            playlist_id: Playlist ID
             
         Returns:
-            Playlist: 播放列表对象，不存在返回None
+            Playlist: Playlist object, returns None if not exists
         """
         row = self._db.fetch_one(
             "SELECT * FROM playlists WHERE id = ?",
@@ -91,7 +91,7 @@ class PlaylistService:
         if not row:
             return None
         
-        # 获取曲目ID列表
+        # Get track ID list
         tracks_rows = self._db.fetch_all(
             """SELECT track_id FROM playlist_tracks 
                WHERE playlist_id = ? ORDER BY position""",
@@ -99,7 +99,7 @@ class PlaylistService:
         )
         track_ids = [r["track_id"] for r in tracks_rows]
         
-        # 计算统计信息
+        # Calculate statistics
         stats = self._db.fetch_one(
             """SELECT COUNT(*) as count, COALESCE(SUM(t.duration_ms), 0) as duration
                FROM playlist_tracks pt
@@ -122,10 +122,10 @@ class PlaylistService:
     
     def get_all(self) -> List[Playlist]:
         """
-        获取所有播放列表
+        Get all playlists.
         
         Returns:
-            List[Playlist]: 播放列表列表
+            List[Playlist]: List of playlists.
         """
         rows = self._db.fetch_all(
             "SELECT id FROM playlists ORDER BY created_at DESC"
@@ -136,15 +136,15 @@ class PlaylistService:
     def update(self, playlist_id: str, name: str = None, 
                description: str = None) -> bool:
         """
-        更新播放列表
+        Update a playlist.
         
         Args:
-            playlist_id: 播放列表ID
-            name: 新名称
-            description: 新描述
+            playlist_id: Playlist ID
+            name: New name
+            description: New description
             
         Returns:
-            bool: 是否更新成功
+            bool: True if update was successful.
         """
         updates = {"updated_at": datetime.now().isoformat()}
         
@@ -169,13 +169,13 @@ class PlaylistService:
     
     def delete(self, playlist_id: str) -> bool:
         """
-        删除播放列表
+        Delete a playlist.
         
         Args:
-            playlist_id: 播放列表ID
+            playlist_id: Playlist ID
             
         Returns:
-            bool: 是否删除成功
+            bool: True if deletion was successful.
         """
         rows_affected = self._db.delete("playlists", "id = ?", (playlist_id,))
         
@@ -186,16 +186,16 @@ class PlaylistService:
     
     def add_track(self, playlist_id: str, track: Track) -> bool:
         """
-        添加曲目到播放列表
+        Add a track to a playlist.
         
         Args:
-            playlist_id: 播放列表ID
-            track: 曲目对象
+            playlist_id: Playlist ID
+            track: Track object
             
         Returns:
-            bool: 是否添加成功
+            bool: True if successfully added.
         """
-        # 获取当前最大position
+        # Get current maximum position
         result = self._db.fetch_one(
             "SELECT MAX(position) as max_pos FROM playlist_tracks WHERE playlist_id = ?",
             (playlist_id,)
@@ -210,7 +210,7 @@ class PlaylistService:
                 "added_at": datetime.now().isoformat(),
             })
             
-            # 更新播放列表的更新时间
+            # Update the playlist's update time
             self._db.update(
                 "playlists",
                 {"updated_at": datetime.now().isoformat()},
@@ -221,19 +221,19 @@ class PlaylistService:
             self._event_bus.publish(EventType.PLAYLIST_UPDATED, self.get(playlist_id))
             return True
         except Exception as e:
-            logger.warning("添加曲目到播放列表失败: playlist_id=%s, track_id=%s, error=%s", playlist_id, track.id, e)
+            logger.warning("Failed to add track to playlist: playlist_id=%s, track_id=%s, error=%s", playlist_id, track.id, e)
             return False
     
     def remove_track(self, playlist_id: str, track_id: str) -> bool:
         """
-        从播放列表移除曲目
+        Remove a track from a playlist.
         
         Args:
-            playlist_id: 播放列表ID
-            track_id: 曲目ID
+            playlist_id: Playlist ID
+            track_id: Track ID
             
         Returns:
-            bool: 是否移除成功
+            bool: True if successfully removed.
         """
         rows_affected = self._db.delete(
             "playlist_tracks",
@@ -242,7 +242,7 @@ class PlaylistService:
         )
         
         if rows_affected > 0:
-            # 更新播放列表的更新时间
+            # Update the playlist's update time
             self._db.update(
                 "playlists",
                 {"updated_at": datetime.now().isoformat()},
@@ -257,17 +257,17 @@ class PlaylistService:
     def reorder_track(self, playlist_id: str, track_id: str, 
                       new_position: int) -> bool:
         """
-        调整曲目顺序
+        Adjust the order of a track in a playlist.
         
         Args:
-            playlist_id: 播放列表ID
-            track_id: 曲目ID
-            new_position: 新位置
+            playlist_id: Playlist ID
+            track_id: Track ID
+            new_position: New position
             
         Returns:
-            bool: 是否成功
+            bool: True if successfully reordered.
         """
-        # 获取当前位置
+        # Get current position
         current = self._db.fetch_one(
             "SELECT position FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?",
             (playlist_id, track_id)
@@ -283,21 +283,21 @@ class PlaylistService:
         
         with self._db.transaction():
             if old_position < new_position:
-                # 向后移动：中间的位置-1
+                # Move backwards: positions in between decrease by 1
                 self._db.execute(
                     """UPDATE playlist_tracks SET position = position - 1
                        WHERE playlist_id = ? AND position > ? AND position <= ?""",
                     (playlist_id, old_position, new_position)
                 )
             else:
-                # 向前移动：中间的位置+1
+                # Move forwards: positions in between increase by 1
                 self._db.execute(
                     """UPDATE playlist_tracks SET position = position + 1
                        WHERE playlist_id = ? AND position >= ? AND position < ?""",
                     (playlist_id, new_position, old_position)
                 )
             
-            # 更新目标曲目位置
+            # Update target track position
             self._db.execute(
                 "UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?",
                 (new_position, playlist_id, track_id)
@@ -308,13 +308,13 @@ class PlaylistService:
     
     def get_tracks(self, playlist_id: str) -> List[Track]:
         """
-        获取播放列表中的所有曲目
+        Get all tracks in a playlist.
         
         Args:
-            playlist_id: 播放列表ID
+            playlist_id: Playlist ID
             
         Returns:
-            List[Track]: 曲目列表
+            List[Track]: List of tracks.
         """
         rows = self._db.fetch_all(
             """SELECT t.* FROM tracks t

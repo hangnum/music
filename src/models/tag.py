@@ -1,7 +1,7 @@
 """
-标签数据模型
+Tag data model
 
-用于音乐曲目的用户自定义标签。
+User-defined tags for music tracks.
 """
 
 from dataclasses import dataclass, field
@@ -13,16 +13,16 @@ import uuid
 @dataclass
 class Tag:
     """
-    标签数据模型
+    Tag data model
     
-    代表一个标签，可用于分类和筛选音乐。
+    Represents a tag, can be used for categorizing and filtering music.
     
     Attributes:
-        id: 唯一标识符
-        name: 标签名称（不区分大小写唯一）
-        color: 标签颜色（十六进制格式，如 #FF5733）
-        source: 标签来源 ("user" 表示用户手动创建, "llm" 表示 LLM 自动标注)
-        created_at: 创建时间
+        id: Unique identifier
+        name: Tag name (case-insensitive unique)
+        color: Tag color (hex format, e.g., #FF5733)
+        source: Tag source ("user" for manually created, "llm" for LLM auto-tagged)
+        created_at: Creation time
     """
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -32,7 +32,7 @@ class Tag:
     created_at: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> dict:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             'id': self.id,
             'name': self.name,
@@ -43,7 +43,7 @@ class Tag:
     
     @classmethod
     def from_dict(cls, data: dict) -> 'Tag':
-        """从字典创建Tag对象"""
+        """Create Tag object from dictionary"""
         created_at = datetime.now()
         if data.get('created_at'):
             try:
@@ -60,12 +60,12 @@ class Tag:
         )
     
     def __eq__(self, other: object) -> bool:
-        """比较两个标签是否相等（基于ID）"""
+        """Compare if two tags are equal (based on ID)"""
         if not isinstance(other, Tag):
             return False
         return self.id == other.id
     
     def __hash__(self) -> int:
-        """哈希函数（基于ID）"""
+        """Hash function (based on ID)"""
         return hash(self.id)
 

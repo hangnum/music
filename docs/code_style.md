@@ -1,31 +1,31 @@
-# Python Music Player 代码规范
+# Python Music Player Code Guidelines
 
-本文档定义项目的代码风格规范，所有新代码和重构代码都应遵循这些规范。
-代码风格在保持良好的项目规范和低耦合性下，保持简洁，避免过度设计。
+This document defines the project's code style guidelines. All new and refactored code should follow these standards.
+The code style should remain concise, avoiding over-engineering while maintaining good project standards and low coupling.
 
-## 1. 导入规范
+## 1. Import Guidelines
 
-### 1.1 导入顺序
+### 1.1 Import Order
 
-按以下顺序组织导入语句，每组之间空一行：
+Organize import statements in the following order, with a blank line between each group:
 
 ```python
-# 1. 标准库
+# 1. Standard library
 import os
 import sys
 import logging
 from typing import List, Optional, Dict
 
-# 2. 第三方库
+# 2. Third-party libraries
 from PyQt6.QtWidgets import QWidget
 import yaml
 
-# 3. 本地模块
+# 3. Local modules
 from core.database import DatabaseManager
 from models.track import Track
 ```
 
-### 1.2 禁止使用 sys.path.insert
+### 1.2 Prohibit the use of sys.path.insert
 
 ❌ **不推荐**:
 
@@ -42,15 +42,15 @@ from core.database import DatabaseManager
 from core.database import DatabaseManager
 ```
 
-> **说明**: 项目通过 `main.py` 统一设置 `PYTHONPATH`，无需在各模块中手动添加路径。
+> **Note**: The project uniformely sets `PYTHONPATH` through `main.py`, so there is no need to manually add paths in each module.
 
 ---
 
-## 2. 日志规范
+## 2. Logging Guidelines
 
-### 2.1 使用 logging 模块
+### 2.1 Use the logging module
 
-每个模块在文件开头定义 logger:
+Each module defines a logger at the beginning of the file:
 
 ```python
 import logging
@@ -58,32 +58,32 @@ import logging
 logger = logging.getLogger(__name__)
 ```
 
-### 2.2 日志级别
+### 2.2 Log Levels
 
-| 级别 | 用途 |
+| Level | Usage |
 |------|------|
-| `DEBUG` | 调试信息（如元数据解析细节） |
-| `INFO` | 正常操作（如扫描开始/完成） |
-| `WARNING` | 可恢复错误（如单曲添加失败） |
-| `ERROR` | 严重错误（如数据库连接失败） |
+| `DEBUG` | Debug information (e.g., metadata parsing details) |
+| `INFO` | Normal operations (e.g., scan start/completion) |
+| `WARNING` | Recoverable errors (e.g., failed to add a single track) |
+| `ERROR` | Severe errors (e.g., database connection failure) |
 
 ---
 
-## 3. 类型提示
+## 3. Type Hints
 
-### 3.1 函数签名
+### 3.1 Function Signatures
 
-所有公开方法必须有类型提示:
+All public methods must have type hints:
 
 ```python
 def get_track(self, track_id: str) -> Optional[Track]:
-    """获取单个曲目"""
+    """Get a single track"""
     ...
 ```
 
-### 3.2 复杂类型
+### 3.2 Complex Types
 
-使用 `typing` 模块:
+Use the `typing` module:
 
 ```python
 from typing import List, Dict, Optional, Callable
@@ -95,119 +95,119 @@ def scan(self, directories: List[str],
 
 ---
 
-## 4. 文档字符串 (Docstring)
+## 4. Docstring
 
-### 4.1 模块级
+### 4.1 Module Level
 
-每个文件开头:
+Every file beginning:
 
 ```python
 """
-媒体库服务模块
+Media Library Service Module
 
-管理媒体库的扫描、索引和搜索功能。
+Manages scanning, indexing, and search functionality for the media library.
 """
 ```
 
-### 4.2 类级
+### 4.2 Class Level
 
 ```python
 class LibraryService:
     """
-    媒体库服务
+    Media Library Service
     
-    提供媒体库的扫描、索引和搜索功能。
+    Provides scanning, indexing, and search functionality for the media library.
     """
 ```
 
-### 4.3 方法级
+### 4.3 Method Level
 
-复杂方法使用完整格式:
+Complex methods use the full format:
 
 ```python
 def scan(self, directories: List[str]) -> int:
     """
-    扫描目录
+    Scan directories
     
     Args:
-        directories: 目录列表
+        directories: List of directories
         
     Returns:
-        int: 扫描到的曲目数量
+        int: Number of tracks scanned
     """
 ```
 
-简单方法可使用单行:
+Simple methods can use a single line:
 
 ```python
 def stop_scan(self) -> None:
-    """停止扫描"""
+    """Stop scanning"""
     self._stop_scan.set()
 ```
 
 ---
 
-## 5. 命名规范
+## 5. Naming Conventions
 
-| 类型 | 风格 | 示例 |
+| Type | Style | Example |
 |------|------|------|
-| 模块 | snake_case | `library_service.py` |
-| 类 | PascalCase | `LibraryService` |
-| 函数/方法 | snake_case | `get_all_tracks` |
-| 变量 | snake_case | `track_count` |
-| 常量 | UPPER_SNAKE | `SUPPORTED_FORMATS` |
-| 私有成员 | _前缀 | `_db`, `_event_bus` |
+| Module | snake_case | `library_service.py` |
+| Class | PascalCase | `LibraryService` |
+| Function/Method | snake_case | `get_all_tracks` |
+| Variable | snake_case | `track_count` |
+| Constant | UPPER_SNAKE | `SUPPORTED_FORMATS` |
+| Private Member | _prefix | `_db`, `_event_bus` |
 
 ---
 
-## 6. 代码组织
+## 6. Code Organization
 
-### 6.1 类结构顺序
+### 6.1 Class Structure Order
 
 ```python
 class MyClass:
-    # 1. 类常量
+    # 1. Class Constants
     CONSTANT = "value"
     
     # 2. __init__
     def __init__(self):
         ...
     
-    # 3. 公开属性 (@property)
+    # 3. Public properties (@property)
     @property
     def name(self) -> str:
         ...
     
-    # 4. 公开方法
+    # 4. Public methods
     def do_something(self):
         ...
     
-    # 5. 私有方法
+    # 5. Private methods
     def _internal_helper(self):
         ...
 ```
 
-### 6.2 文件长度
+### 6.2 File Length
 
-* 单个文件原则上不超过 **600 行**
-* 超过时必须考虑拆分功能模块（例如：将 `LibraryService` 的核心逻辑拆分到专门的扫描器或解析器中）
-* 保持模块间低耦合，使用事件驱动（EventBus）通信
+* Single files should generally not exceed **600 lines**.
+* When exceeded, split functional modules (e.g., move core logic of `LibraryService` to specialized scanners or parsers).
+* Maintain low coupling between modules using event-driven communication (EventBus).
 
 ---
 
-## 7. 异常处理
+## 7. Exception Handling
 
-### 7.1 基本模式
+### 7.1 Basic Pattern
 
 ```python
 try:
     result = risky_operation()
 except SpecificError as e:
-    logger.warning("操作失败: %s", e)
+    logger.warning("Operation failed: %s", e)
     return default_value
 ```
 
-### 7.2 避免空 except
+### 7.2 Avoid bare except
 
 ❌ **不推荐**:
 
@@ -220,5 +220,5 @@ except:
 
 ```python
 except Exception as e:
-    logger.debug("忽略的错误: %s", e)
+    logger.debug("Ignored error: %s", e)
 ```

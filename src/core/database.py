@@ -1,7 +1,7 @@
 """
-数据库管理模块
+Database Management Module
 
-提供SQLite数据库操作封装，管理媒体库数据。
+Provides SQLite database operation encapsulation and manages media library data.
 """
 
 import sqlite3
@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     """
-    数据库管理器 - 单例模式
+    Database Manager - Singleton Pattern
     
-    提供线程安全的SQLite操作封装。
+    Provides thread-safe SQLite operation encapsulation.
     
-    使用示例:
+    Example:
         db = DatabaseManager("music.db")
         
-        # 执行查询
+        # Execute query
         tracks = db.fetch_all("SELECT * FROM tracks WHERE artist_id = ?", (artist_id,))
         
-        # 使用事务
+        # Use transaction
         with db.transaction() as conn:
             db.execute("INSERT INTO tracks ...")
     """
@@ -45,7 +45,7 @@ class DatabaseManager:
     
     @staticmethod
     def _get_default_db_path() -> str:
-        """获取用户数据目录下的默认数据库路径"""
+        """Get the default database path in the user data directory"""
         import sys
         import os
         from pathlib import Path
@@ -68,18 +68,18 @@ class DatabaseManager:
         if db_path:
             self._db_path = db_path
         else:
-            # 使用用户数据目录作为默认路径
+            # Use user data directory as the default path
             new_path = self._get_default_db_path()
             old_path = Path("music_library.db")
             
-            # 自动迁移：如果新路径不存在但旧路径存在，则移动文件
+            # Automatic migration: if new path doesn't exist but old path exists, move the file
             if not Path(new_path).exists() and old_path.exists():
                 import shutil
                 try:
                     Path(new_path).parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(old_path), new_path)
                 except Exception:
-                    # 移动失败则继续使用旧路径
+                    # Continue using old path if relocation fails
                     new_path = str(old_path)
             
             self._db_path = new_path
@@ -90,7 +90,7 @@ class DatabaseManager:
     
     @property
     def _conn(self) -> sqlite3.Connection:
-        """获取线程本地连接"""
+        """Get thread-local connection"""
         if not hasattr(self._local, 'connection') or self._local.connection is None:
             # Set timeout to 30 seconds to handle concurrent access better
             self._local.connection = sqlite3.connect(self._db_path, timeout=30.0)
@@ -101,7 +101,7 @@ class DatabaseManager:
                 self._local.connection.execute("PRAGMA journal_mode=WAL")
                 self._local.connection.execute("PRAGMA synchronous=NORMAL")
             
-            # 启用外键
+            # Enable foreign keys
             self._local.connection.execute("PRAGMA foreign_keys = ON")
             
             # Initialize transaction tracking flag
@@ -110,9 +110,10 @@ class DatabaseManager:
     
     @contextmanager
     def transaction(self):
-        """事务上下文管理器
+        """Transaction context manager
         
-        在此上下文内的写操作不会自动提交，而是在上下文结束时统一提交或回滚。
+        Write operations within this context are not automatically committed,
+        but are committed or rolled back collectively when the context ends.
         """
         with self._write_lock:
             conn = self._conn
@@ -169,11 +170,12 @@ class DatabaseManager:
         return False
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        """执行SQL语句
+        """Execute SQL statement
         
-        对于写操作(INSERT/UPDATE/DELETE等)，当不在显式事务上下文中时，
-        会自动提交以释放数据库锁，避免并发写入时的死锁问题。
-        在 transaction() 上下文内的写操作不会自动提交。
+        For write operations (INSERT/UPDATE/DELETE, etc.), automatically commits when
+        not within an explicit transaction context to release database locks and
+        avoid deadlocks during concurrent writes.
+        Write operations within a transaction() context will not be automatically committed.
         """
         max_retries = 5
         retry_delay = 0.1
@@ -200,11 +202,11 @@ class DatabaseManager:
                     continue
                 raise
         
-        # 如果所有重试都失败，最后一次异常会被 raise
-        # (正常情况下不会执行到这里，因为最后一次失败会 raise)
+        # If all retries fail, the last exception will be raised
+        # (Normally this won't be reached because the last failure will raise)
     
     def execute_many(self, sql: str, params_list: List[tuple]) -> None:
-        """批量执行SQL语句"""
+        """Bulk execute SQL statements"""
         is_write = self._is_write_sql(sql)
         in_transaction = getattr(self._local, "in_transaction", False)
 
@@ -217,30 +219,30 @@ class DatabaseManager:
             self._conn.executemany(sql, params_list)
     
     def commit(self) -> None:
-        """提交当前线程的事务（公开方法，供服务层调用）"""
+        """Commit current thread's transaction (Public method for service layer)"""
         self._conn.commit()
     
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
-        """获取单条记录"""
+        """Fetch single record"""
         cursor = self.execute(sql, params)
         row = cursor.fetchone()
         return dict(row) if row else None
     
     def fetch_all(self, sql: str, params: tuple = ()) -> List[Dict[str, Any]]:
-        """获取所有记录"""
+        """Fetch all records"""
         cursor = self.execute(sql, params)
         return [dict(row) for row in cursor.fetchall()]
     
     def insert(self, table: str, data: Dict[str, Any]) -> int:
         """
-        插入记录
+        Insert record
         
         Args:
-            table: 表名
-            data: 字段名-值字典
+            table: Table name
+            data: Dictionary of column names and values
             
         Returns:
-            int: 插入记录的ID
+            int: ID of the inserted record
         """
         columns = ', '.join(data.keys())
         placeholders = ', '.join(['?' for _ in data])
@@ -252,16 +254,16 @@ class DatabaseManager:
     def update(self, table: str, data: Dict[str, Any], 
                where: str, where_params: tuple) -> int:
         """
-        更新记录
+        Update record
         
         Args:
-            table: 表名
-            data: 要更新的字段
-            where: WHERE条件
-            where_params: WHERE参数
+            table: Table name
+            data: Fields to update
+            where: WHERE condition
+            where_params: WHERE parameters
             
         Returns:
-            int: 受影响的行数
+            int: Number of affected rows
         """
         set_clause = ', '.join([f"{k} = ?" for k in data.keys()])
         sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
@@ -271,22 +273,22 @@ class DatabaseManager:
     
     def delete(self, table: str, where: str, where_params: tuple) -> int:
         """
-        删除记录
+        Delete record
         
         Args:
-            table: 表名
-            where: WHERE条件
-            where_params: WHERE参数
+            table: Table name
+            where: WHERE condition
+            where_params: WHERE parameters
             
         Returns:
-            int: 受影响的行数
+            int: Number of affected rows
         """
         sql = f"DELETE FROM {table} WHERE {where}"
         cursor = self.execute(sql, where_params)
         return cursor.rowcount
     
     def _init_schema(self) -> None:
-        """初始化数据库Schema"""
+        """Initialize database Schema"""
         from core.schema import get_all_schema_statements
         from core.migrations import run_migrations
         
@@ -294,35 +296,35 @@ class DatabaseManager:
             try:
                 self.execute(statement.strip())
             except Exception as e:
-                # 忽略已存在的表/索引错误，用于增量迁移
+                # Ignore existing table/index errors for incremental migrations
                 if "already exists" not in str(e).lower():
-                    # 对于其他错误，继续尝试（可能是旧数据库缺少某些表）
+                    # For other errors, keep trying (maybe some tables are missing in old DB)
                     pass
         
-        # 执行迁移（为已存在的表添加新列）
+        # Execute migrations (add new columns to existing tables)
         run_migrations(self)
         
         self._conn.commit()
 
     
     def close(self) -> None:
-        """关闭当前线程的连接"""
+        """Close current thread's connection"""
         if hasattr(self._local, 'connection') and self._local.connection:
             self._local.connection.close()
             self._local.connection = None
     
     def close_all(self) -> None:
-        """关闭所有连接并重置实例"""
+        """Close all connections and reset instance"""
         self.close()
         DatabaseManager._instance = None
         self._initialized = False
     
     @classmethod
     def reset_instance(cls) -> None:
-        """重置单例实例（仅用于测试）
+        """Reset singleton instance (For testing only)
         
-        警告：此方法将在未来版本中移除。
-        请使用 AppContainerFactory.create_for_testing() 创建独立的测试实例。
+        Warning: This method will be removed in a future version.
+        Use AppContainerFactory.create_for_testing() to create independent test instances.
         """
         import warnings
         warnings.warn(

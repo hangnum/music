@@ -1,7 +1,7 @@
 """
-配置服务模块
+Configuration Service Module
 
-管理应用配置的读写和热更新。
+Manages application configuration read/write and hot updates.
 """
 
 from typing import Any, Dict, Optional
@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 
 class ConfigService:
     """
-    配置服务 - 单例模式
-    
-    管理应用配置，支持从YAML文件读取和保存配置。
-    
-    使用示例:
+    Configuration Service - Singleton Pattern
+
+    Manages application configuration, supporting reading and saving from YAML files.
+
+    Usage Example:
         config = ConfigService("config/default_config.yaml")
-        
-        # 获取配置
+
+        # Get configuration
         volume = config.get("playback.default_volume", 0.8)
-        
-        # 设置配置
+
+        # Set configuration
         config.set("playback.default_volume", 0.9)
         config.save()
     """
@@ -51,15 +51,15 @@ class ConfigService:
         default_path = Path(self._default_config_path)
         provided_path = Path(config_path) if config_path else None
 
-        # 判断是否使用自定义配置路径（用于测试/隔离场景）
-        # 兼容调用方传入默认模板路径：此时仍应使用“默认模式”（保存到用户目录），避免回写仓库模板文件。
+        # Determine if using custom config path (for test/isolation scenarios)
+        # Compatibility: When caller passes default template path, still use "default mode" (save to user directory) to avoid overwriting repository template files.
         self._use_custom_path = provided_path is not None and provided_path != default_path
         
         if self._use_custom_path:
-            # 自定义路径：同时用于加载和保存（支持测试隔离）
+            # Custom path: Used for both loading and saving (supports test isolation)
             self._user_config_path = provided_path
         else:
-            # 默认路径：加载仓库模板，保存到用户目录
+            # Default path: Load repository template, save to user directory
             self._user_config_path = self._get_user_config_path()
         
         self._config: Dict[str, Any] = {}
@@ -70,7 +70,7 @@ class ConfigService:
     
     @staticmethod
     def _get_user_config_path() -> Path:
-        """获取用户配置文件路径（平台相关）"""
+        """Get user configuration file path (platform-specific)"""
         if sys.platform == "win32":
             base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
         elif sys.platform == "darwin":
@@ -80,22 +80,22 @@ class ConfigService:
         return base / "python-music-player" / "config.yaml"
     
     def _load(self) -> None:
-        """从默认配置和用户配置加载并合并"""
-        # 1. 加载内置默认配置
+        """Load and merge from default and user configuration"""
+        # 1. Load built-in default configuration
         self._config = self._get_default_config()
         
         if self._use_custom_path:
-            # 自定义路径模式：只从该路径加载（不合并仓库模板）
+            # Custom path mode: Only load from this path (don't merge repository template)
             if self._user_config_path.exists():
                 try:
                     with open(self._user_config_path, 'r', encoding='utf-8') as f:
                         custom_config = yaml.safe_load(f) or {}
                         self._deep_merge(self._config, custom_config)
                 except Exception as e:
-                    logger.warning("加载自定义配置失败: %s", e)
+                    logger.warning("Failed to load custom configuration: %s", e)
         else:
-            # 默认模式：加载仓库模板 + 用户配置
-            # 2. 加载仓库默认配置文件（作为模板）
+            # Default mode: Load repository template + user configuration
+            # 2. Load repository default configuration file (as template)
             default_path = Path(self._default_config_path)
             if default_path.exists():
                 try:
@@ -103,19 +103,19 @@ class ConfigService:
                         default_config = yaml.safe_load(f) or {}
                         self._deep_merge(self._config, default_config)
                 except Exception as e:
-                    logger.warning("加载默认配置失败: %s", e)
+                    logger.warning("Failed to load default configuration: %s", e)
             
-            # 3. 加载用户配置文件（覆盖默认配置）
+            # 3. Load user configuration file (override default configuration)
             if self._user_config_path.exists():
                 try:
                     with open(self._user_config_path, 'r', encoding='utf-8') as f:
                         user_config = yaml.safe_load(f) or {}
                         self._deep_merge(self._config, user_config)
                 except Exception as e:
-                    logger.warning("加载用户配置失败: %s", e)
+                    logger.warning("Failed to load user configuration: %s", e)
     
     def _deep_merge(self, base: Dict, override: Dict) -> None:
-        """深度合并字典，override 覆盖 base"""
+        """Deep merge dictionaries, override overwrites base"""
         for key, value in override.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                 self._deep_merge(base[key], value)
@@ -123,7 +123,7 @@ class ConfigService:
                 base[key] = value
     
     def _get_default_config(self) -> Dict[str, Any]:
-        """获取默认配置"""
+        """Get default configuration"""
         return {
             'app': {
                 'name': 'Python Music Player',
@@ -172,10 +172,10 @@ class ConfigService:
                     'timeout_seconds': 20.0,
                 },
                 'queue_manager': {
-                    'max_items': 50,        # 发送给 LLM 的队列条目上限
-                    'max_tokens': 2048,     # 增加以防止 JSON 被截断
+                    'max_items': 50,        # Maximum queue items to send to LLM
+                    'max_tokens': 2048,     # Increased to prevent JSON truncation
                     'temperature': 0.2,
-                    'json_mode': True,      # 尝试使用 response_format=json_object
+                    'json_mode': True,      # Try to use response_format=json_object
                     'cache': {
                         'enabled': True,
                         'ttl_days': 30,
@@ -183,32 +183,32 @@ class ConfigService:
                         'max_items': 200,
                     },
                     'semantic_fallback': {
-                        'max_catalog_items': 1500,   # 语义筛选时最多遍历的库曲目数量（按简要信息分页发送）
-                        'batch_size': 250,           # 每次发送给 LLM 的候选曲目数量
-                        'per_batch_pick': 8,         # 每批最多挑选的曲目数量
+                        'max_catalog_items': 1500,   # Maximum tracks to traverse during semantic filtering (paginated by brief info)
+                        'batch_size': 250,           # Number of candidate tracks sent to LLM each time
+                        'per_batch_pick': 8,         # Maximum tracks picked per batch
                     },
                 },
                 'web_search': {
-                    'enabled': True,      # 是否启用网络搜索增强
-                    'timeout': 10.0,      # 搜索超时时间（秒）
-                    'max_cache_size': 100, # 最大缓存条目数
-                    'region': 'cn-zh',    # 搜索区域
+                    'enabled': True,      # Whether to enable enhanced web search
+                    'timeout': 10.0,      # Search timeout (seconds)
+                    'max_cache_size': 100, # Maximum cache entries
+                    'region': 'cn-zh',    # Search region
                 },
             },
         }
     
     def get(self, key: str, default: Any = None) -> Any:
         """
-        获取配置值
+        Get a configuration value.
         
-        支持点号分隔的嵌套键，如 "playback.default_volume"
+        Supports dot-separated nested keys, e.g., "playback.default_volume".
         
         Args:
-            key: 配置键
-            default: 默认值
+            key: Configuration key
+            default: Default value
             
         Returns:
-            配置值或默认值
+            Configuration value or the default value.
         """
         with self._lock:
             keys = key.split('.')
@@ -223,38 +223,38 @@ class ConfigService:
     
     def set(self, key: str, value: Any) -> None:
         """
-        设置配置值
+        Set a configuration value.
         
         Args:
-            key: 配置键（支持点号分隔）
-            value: 配置值
+            key: Configuration key (dot-separated)
+            value: Configuration value
         """
         with self._lock:
             keys = key.split('.')
             config = self._config
             
-            # 导航到父节点
+            # Navigate to the parent node
             for k in keys[:-1]:
                 if k not in config:
                     config[k] = {}
                 config = config[k]
             
-            # 设置值
+            # Set the value
             config[keys[-1]] = value
     
     def get_all(self) -> Dict[str, Any]:
-        """获取所有配置"""
+        """Get all configurations."""
         with self._lock:
             return self._config.copy()
     
     def save(self) -> bool:
         """
-        保存配置到用户配置文件
+        Save configuration to the user configuration file.
         
-        注意：只保存到用户配置文件，不会修改默认配置模板。
+        Note: Only saves to the user configuration file; does not modify the default configuration template.
         
         Returns:
-            bool: 是否保存成功
+            bool: True if saving was successful.
         """
         try:
             self._user_config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -262,18 +262,18 @@ class ConfigService:
             with self._lock:
                 with open(self._user_config_path, 'w', encoding='utf-8') as f:
                     yaml.dump(self._config, f, allow_unicode=True, default_flow_style=False)
-            logger.debug("配置已保存到: %s", self._user_config_path)
+            logger.debug("Configuration saved to: %s", self._user_config_path)
             return True
         except Exception as e:
-            logger.error("保存配置失败: %s", e)
+            logger.error("Failed to save configuration: %s", e)
             return False
     
     def reload(self) -> bool:
         """
-        重新加载配置
-        
+        Reload configuration
+
         Returns:
-            bool: 是否加载成功
+            bool: Whether loading was successful
         """
         try:
             self._load()
@@ -282,12 +282,12 @@ class ConfigService:
             return False
     
     def reset(self) -> None:
-        """重置为默认配置"""
+        """Reset to default configuration."""
         with self._lock:
             self._config = self._get_default_config()
     
     @classmethod
     def reset_instance(cls) -> None:
-        """重置单例实例（仅用于测试）"""
+        """Reset the singleton instance (for testing only)."""
         with cls._lock:
             cls._instance = None

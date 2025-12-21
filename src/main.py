@@ -1,13 +1,13 @@
 """
-Python Music Player - 主入口
+Python Music Player - Main Entry Point
 
-一个高质量的本地音乐播放器应用。
+A high-quality local music player application.
 """
 
 import sys
 import os
 
-# 添加src到路径
+# Add src to path
 src_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, src_path)
 
@@ -16,8 +16,8 @@ from PyQt6.QtCore import Qt
 
 
 def main():
-    """应用程序入口"""
-    # 启用高DPI缩放
+    """Application entry point"""
+    # Enable high DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
@@ -26,28 +26,28 @@ def main():
     app.setApplicationName("Python Music Player")
     app.setApplicationVersion("1.0.0")
     
-    # === 单实例检测 ===
+    # === Single Instance Detection ===
     from core.single_instance import SingleInstanceManager
     instance_manager = SingleInstanceManager("PythonMusicPlayer")
     
     if instance_manager.is_running():
-        # 已有实例运行，发送激活消息并退出
+        # Existing instance running, send activation message and exit
         instance_manager.send_activation_message()
         sys.exit(0)
     
-    # 启动本地服务器，监听其他实例的激活请求
+    # Start local server, listen for activation requests from other instances
     instance_manager.start_server()
     
-    # 创建依赖容器（组合根）
+    # Create dependency container (composition root)
     from app.container_factory import AppContainerFactory
     container = AppContainerFactory.create(use_qt_dispatcher=True)
     
-    # 导入主窗口（延迟导入避免循环依赖）
+    # Import main window (lazy import to avoid circular dependencies)
     from ui.main_window import MainWindow
     
     window = MainWindow(container)
     
-    # 连接激活信号到主窗口
+    # Connect activation signal to main window
     instance_manager.activation_requested.connect(window.activate_from_external)
     
     window.show()

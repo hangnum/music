@@ -1,5 +1,5 @@
 """
-集成测试 - 使用真实音乐库测试
+Integration Tests - Testing with a Real Music Library
 """
 
 import os
@@ -8,60 +8,60 @@ import pytest
 
 @pytest.mark.skipif(
     not os.environ.get("TEST_MUSIC_DIR"),
-    reason="需要设置环境变量 TEST_MUSIC_DIR 指向真实音乐目录"
+    reason="Environment variable TEST_MUSIC_DIR must be set to point to a real music directory."
 )
 def test_library_scan():
-    """测试媒体库扫描（使用真实音乐库）"""
+    """Test media library scanning using a real music library."""
     from core.database import DatabaseManager
     from services.library_service import LibraryService
     
-    # 使用临时数据库
+    # Use a temporary database
     DatabaseManager.reset_instance()
     db = DatabaseManager("test_integration.db")
     
     try:
         service = LibraryService(db)
         
-        # 从环境变量获取扫描目录
+        # Get scan directory from environment variable
         music_dir = os.environ.get("TEST_MUSIC_DIR", "")
         
         if os.path.exists(music_dir):
-            print(f"\n扫描目录: {music_dir}")
+            print(f"\nScanning directory: {music_dir}")
             
             def progress(current, total, path):
                 if current % 10 == 0:
-                    print(f"  进度: {current}/{total}")
+                    print(f"  Progress: {current}/{total}")
             
             added = service.scan([music_dir], progress_callback=progress)
             
-            print(f"\n扫描完成!")
-            print(f"  添加曲目: {added}")
-            print(f"  库中总数: {service.get_track_count()}")
+            print(f"\nScan completed!")
+            print(f"  Tracks added: {added}")
+            print(f"  Total tracks in library: {service.get_track_count()}")
             
-            # 获取一些曲目信息
+            # Retrieve some track information
             tracks = service.get_all_tracks()[:5]
-            print(f"\n前5首曲目:")
+            print(f"\nFirst 5 tracks:")
             for t in tracks:
                 print(f"  - {t.display_name} ({t.duration_str})")
             
-            # 获取艺术家
+            # Retrieve artists
             artists = service.get_artists()
-            print(f"\n艺术家数量: {len(artists)}")
+            print(f"\nArtist count: {len(artists)}")
             if artists:
                 for a in artists[:5]:
-                    print(f"  - {a.name} ({a.track_count}首)")
+                    print(f"  - {a.name} ({a.track_count} tracks)")
             
-            # 获取专辑
+            # Retrieve albums
             albums = service.get_albums()
-            print(f"\n专辑数量: {len(albums)}")
+            print(f"\nAlbum count: {len(albums)}")
             if albums:
                 for al in albums[:5]:
                     print(f"  - {al.title}")
             
             assert added > 0 or service.get_track_count() > 0
         else:
-            print(f"音乐目录不存在: {music_dir}")
-            print("跳过真实库扫描测试")
+            print(f"Music directory does not exist: {music_dir}")
+            print("Skipping real library scan test.")
     
     finally:
         DatabaseManager.reset_instance()

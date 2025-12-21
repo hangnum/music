@@ -1,7 +1,7 @@
 """
-UI 模型层单元测试
+UI Model Layer Unit Tests
 
-测试 TrackTableModel, TrackFilterProxyModel, TrackListModel 的核心逻辑。
+Tests core logic for TrackTableModel, TrackFilterProxyModel, and TrackListModel.
 """
 
 import pytest
@@ -9,17 +9,17 @@ from PyQt6.QtCore import Qt, QModelIndex
 
 
 class TestTrackTableModel:
-    """TrackTableModel 单元测试"""
+    """TrackTableModel Unit Tests"""
 
     @pytest.fixture
     def model(self, qapp):
-        """创建 TrackTableModel 实例"""
+        """Create a TrackTableModel instance."""
         from ui.models.track_table_model import TrackTableModel
         return TrackTableModel()
     
     @pytest.fixture
     def sample_tracks(self):
-        """创建示例曲目列表"""
+        """Create a sample track list."""
         from models.track import Track
         return [
             Track(id="1", title="Alpha Song", artist_name="Artist A", 
@@ -31,44 +31,44 @@ class TestTrackTableModel:
         ]
     
     def test_row_count_empty(self, model):
-        """空模型行数为0"""
+        """Empty model should have 0 rows."""
         assert model.rowCount() == 0
     
     def test_row_count_with_tracks(self, model, sample_tracks):
-        """设置曲目后行数正确"""
+        """Row count should be correct after setting tracks."""
         model.setTracks(sample_tracks)
         assert model.rowCount() == 3
     
     def test_column_count(self, model):
-        """列数固定为5"""
-        assert model.columnCount() == 5
+        """Column count should be fixed at 6."""
+        assert model.columnCount() == 6
     
     def test_data_display_role_title(self, model, sample_tracks):
-        """DisplayRole 返回标题"""
+        """DisplayRole should return the title."""
         model.setTracks(sample_tracks)
         index = model.index(0, 0)
         assert model.data(index, Qt.ItemDataRole.DisplayRole) == "Alpha Song"
     
     def test_data_display_role_artist(self, model, sample_tracks):
-        """DisplayRole 返回艺术家"""
+        """DisplayRole should return the artist name."""
         model.setTracks(sample_tracks)
         index = model.index(0, 1)
         assert model.data(index, Qt.ItemDataRole.DisplayRole) == "Artist A"
     
     def test_data_display_role_album(self, model, sample_tracks):
-        """DisplayRole 返回专辑"""
+        """DisplayRole should return the album name."""
         model.setTracks(sample_tracks)
         index = model.index(0, 2)
         assert model.data(index, Qt.ItemDataRole.DisplayRole) == "Album X"
     
     def test_data_display_role_format(self, model, sample_tracks):
-        """DisplayRole 返回格式"""
+        """DisplayRole should return the format."""
         model.setTracks(sample_tracks)
         index = model.index(0, 4)
         assert model.data(index, Qt.ItemDataRole.DisplayRole) == "mp3"
     
     def test_data_user_role(self, model, sample_tracks):
-        """UserRole 返回 Track 对象"""
+        """UserRole should return the Track object."""
         model.setTracks(sample_tracks)
         index = model.index(0, 0)
         track = model.data(index, Qt.ItemDataRole.UserRole)
@@ -76,80 +76,80 @@ class TestTrackTableModel:
         assert track.title == "Alpha Song"
     
     def test_data_invalid_index(self, model, sample_tracks):
-        """无效索引返回 None"""
+        """Invalid index should return None."""
         model.setTracks(sample_tracks)
         index = model.index(100, 0)
         assert model.data(index, Qt.ItemDataRole.DisplayRole) is None
     
     def test_header_data(self, model):
-        """表头数据正确"""
+        """Header data should be correct."""
         assert model.headerData(0, Qt.Orientation.Horizontal, 
-                                Qt.ItemDataRole.DisplayRole) == "标题"
+                                Qt.ItemDataRole.DisplayRole) == "Title"
         assert model.headerData(1, Qt.Orientation.Horizontal, 
-                                Qt.ItemDataRole.DisplayRole) == "艺术家"
+                                Qt.ItemDataRole.DisplayRole) == "Artist"
         assert model.headerData(2, Qt.Orientation.Horizontal, 
-                                Qt.ItemDataRole.DisplayRole) == "专辑"
+                                Qt.ItemDataRole.DisplayRole) == "Album"
         assert model.headerData(3, Qt.Orientation.Horizontal, 
-                                Qt.ItemDataRole.DisplayRole) == "时长"
+                                Qt.ItemDataRole.DisplayRole) == "Duration"
         assert model.headerData(4, Qt.Orientation.Horizontal, 
-                                Qt.ItemDataRole.DisplayRole) == "格式"
+                                Qt.ItemDataRole.DisplayRole) == "Format"
     
     def test_header_data_invalid_section(self, model):
-        """无效列索引返回 None"""
+        """Invalid column index should return None."""
         assert model.headerData(10, Qt.Orientation.Horizontal, 
                                 Qt.ItemDataRole.DisplayRole) is None
     
     def test_set_tracks(self, model, sample_tracks):
-        """setTracks 更新模型"""
+        """setTracks should update the model."""
         model.setTracks(sample_tracks)
         assert model.rowCount() == 3
         assert model.getTracks() == sample_tracks
     
     def test_get_tracks(self, model, sample_tracks):
-        """getTracks 返回曲目列表"""
+        """getTracks should return the track list."""
         model.setTracks(sample_tracks)
         tracks = model.getTracks()
         assert len(tracks) == 3
         assert tracks[0].title == "Alpha Song"
     
     def test_get_track_valid(self, model, sample_tracks):
-        """getTrack 返回指定行的曲目"""
+        """getTrack should return the track at the specified row."""
         model.setTracks(sample_tracks)
         track = model.getTrack(1)
         assert track.title == "Beta Song"
     
     def test_get_track_invalid_negative(self, model, sample_tracks):
-        """负索引返回 None"""
+        """Negative index should return None."""
         model.setTracks(sample_tracks)
         assert model.getTrack(-1) is None
     
     def test_get_track_invalid_out_of_range(self, model, sample_tracks):
-        """超出范围返回 None"""
+        """Index out of range should return None."""
         model.setTracks(sample_tracks)
         assert model.getTrack(100) is None
     
     def test_sort_by_title_ascending(self, model, sample_tracks):
-        """按标题升序排序"""
+        """Sort by title in ascending order."""
         model.setTracks(sample_tracks)
         model.sort(0, Qt.SortOrder.AscendingOrder)
         assert model.getTrack(0).title == "Alpha Song"
         assert model.getTrack(2).title == "Gamma Song"
     
     def test_sort_by_title_descending(self, model, sample_tracks):
-        """按标题降序排序"""
+        """Sort by title in descending order."""
         model.setTracks(sample_tracks)
         model.sort(0, Qt.SortOrder.DescendingOrder)
         assert model.getTrack(0).title == "Gamma Song"
         assert model.getTrack(2).title == "Alpha Song"
     
     def test_sort_by_artist(self, model, sample_tracks):
-        """按艺术家排序"""
+        """Sort by artist."""
         model.setTracks(sample_tracks)
         model.sort(1, Qt.SortOrder.AscendingOrder)
         assert model.getTrack(0).artist_name == "Artist A"
     
     def test_sort_by_duration(self, model, sample_tracks):
-        """按时长排序"""
+        """Sort by duration."""
         model.setTracks(sample_tracks)
         model.sort(3, Qt.SortOrder.AscendingOrder)
         assert model.getTrack(0).duration_ms == 180000
@@ -157,11 +157,11 @@ class TestTrackTableModel:
 
 
 class TestTrackFilterProxyModel:
-    """TrackFilterProxyModel 单元测试"""
+    """TrackFilterProxyModel Unit Tests"""
 
     @pytest.fixture
     def source_model(self, qapp):
-        """创建源模型"""
+        """Create a source model."""
         from ui.models.track_table_model import TrackTableModel
         from models.track import Track
         
@@ -179,7 +179,7 @@ class TestTrackFilterProxyModel:
     
     @pytest.fixture
     def proxy_model(self, qapp, source_model):
-        """创建代理模型"""
+        """Create a proxy model."""
         from ui.models.track_table_model import TrackFilterProxyModel
         
         proxy = TrackFilterProxyModel()
@@ -187,53 +187,53 @@ class TestTrackFilterProxyModel:
         return proxy
     
     def test_filter_empty_text(self, proxy_model):
-        """空过滤文本接受所有行"""
+        """Empty filter text should accept all rows."""
         proxy_model.setFilterText("")
         assert proxy_model.rowCount() == 3
     
     def test_filter_by_title(self, proxy_model):
-        """按标题过滤"""
+        """Filter by title."""
         proxy_model.setFilterText("rock")
         assert proxy_model.rowCount() == 1
     
     def test_filter_by_artist(self, proxy_model):
-        """按艺术家过滤"""
+        """Filter by artist."""
         proxy_model.setFilterText("pop star")
         assert proxy_model.rowCount() == 1
     
     def test_filter_by_album(self, proxy_model):
-        """按专辑过滤"""
+        """Filter by album."""
         proxy_model.setFilterText("jazz collection")
         assert proxy_model.rowCount() == 1
     
     def test_filter_case_insensitive(self, proxy_model):
-        """过滤不区分大小写"""
+        """Filtering should be case-insensitive."""
         proxy_model.setFilterText("ROCK")
         assert proxy_model.rowCount() == 1
     
     def test_filter_no_match(self, proxy_model):
-        """无匹配结果"""
+        """No matching results."""
         proxy_model.setFilterText("nonexistent")
         assert proxy_model.rowCount() == 0
     
     def test_filter_partial_match(self, proxy_model):
-        """部分匹配"""
+        """Partial match."""
         proxy_model.setFilterText("song")
         assert proxy_model.rowCount() == 1  # Only "Rock Song" matches
 
 
 class TestTrackListModel:
-    """TrackListModel 单元测试"""
+    """TrackListModel Unit Tests"""
 
     @pytest.fixture
     def model(self, qapp):
-        """创建 TrackListModel 实例"""
+        """Create a TrackListModel instance."""
         from ui.models.track_list_model import TrackListModel
         return TrackListModel()
     
     @pytest.fixture
     def sample_tracks(self):
-        """创建示例曲目列表"""
+        """Create a sample track list."""
         from models.track import Track
         return [
             Track(id="1", title="First Song", artist_name="Artist A", 
@@ -245,16 +245,16 @@ class TestTrackListModel:
         ]
     
     def test_row_count_empty(self, model):
-        """空模型行数为0"""
+        """Empty model should have 0 rows."""
         assert model.rowCount() == 0
     
     def test_row_count_with_tracks(self, model, sample_tracks):
-        """设置曲目后行数正确"""
+        """Row count should be correct after setting tracks."""
         model.setTracks(sample_tracks)
         assert model.rowCount() == 3
     
     def test_data_display_format(self, model, sample_tracks):
-        """DisplayRole 返回格式化字符串"""
+        """DisplayRole should return a formatted string."""
         model.setTracks(sample_tracks)
         index = model.index(0, 0)
         text = model.data(index, Qt.ItemDataRole.DisplayRole)
@@ -263,14 +263,14 @@ class TestTrackListModel:
         assert "Artist A" in text
     
     def test_data_user_role(self, model, sample_tracks):
-        """UserRole 返回 Track 对象"""
+        """UserRole should return the Track object."""
         model.setTracks(sample_tracks)
         index = model.index(0, 0)
         track = model.data(index, Qt.ItemDataRole.UserRole)
         assert track.id == "1"
     
     def test_highlight_track(self, model, sample_tracks):
-        """高亮曲目添加前缀"""
+        """Highlighted track should have a prefix."""
         model.setTracks(sample_tracks)
         model.highlightTrack("2")
         
@@ -278,13 +278,13 @@ class TestTrackListModel:
         text = model.data(index, Qt.ItemDataRole.DisplayRole)
         assert "▶" in text
         
-        # 其他曲目不高亮
+        # Other tracks should not be highlighted
         index0 = model.index(0, 0)
         text0 = model.data(index0, Qt.ItemDataRole.DisplayRole)
         assert "▶" not in text0
     
     def test_highlight_track_none(self, model, sample_tracks):
-        """取消高亮"""
+        """Highlight can be cleared."""
         model.setTracks(sample_tracks)
         model.highlightTrack("1")
         model.highlightTrack(None)
@@ -294,7 +294,7 @@ class TestTrackListModel:
         assert "▶" not in text
     
     def test_set_show_index_true(self, model, sample_tracks):
-        """显示序号"""
+        """Show sequence numbers."""
         model.setTracks(sample_tracks)
         model.setShowIndex(True)
         
@@ -303,7 +303,7 @@ class TestTrackListModel:
         assert "1." in text
     
     def test_set_show_index_false(self, model, sample_tracks):
-        """不显示序号"""
+        """Hide sequence numbers."""
         model.setTracks(sample_tracks)
         model.setShowIndex(False)
         
@@ -312,29 +312,29 @@ class TestTrackListModel:
         assert text.startswith("First Song")
     
     def test_get_track_valid(self, model, sample_tracks):
-        """getTrack 返回指定行的曲目"""
+        """getTrack should return the track at the specified row."""
         model.setTracks(sample_tracks)
         track = model.getTrack(1)
         assert track.title == "Second Song"
     
     def test_get_track_invalid(self, model, sample_tracks):
-        """无效索引返回 None"""
+        """Invalid index should return None."""
         model.setTracks(sample_tracks)
         assert model.getTrack(-1) is None
         assert model.getTrack(100) is None
     
     def test_get_tracks_returns_copy(self, model, sample_tracks):
-        """getTracks 返回列表副本"""
+        """getTracks should return a copy of the list."""
         model.setTracks(sample_tracks)
         tracks = model.getTracks()
         original_len = len(tracks)
         
-        # 修改返回的列表不影响模型
+        # Modifying the returned list should not affect the model
         tracks.clear()
         assert model.rowCount() == original_len
     
     def test_flags_with_drag_drop(self, model, sample_tracks):
-        """启用拖放时返回正确标志"""
+        """Should return correct flags when drag-and-drop is enabled."""
         model.setTracks(sample_tracks)
         index = model.index(0, 0)
         flags = model.flags(index)
@@ -343,7 +343,7 @@ class TestTrackListModel:
         assert flags & Qt.ItemFlag.ItemIsDropEnabled
     
     def test_flags_without_drag_drop(self, qapp, sample_tracks):
-        """禁用拖放时不返回拖放标志"""
+        """Should not return drag-and-drop flags when disabled."""
         from ui.models.track_list_model import TrackListModel
         
         model = TrackListModel(enable_drag_drop=False)
@@ -354,11 +354,11 @@ class TestTrackListModel:
         assert not (flags & Qt.ItemFlag.ItemIsDragEnabled)
     
     def test_supported_drop_actions(self, model):
-        """支持移动操作"""
+        """Should support move action."""
         assert model.supportedDropActions() == Qt.DropAction.MoveAction
     
     def test_mime_types(self, model):
-        """MIME 类型正确"""
+        """MIME type should be correct."""
         types = model.mimeTypes()
         assert "application/x-track-indices" in types
 

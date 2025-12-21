@@ -1,7 +1,7 @@
 """
-UI 对话框单元测试
+UI Dialogs Unit Tests
 
-测试 CreatePlaylistDialog, LLMSettingsDialog, TagChip 等组件的核心逻辑。
+Tests for core logic of components like CreatePlaylistDialog, LLMSettingsDialog, TagChip, etc.
 """
 
 import pytest
@@ -11,55 +11,55 @@ from unittest.mock import MagicMock, patch
 
 
 class TestCreatePlaylistDialog:
-    """CreatePlaylistDialog 单元测试"""
+    """CreatePlaylistDialog Unit Tests"""
 
     @pytest.fixture
     def dialog(self, qapp):
-        """创建 CreatePlaylistDialog 实例"""
+        """Create an instance of CreatePlaylistDialog"""
         from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
         return CreatePlaylistDialog()
     
     def test_initial_state_confirm_disabled(self, dialog):
-        """初始状态确认按钮禁用"""
+        """The confirm button should be disabled initially."""
         assert not dialog.confirm_btn.isEnabled()
     
     def test_valid_name_enables_confirm(self, dialog):
-        """输入有效名称后确认按钮启用"""
+        """The confirm button should be enabled after entering a valid name."""
         dialog.name_input.setText("Test Playlist")
         assert dialog.confirm_btn.isEnabled()
     
     def test_whitespace_only_keeps_disabled(self, dialog):
-        """仅空白字符保持禁用"""
+        """The confirm button should remain disabled if only whitespace is entered."""
         dialog.name_input.setText("   ")
         assert not dialog.confirm_btn.isEnabled()
     
     def test_get_name_trimmed(self, dialog):
-        """get_name 返回去除空白的名称"""
+        """get_name should return the trimmed name."""
         dialog.name_input.setText("  My Playlist  ")
         assert dialog.get_name() == "My Playlist"
     
     def test_get_description(self, dialog):
-        """get_description 返回描述"""
+        """get_description should return the description."""
         dialog.desc_input.setPlainText("This is a description")
         assert dialog.get_description() == "This is a description"
     
     def test_get_description_trimmed(self, dialog):
-        """get_description 返回去除空白的描述"""
+        """get_description should return the trimmed description."""
         dialog.desc_input.setPlainText("  Description with spaces  ")
         assert dialog.get_description() == "Description with spaces"
     
     def test_edit_mode_title(self, qapp):
-        """编辑模式标题正确"""
+        """The title should be correct in edit mode."""
         from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
         dialog = CreatePlaylistDialog(edit_mode=True)
-        assert dialog.windowTitle() == "编辑歌单"
+        assert dialog.windowTitle() == "Edit Playlist"
     
     def test_create_mode_title(self, dialog):
-        """创建模式标题正确"""
-        assert dialog.windowTitle() == "新建歌单"
+        """The title should be correct in creation mode."""
+        assert dialog.windowTitle() == "New Playlist"
     
     def test_edit_mode_prefilled(self, qapp):
-        """编辑模式预填充数据"""
+        """Data should be pre-filled in edit mode."""
         from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
         dialog = CreatePlaylistDialog(
             edit_mode=True, 
@@ -70,20 +70,20 @@ class TestCreatePlaylistDialog:
         assert dialog.desc_input.toPlainText() == "Existing Description"
     
     def test_name_input_placeholder(self, dialog):
-        """名称输入框有占位符"""
-        assert dialog.name_input.placeholderText() == "输入歌单名称"
+        """The name input should have a placeholder."""
+        assert dialog.name_input.placeholderText() == "Enter playlist name"
     
     def test_description_input_placeholder(self, dialog):
-        """描述输入框有占位符"""
-        assert dialog.desc_input.placeholderText() == "添加描述（可选）"
+        """The description input should have a placeholder."""
+        assert dialog.desc_input.placeholderText() == "Add description (optional)"
 
 
 class TestLLMSettingsDialog:
-    """LLMSettingsDialog 单元测试"""
+    """LLMSettingsDialog Unit Tests"""
 
     @pytest.fixture
     def mock_config(self):
-        """创建模拟配置服务"""
+        """Create a mock configuration service."""
         from services.config_service import ConfigService
         ConfigService.reset_instance()
         
@@ -91,7 +91,7 @@ class TestLLMSettingsDialog:
         config_path = f"{tmpdir}/config.yaml"
         config = ConfigService(config_path)
         
-        # 设置默认 LLM 配置
+        # Set default LLM configuration
         config.set("llm.provider", "siliconflow")
         config.set("llm.siliconflow.api_key", "test-key")
         config.set("llm.siliconflow.model", "test-model")
@@ -103,70 +103,71 @@ class TestLLMSettingsDialog:
     
     @pytest.fixture
     def dialog(self, qapp, mock_config):
-        """创建 LLMSettingsDialog 实例"""
+        """Create an instance of LLMSettingsDialog"""
         from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
         return LLMSettingsDialog(mock_config)
     
     def test_dialog_title(self, dialog):
-        """对话框标题正确"""
-        assert dialog.windowTitle() == "LLM 设置"
+        """The dialog title should be correct."""
+        assert dialog.windowTitle() == "LLM Settings"
     
     def test_provider_combo_exists(self, dialog):
-        """提供商选择框存在"""
+        """The provider combo box should exist."""
         assert dialog._provider_combo is not None
     
     def test_provider_combo_has_items(self, dialog):
-        """提供商选择框有选项"""
+        """The provider combo box should have items."""
         assert dialog._provider_combo.count() > 0
     
     def test_provider_switch_changes_panel(self, dialog):
-        """切换提供商改变面板"""
+        """Switching the provider should change the panel."""
         initial_index = dialog._stack.currentIndex()
         
-        # 切换到不同的提供商
-        dialog._provider_combo.setCurrentIndex(1)
-        
-        # 面板应该变化
-        assert dialog._stack.currentIndex() != initial_index or \
-               dialog._provider_combo.count() == 1  # 只有一个提供商时不变
+        # Switch to a different provider
+        if dialog._provider_combo.count() > 1:
+            dialog._provider_combo.setCurrentIndex(1)
+            assert dialog._stack.currentIndex() != initial_index
+        else:
+            # Only one provider, no change expected
+            assert dialog._stack.currentIndex() == initial_index
     
     def test_load_from_config_siliconflow(self, dialog, mock_config):
-        """从配置加载 SiliconFlow 设置"""
-        # 配置已设置为 siliconflow
+        """Test loading SiliconFlow settings from configuration."""
+        # Config is already set to siliconflow in mock_config fixture
         dialog._load_from_config()
         
-        # 验证 API key 已加载（取决于实现）
-        # 这里只验证不抛出异常
+        # Verify API key loaded (implementation dependent)
+        # Here we just verify it doesn't raise an exception
         assert True
 
 
 class TestTagChip:
-    """TagChip 单元测试"""
+    """TagChip Unit Tests"""
 
     @pytest.fixture
     def sample_tag(self):
-        """创建示例标签"""
+        """Create a sample tag."""
         from models.tag import Tag
         return Tag(id="tag1", name="Rock", color="#FF0000")
     
     @pytest.fixture
     def chip(self, qapp, sample_tag):
-        """创建 TagChip 实例"""
+        """Create an instance of TagChip"""
         from ui.dialogs.tag_dialog import TagChip
         return TagChip(sample_tag, checked=False)
     
     def test_initial_unchecked(self, chip):
-        """初始状态未选中"""
+        """Initially unchecked state."""
         assert not chip.checkbox.isChecked()
     
     def test_initial_checked(self, qapp, sample_tag):
-        """初始选中状态"""
+        """Initially checked state."""
         from ui.dialogs.tag_dialog import TagChip
         chip = TagChip(sample_tag, checked=True)
         assert chip.checkbox.isChecked()
     
     def test_set_checked(self, chip):
-        """设置选中状态"""
+        """Test setting the checked state."""
         chip.set_checked(True)
         assert chip.checkbox.isChecked()
         
@@ -174,24 +175,24 @@ class TestTagChip:
         assert not chip.checkbox.isChecked()
     
     def test_toggled_signal(self, chip, qtbot):
-        """切换时发出信号"""
+        """Toggle should emit a signal."""
         with qtbot.waitSignal(chip.toggled, timeout=1000) as blocker:
             chip.checkbox.setChecked(True)
         
         assert blocker.args == ["tag1", True]
     
     def test_tag_reference(self, chip, sample_tag):
-        """保存标签引用"""
+        """Should store tag reference."""
         assert chip.tag == sample_tag
         assert chip.tag.name == "Rock"
 
 
 class TestTagDialog:
-    """TagDialog 单元测试"""
+    """TagDialog Unit Tests"""
 
     @pytest.fixture
     def mock_db(self):
-        """创建模拟数据库"""
+        """Create a mock database."""
         import tempfile
         from core.database import DatabaseManager
         
@@ -207,54 +208,54 @@ class TestTagDialog:
     
     @pytest.fixture
     def tag_service(self, mock_db):
-        """创建标签服务"""
+        """Create a tag service."""
         from services.tag_service import TagService
         db, _ = mock_db
         return TagService(db)
     
     @pytest.fixture
     def sample_track(self):
-        """创建示例曲目"""
+        """Create a sample track."""
         from models.track import Track
         return Track(id="track1", title="Test Song", artist_name="Test Artist")
     
     @pytest.fixture
     def dialog(self, qapp, sample_track, tag_service):
-        """创建 TagDialog 实例"""
+        """Create an instance of TagDialog"""
         from ui.dialogs.tag_dialog import TagDialog
         return TagDialog([sample_track], tag_service=tag_service)
     
     def test_dialog_title(self, dialog):
-        """对话框标题正确"""
-        assert "标签" in dialog.windowTitle()
+        """The dialog title should be correct."""
+        assert "Tags" in dialog.windowTitle()
     
     def test_dialog_has_layout(self, dialog):
-        """对话框有布局"""
+        """The dialog should have a layout."""
         assert dialog.layout() is not None
     
     def test_new_tag_input_exists(self, dialog):
-        """新标签输入框存在"""
+        """New tag input field should exist."""
         assert dialog.new_tag_input is not None
     
     def test_color_button_exists(self, dialog):
-        """颜色选择按钮存在"""
+        """Color selection button should exist."""
         assert dialog.color_btn is not None
     
     def test_create_tag_button_exists(self, dialog):
-        """创建标签按钮存在"""
+        """Create tag button should exist."""
         assert dialog.add_btn is not None
     
     def test_initial_no_tags(self, dialog):
-        """初始无标签"""
-        # 检查标签区域是否存在
+        """Initially no tags."""
+        # Check if tag container area exists
         assert dialog.tags_container is not None
 
 
 class TestLLMQueueChatDialogDataclasses:
-    """LLMQueueChatDialog 相关数据类测试"""
+    """Tests for LLMQueueChatDialog related dataclasses."""
 
     def test_queue_snapshot_fields(self):
-        """_QueueSnapshot 数据类字段正确"""
+        """_QueueSnapshot dataclass fields should be correct."""
         from ui.dialogs.llm_queue_chat_dialog import _QueueSnapshot
         from models.track import Track
         
@@ -265,7 +266,7 @@ class TestLLMQueueChatDialogDataclasses:
         assert snapshot.current_track_id == "t1"
     
     def test_resolved_result_fields(self):
-        """_ResolvedResult 数据类字段正确"""
+        """_ResolvedResult dataclass fields should be correct."""
         from ui.dialogs.llm_queue_chat_dialog import _ResolvedResult
         from services.llm_queue_service import QueueReorderPlan
         from models.track import Track
@@ -279,74 +280,54 @@ class TestLLMQueueChatDialogDataclasses:
 
 
 class TestLLMQueueChatDialogUI:
-    """LLMQueueChatDialog UI 测试"""
+    """LLMQueueChatDialog UI Tests"""
 
     @pytest.fixture
     def mock_services(self, qapp):
-        """创建模拟服务"""
-        from services.player_service import PlayerService
-        from services.library_service import LibraryService
-        from services.config_service import ConfigService
-        from core.database import DatabaseManager
-        from core.event_bus import EventBus
+        """Create mock services."""
+        from app.container_factory import AppContainerFactory
         import tempfile
-        
-        EventBus.reset_instance()
-        DatabaseManager.reset_instance()
-        ConfigService.reset_instance()
         
         tmpdir = tempfile.mkdtemp(prefix="music-llm-chat-")
         db_path = f"{tmpdir}/test.db"
         config_path = f"{tmpdir}/config.yaml"
+        container = AppContainerFactory.create_for_testing(
+            config_path=config_path,
+            db_path=db_path,
+        )
         
-        db = DatabaseManager(db_path)
-        config = ConfigService(config_path)
+        yield container, tmpdir
         
-        mock_engine = MagicMock()
-        mock_engine.state = MagicMock()
-        mock_engine.get_position.return_value = 0
-        mock_engine.get_duration.return_value = 0
-        mock_engine.volume = 0.8
-        
-        player = PlayerService(audio_engine=mock_engine)
-        library = LibraryService(db)
-        
-        yield player, library, config, tmpdir
-        
-        EventBus.reset_instance()
-        DatabaseManager.reset_instance()
-        ConfigService.reset_instance()
         shutil.rmtree(tmpdir, ignore_errors=True)
     
     @pytest.fixture
     def dialog(self, mock_services):
-        """创建 LLMQueueChatDialog 实例"""
-        from ui.dialogs.llm_queue_chat_dialog import LLMQueueChatDialog
-        player, library, config, _ = mock_services
-        return LLMQueueChatDialog(player, library, config)
+        """Create an instance of LLMQueueChatDialog"""
+        container, _ = mock_services
+        return LLMQueueChatDialog(facade=container.facade)
     
     def test_dialog_title(self, dialog):
-        """对话框标题正确"""
-        assert "LLM" in dialog.windowTitle() or "队列" in dialog.windowTitle()
+        """The dialog title should be correct."""
+        assert "LLM" in dialog.windowTitle() or "Queue" in dialog.windowTitle()
     
     def test_input_widget_exists(self, dialog):
-        """输入框存在"""
+        """Input widget should exist."""
         assert dialog._input is not None
     
     def test_send_button_exists(self, dialog):
-        """发送按钮存在"""
+        """Send button should exist."""
         assert dialog._send_btn is not None
     
     def test_chat_display_exists(self, dialog):
-        """聊天显示区域存在"""
+        """Chat display area should exist."""
         assert dialog._chat is not None
     
     def test_settings_button_exists(self, dialog):
-        """设置按钮存在"""
+        """Settings button should exist."""
         assert dialog._settings_btn is not None
     
     def test_initial_not_busy(self, dialog):
-        """初始状态非忙碌"""
+        """Initial state should not be busy."""
         assert dialog._send_btn.isEnabled()
 
 

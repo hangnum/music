@@ -1,7 +1,7 @@
 """
-SiliconFlow 提供商实现
+SiliconFlow Provider Implementation
 
-基于 OpenAI 兼容的 Chat Completions API。
+Based on the OpenAI-compatible Chat Completions API.
 """
 
 from __future__ import annotations
@@ -22,18 +22,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class SiliconFlowSettings(LLMSettings):
-    """SiliconFlow 特定设置
+    """SiliconFlow specific settings.
     
     Attributes:
-        base_url: API 基础 URL
-        api_key_env: 环境变量名称（用于获取 API Key）
+        base_url: API base URL.
+        api_key_env: Environment variable name for the API key.
     """
     base_url: str = "https://api.siliconflow.cn/v1"
     api_key_env: str = "SILICONFLOW_API_KEY"
 
 
 class SiliconFlowProvider(LLMProvider):
-    """SiliconFlow OpenAI-compatible Chat Completions 提供商
+    """SiliconFlow OpenAI-compatible Chat Completions Provider.
     
     Endpoint: {base_url}/chat/completions
     Auth: Authorization: Bearer <api_key>
@@ -52,7 +52,7 @@ class SiliconFlowProvider(LLMProvider):
     
     @staticmethod
     def from_config(config: ConfigService) -> "SiliconFlowProvider":
-        """从配置服务创建提供商实例"""
+        """Create a provider instance from the configuration service."""
         base_url = config.get("llm.siliconflow.base_url", "https://api.siliconflow.cn/v1")
         model = config.get("llm.siliconflow.model", "Qwen/Qwen2.5-7B-Instruct")
         api_key_env = config.get("llm.siliconflow.api_key_env", "SILICONFLOW_API_KEY")
@@ -64,7 +64,7 @@ class SiliconFlowProvider(LLMProvider):
         
         if not api_key:
             raise LLMProviderError(
-                f"缺少 SiliconFlow API Key：请在配置 `llm.siliconflow.api_key` 或环境变量 `{api_key_env}` 中提供"
+                f"Missing SiliconFlow API Key: please provide it in configuration `llm.siliconflow.api_key` or environment variable `{api_key_env}`."
             )
         
         return SiliconFlowProvider(
@@ -81,7 +81,7 @@ class SiliconFlowProvider(LLMProvider):
         )
     
     def chat_completions(self, messages: Sequence[Dict[str, str]]) -> str:
-        """执行聊天补全请求"""
+        """Execute chat completion request."""
         url = self._settings.base_url.rstrip("/") + "/chat/completions"
         
         payload: Dict[str, Any] = {
@@ -117,8 +117,8 @@ class SiliconFlowProvider(LLMProvider):
             logger.error(f"SiliconFlow API HTTP {e.code}: {body or e.reason}")
             raise LLMProviderError(f"SiliconFlow API HTTP {e.code}: {body or e.reason}") from e
         except URLError as e:
-            logger.error(f"SiliconFlow API 请求失败: {e.reason}")
-            raise LLMProviderError(f"SiliconFlow API 请求失败: {e.reason}") from e
+            logger.error(f"SiliconFlow API request failed: {e.reason}")
+            raise LLMProviderError(f"SiliconFlow API request failed: {e.reason}") from e
         
         try:
             data = json.loads(raw)
@@ -126,13 +126,13 @@ class SiliconFlowProvider(LLMProvider):
             logger.debug(f"SiliconFlow response: {content[:200]}...")
             return content
         except Exception as e:
-            logger.error(f"SiliconFlow 响应解析失败: {raw[:400]}")
-            raise LLMProviderError(f"SiliconFlow 响应解析失败: {raw[:400]}") from e
+            logger.error(f"SiliconFlow response parsing failed: {raw[:400]}")
+            raise LLMProviderError(f"SiliconFlow response parsing failed: {raw[:400]}") from e
     
     def validate_connection(self) -> bool:
-        """验证 API 连接是否有效"""
+        """Validate if the API connection is functional."""
         try:
-            # 使用明确的 JSON 提示词，避免 json_mode 下返回非 JSON
+            # Use explicit JSON prompt to avoid non-JSON responses in JSON mode.
             self.chat_completions([{
                 "role": "user", 
                 "content": 'Respond with this exact JSON: {"status": "ok"}'

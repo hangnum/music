@@ -1,7 +1,7 @@
 """
-EQ 预设模块
+EQ Preset Module
 
-提供 10 频段均衡器预设配置。
+Provides configuration for 10-band equalizer presets.
 """
 
 from dataclasses import dataclass
@@ -10,7 +10,7 @@ from enum import Enum
 
 
 class EQPreset(Enum):
-    """EQ 预设类型"""
+    """EQ Preset Type"""
     FLAT = "flat"
     ROCK = "rock"
     POP = "pop"
@@ -26,58 +26,58 @@ class EQPreset(Enum):
 @dataclass(frozen=True)
 class EQBands:
     """
-    10 频段 EQ 配置
+    10-Band EQ Configuration
 
-    频段分布:
+    Band distribution:
     - 31Hz, 62Hz, 125Hz, 250Hz, 500Hz
     - 1kHz, 2kHz, 4kHz, 8kHz, 16kHz
 
     Attributes:
-        bands: 10 个频段的增益值 (dB)，范围 -12 到 +12
+        bands: Gain values (dB) for 10 bands, range -12 to +12.
     """
     bands: tuple  # 10-element tuple of floats (dB)
 
     def to_list(self) -> List[float]:
-        """转换为列表"""
+        """Convert to a list."""
         return list(self.bands)
 
 
-# 10 频段 EQ 预设定义
-# 频段: [31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz]
+# 10-band EQ preset definitions
+# Bands: [31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz]
 EQ_PRESETS: Dict[EQPreset, EQBands] = {
-    # 平坦 - 无调整
+    # Flat - No adjustment
     EQPreset.FLAT: EQBands((0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
 
-    # 摇滚 - 增强低频和高频
+    # Rock - Enhance low and high frequencies
     EQPreset.ROCK: EQBands((5.0, 4.0, 3.0, 1.0, -1.0, 0.0, 2.0, 4.0, 5.0, 5.0)),
 
-    # 流行 - 增强人声和中高频
+    # Pop - Enhance vocals and mid-high frequencies
     EQPreset.POP: EQBands((-2.0, -1.0, 0.0, 2.0, 4.0, 4.0, 3.0, 1.0, 0.0, -1.0)),
 
-    # 爵士 - 温暖的中低频，柔和的高频
+    # Jazz - Warm mid-low frequencies, soft highs
     EQPreset.JAZZ: EQBands((3.0, 2.0, 1.0, 2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0)),
 
-    # 古典 - 自然平衡，轻微增强高频细节
+    # Classical - Natural balance, slight enhancement of high-frequency details
     EQPreset.CLASSICAL: EQBands((0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 2.0, 3.0, 4.0)),
 
-    # 电子 - 强劲低音和明亮高频
+    # Electronic - Strong bass and bright highs
     EQPreset.ELECTRONIC: EQBands((6.0, 5.0, 2.0, 0.0, -2.0, 0.0, 1.0, 3.0, 5.0, 6.0)),
 
-    # 嘻哈 - 超强低音
+    # Hip Hop - Ultra-strong bass
     EQPreset.HIP_HOP: EQBands((7.0, 6.0, 4.0, 2.0, 1.0, 0.0, 1.0, 2.0, 2.0, 3.0)),
 
-    # 原声 - 自然，温暖
+    # Acoustic - Natural, warm
     EQPreset.ACOUSTIC: EQBands((3.0, 2.0, 1.0, 1.0, 2.0, 1.0, 2.0, 3.0, 2.0, 2.0)),
 
-    # 人声增强 - 突出人声
+    # Vocal - Emphasize vocals
     EQPreset.VOCAL: EQBands((-3.0, -2.0, 0.0, 3.0, 5.0, 5.0, 4.0, 2.0, 0.0, -2.0)),
 
-    # 低音增强
+    # Bass Boost
     EQPreset.BASS_BOOST: EQBands((8.0, 7.0, 5.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
 }
 
 
-# 频段中心频率标签
+# Band center frequency labels
 EQ_BAND_LABELS: tuple = (
     "31Hz", "62Hz", "125Hz", "250Hz", "500Hz",
     "1kHz", "2kHz", "4kHz", "8kHz", "16kHz"
@@ -86,26 +86,26 @@ EQ_BAND_LABELS: tuple = (
 
 def get_preset_bands(preset: EQPreset) -> List[float]:
     """
-    获取预设的频段配置
+    Get the band configuration for a preset.
 
     Args:
-        preset: EQ 预设类型
+        preset: EQ preset type.
 
     Returns:
-        10 个频段的增益列表 (dB)
+        List of gains (dB) for 10 bands.
     """
     return EQ_PRESETS.get(preset, EQ_PRESETS[EQPreset.FLAT]).to_list()
 
 
 def get_preset_by_name(name: str) -> EQPreset:
     """
-    根据名称获取预设类型
+    Get preset type by name.
 
     Args:
-        name: 预设名称（如 "rock", "pop"）
+        name: Preset name (e.g., "rock", "pop").
 
     Returns:
-        EQPreset 类型，无效名称返回 FLAT
+        EQPreset type, returns FLAT for invalid names.
     """
     try:
         return EQPreset(name.lower())

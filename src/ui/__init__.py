@@ -1,5 +1,5 @@
 """
-UI层模块
+UI Layer Module
 """
 
 from .main_window import MainWindow

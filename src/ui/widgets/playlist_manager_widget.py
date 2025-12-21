@@ -1,7 +1,7 @@
 """
-歌单管理组件
+Playlist Manager Component
 
-显示用户创建的歌单列表，支持新建、重命名、删除歌单。
+Displays the list of playlists created by the user, supporting creation, renaming, and deletion.
 """
 
 from PyQt6.QtWidgets import (
@@ -15,19 +15,20 @@ from typing import Optional
 
 from models.playlist import Playlist
 from services.playlist_service import PlaylistService
-from core.event_bus import EventBus, EventType
+from core.event_bus import EventBus
+from app.events import EventType
 from ui.styles.theme_manager import ThemeManager
 
 
 class PlaylistManagerWidget(QWidget):
     """
-    歌单管理组件
+    Playlist Manager Component
     
-    显示和管理用户的播放列表，解耦于主窗口实现。
+    Displays and manages user playlists, decoupled from the main window implementation.
     
     Signals:
-        playlist_selected: 歌单被选中时发出
-        create_requested: 请求创建新歌单
+        playlist_selected: Emitted when a playlist is selected
+        create_requested: Emitted when a request to create a new playlist is made
     """
     
     playlist_selected = pyqtSignal(Playlist)
@@ -35,11 +36,11 @@ class PlaylistManagerWidget(QWidget):
     
     def __init__(self, playlist_service: PlaylistService, parent=None):
         """
-        初始化组件
+        Initialize the component.
         
         Args:
-            playlist_service: 歌单服务实例
-            parent: 父组件
+            playlist_service: Playlist service instance
+            parent: Parent component
         """
         super().__init__(parent)
         self._playlist_service = playlist_service
@@ -50,15 +51,15 @@ class PlaylistManagerWidget(QWidget):
         self.refresh()
     
     def _setup_ui(self):
-        """设置 UI"""
+        """Set up the UI."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
         
-        # 标题栏
+        # Header bar
         header = QHBoxLayout()
         
-        title = QLabel("我的歌单")
+        title = QLabel("My Playlists")
         title.setStyleSheet(ThemeManager.get_section_title_style())
         header.addWidget(title)
         
@@ -66,36 +67,36 @@ class PlaylistManagerWidget(QWidget):
         
         self.add_btn = QPushButton("＋")
         self.add_btn.setFixedSize(32, 32)
-        self.add_btn.setToolTip("新建歌单")
+        self.add_btn.setToolTip("Create Playlist")
         self.add_btn.clicked.connect(self.create_requested.emit)
         header.addWidget(self.add_btn)
         
         layout.addLayout(header)
         
-        # 歌单列表
+        # Playlist list
         self.list_widget = QListWidget()
         self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
         self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
         layout.addWidget(self.list_widget)
         
-        # 底部信息
-        self.info_label = QLabel("0 个歌单")
+        # Bottom info
+        self.info_label = QLabel("0 playlists")
         self.info_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.info_label)
     
     def _connect_signals(self):
-        """连接事件"""
+        """Connect events."""
         self._event_bus.subscribe(EventType.PLAYLIST_CREATED, self._on_playlist_changed)
         self._event_bus.subscribe(EventType.PLAYLIST_UPDATED, self._on_playlist_changed)
         self._event_bus.subscribe(EventType.PLAYLIST_DELETED, self._on_playlist_changed)
     
     def _on_playlist_changed(self, data=None):
-        """歌单变化时刷新"""
+        """Refresh when playlists change."""
         self.refresh()
     
     def refresh(self):
-        """刷新歌单列表"""
+        """Refresh the playlist list."""
         self.list_widget.clear()
         
         playlists = self._playlist_service.get_all()
@@ -104,7 +105,7 @@ class PlaylistManagerWidget(QWidget):
             item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, playlist)
             
-            # 显示文本：名称 + 曲目数
+            # Display text: name + track count
             text = f"🎵 {playlist.name}"
             if playlist.track_count > 0:
                 text += f"  ({playlist.track_count})"
@@ -112,16 +113,16 @@ class PlaylistManagerWidget(QWidget):
             item.setText(text)
             self.list_widget.addItem(item)
         
-        self.info_label.setText(f"{len(playlists)} 个歌单")
+        self.info_label.setText(f"{len(playlists)} playlists")
     
     def _on_item_double_clicked(self, item: QListWidgetItem):
-        """双击歌单"""
+        """Handle double-click on a playlist."""
         playlist = item.data(Qt.ItemDataRole.UserRole)
         if playlist:
             self.playlist_selected.emit(playlist)
     
     def _show_context_menu(self, pos):
-        """显示右键菜单"""
+        """Display the context menu."""
         item = self.list_widget.itemAt(pos)
         if not item:
             return
@@ -132,27 +133,27 @@ class PlaylistManagerWidget(QWidget):
         
         menu = QMenu(self)
         
-        # 打开
-        open_action = QAction("打开", self)
+        # Open
+        open_action = QAction("Open", self)
         open_action.triggered.connect(lambda: self.playlist_selected.emit(playlist))
         menu.addAction(open_action)
         
         menu.addSeparator()
         
-        # 重命名
-        rename_action = QAction("重命名...", self)
+        # Rename
+        rename_action = QAction("Rename...", self)
         rename_action.triggered.connect(lambda: self._rename_playlist(playlist))
         menu.addAction(rename_action)
         
-        # 删除
-        delete_action = QAction("删除", self)
+        # Delete
+        delete_action = QAction("Delete", self)
         delete_action.triggered.connect(lambda: self._delete_playlist(playlist))
         menu.addAction(delete_action)
         
         menu.exec(self.list_widget.mapToGlobal(pos))
     
     def _rename_playlist(self, playlist: Playlist):
-        """重命名歌单"""
+        """Rename a playlist."""
         from ui.dialogs.create_playlist_dialog import CreatePlaylistDialog
         
         dialog = CreatePlaylistDialog(
@@ -171,11 +172,11 @@ class PlaylistManagerWidget(QWidget):
             self.refresh()
     
     def _delete_playlist(self, playlist: Playlist):
-        """删除歌单"""
+        """Delete a playlist."""
         reply = QMessageBox.question(
             self,
-            "确认删除",
-            f"确定要删除歌单 \"{playlist.name}\" 吗？\n此操作无法撤销。",
+            "Confirm Delete",
+            f"Are you sure you want to delete the playlist \"{playlist.name}\"?\nThis action cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -185,7 +186,7 @@ class PlaylistManagerWidget(QWidget):
             self.refresh()
     
     def get_selected_playlist(self) -> Optional[Playlist]:
-        """获取当前选中的歌单"""
+        """Get the currently selected playlist."""
         item = self.list_widget.currentItem()
         if item:
             return item.data(Qt.ItemDataRole.UserRole)

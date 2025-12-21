@@ -1,11 +1,11 @@
 """
-音频设置对话框
+Audio Settings Dialog
 
-提供音频引擎配置界面，包括:
-- 音频后端选择
-- Crossfade 设置
-- ReplayGain 设置
-- 10 频段 EQ 均衡器
+Provides audio engine configuration interface, including:
+- Audio backend selection
+- Crossfade settings
+- ReplayGain settings
+- 10-band EQ equalizer
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from ui.resources.design_tokens import tokens
 
 
 class EQBandSlider(QWidget):
-    """单个 EQ 频段滑块组件"""
+    """Single EQ band slider component"""
     
     def __init__(self, label: str, parent=None):
         super().__init__(parent)
@@ -46,13 +46,13 @@ class EQBandSlider(QWidget):
         layout.setContentsMargins(2, 0, 2, 0)
         layout.setSpacing(4)
         
-        # 值显示
+        # Value display
         self._value_label = QLabel("0")
         self._value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._value_label.setFixedWidth(32)
         self._value_label.setStyleSheet(f"font-size: {tokens.FONT_SIZE_XS}px;")
         
-        # 滑块 (垂直)
+        # Slider (vertical)
         self._slider = QSlider(Qt.Orientation.Vertical)
         self._slider.setMinimum(-120)  # -12.0 dB
         self._slider.setMaximum(120)   # +12.0 dB
@@ -60,7 +60,7 @@ class EQBandSlider(QWidget):
         self._slider.setFixedHeight(120)
         self._slider.valueChanged.connect(self._on_slider_changed)
         
-        # 频率标签
+        # Frequency label
         self._freq_label = QLabel(label)
         self._freq_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._freq_label.setStyleSheet(f"font-size: 10px; color: {tokens.NEUTRAL_500};")
@@ -84,36 +84,36 @@ class EQBandSlider(QWidget):
 
 class AudioSettingsDialog(QDialog):
     """
-    音频设置对话框
-    
-    提供音频引擎和高级音频特性的配置界面。
+    Audio Settings Dialog
+
+    Provides audio engine and advanced audio features configuration interface.
     """
     
     def __init__(self, config: ConfigService, parent=None):
         super().__init__(parent)
         self._config = config
         
-        self.setWindowTitle("音频设置")
+        self.setWindowTitle("Audio Settings")
         self.setMinimumWidth(600)
         self.setMinimumHeight(500)
         
-        # 主布局
+        # Main layout
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(12)
         
-        # 音频后端设置
+        # Audio backend settings
         main_layout.addWidget(self._create_backend_group())
         
-        # Crossfade 设置
+        # Crossfade settings
         main_layout.addWidget(self._create_crossfade_group())
         
-        # ReplayGain 设置
+        # ReplayGain settings
         main_layout.addWidget(self._create_replay_gain_group())
         
-        # EQ 均衡器
+        # Equalizer (10-band EQ)
         main_layout.addWidget(self._create_eq_group())
         
-        # 按钮
+        # Buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
@@ -121,15 +121,15 @@ class AudioSettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         main_layout.addWidget(buttons)
         
-        # 加载配置
+        # Load configuration
         self._load_from_config()
     
     def _create_backend_group(self) -> QGroupBox:
-        """创建音频后端选择组"""
-        group = QGroupBox("音频后端")
+        """Create audio backend selection group"""
+        group = QGroupBox("Audio backend")
         layout = QFormLayout(group)
         
-        # 后端选择
+        # Backend selection
         self._backend_combo = QComboBox()
         available = AudioEngineFactory.get_available_backends()
         all_backends = ["miniaudio", "vlc", "pygame"]
@@ -138,16 +138,16 @@ class AudioSettingsDialog(QDialog):
             display_name = self._get_backend_display_name(backend)
             is_available = backend in available
             self._backend_combo.addItem(
-                f"{display_name}" + ("" if is_available else " (未安装)"),
+                f"{display_name}" + ("" if is_available else " (Not installed)"),
                 backend
             )
             if not is_available:
                 idx = self._backend_combo.count() - 1
                 self._backend_combo.model().item(idx).setEnabled(False)
         
-        layout.addRow("音频引擎", self._backend_combo)
+        layout.addRow("Audio Engine", self._backend_combo)
         
-        # 当前后端信息
+        # Current backend info
         self._backend_info_label = QLabel()
         self._backend_info_label.setStyleSheet(f"color: {tokens.NEUTRAL_500}; font-size: {tokens.FONT_SIZE_XS}px;")
         layout.addRow("", self._backend_info_label)
@@ -158,9 +158,9 @@ class AudioSettingsDialog(QDialog):
     
     def _get_backend_display_name(self, backend: str) -> str:
         names = {
-            "miniaudio": "miniaudio (推荐 - Gapless/Crossfade/EQ)",
-            "vlc": "VLC (ReplayGain 原生支持)",
-            "pygame": "pygame (兼容性后备)",
+            "miniaudio": "miniaudio (Recommended - Gapless/Crossfade/EQ)",
+            "vlc": "VLC (Native ReplayGain support)",
+            "pygame": "pygame (Compatibility fallback)",
         }
         return names.get(backend, backend)
     
@@ -182,50 +182,50 @@ class AudioSettingsDialog(QDialog):
                 features.append("ReplayGain")
             
             self._backend_info_label.setText(
-                f"支持特性: {', '.join(features)}" if features else "基础播放"
+                f"Supported features: {', '.join(features)}" if features else "Basic playback"
             )
         else:
-            self._backend_info_label.setText("后端不可用")
+            self._backend_info_label.setText("Backend not available")
     
     def _create_crossfade_group(self) -> QGroupBox:
-        """创建 Crossfade 设置组"""
-        group = QGroupBox("淡入淡出 (Crossfade)")
+        """Create Crossfade settings group"""
+        group = QGroupBox("Crossfade")
         layout = QFormLayout(group)
-        
-        # 启用开关
-        self._crossfade_enabled = QCheckBox("启用曲目切换淡入淡出")
+
+        # Enable switch
+        self._crossfade_enabled = QCheckBox("Enable track transition crossfade")
         layout.addRow(self._crossfade_enabled)
         
-        # 时长设置
+        # Duration setting
         duration_layout = QHBoxLayout()
         self._crossfade_duration = QSpinBox()
         self._crossfade_duration.setRange(0, 10000)
         self._crossfade_duration.setSingleStep(100)
         self._crossfade_duration.setSuffix(" ms")
         duration_layout.addWidget(self._crossfade_duration)
-        duration_layout.addWidget(QLabel("(建议: 500-2000ms)"))
+        duration_layout.addWidget(QLabel("(Recommended: 500-2000ms)"))
         duration_layout.addStretch()
-        layout.addRow("淡入淡出时长", duration_layout)
+        layout.addRow("Crossfade duration", duration_layout)
         
         return group
     
     def _create_replay_gain_group(self) -> QGroupBox:
-        """创建 ReplayGain 设置组"""
-        group = QGroupBox("响度规范化 (ReplayGain)")
+        """Create ReplayGain settings group"""
+        group = QGroupBox("ReplayGain (Loudness Normalization)")
         layout = QFormLayout(group)
-        
-        # 启用开关
-        self._rg_enabled = QCheckBox("启用响度规范化")
+
+        # Enable switch
+        self._rg_enabled = QCheckBox("Enable loudness normalization")
         layout.addRow(self._rg_enabled)
         
-        # 模式选择
+        # Mode selection
         self._rg_mode_combo = QComboBox()
-        self._rg_mode_combo.addItem("单曲模式 (Track)", "track")
-        self._rg_mode_combo.addItem("专辑模式 (Album)", "album")
-        layout.addRow("规范化模式", self._rg_mode_combo)
+        self._rg_mode_combo.addItem("Track mode", "track")
+        self._rg_mode_combo.addItem("Album mode", "album")
+        layout.addRow("Normalization mode", self._rg_mode_combo)
         
-        # 防削波
-        self._rg_prevent_clipping = QCheckBox("防止音频削波")
+        # Anti-clipping
+        self._rg_prevent_clipping = QCheckBox("Prevent audio clipping")
         layout.addRow(self._rg_prevent_clipping)
         
         # Preamp
@@ -234,26 +234,26 @@ class AudioSettingsDialog(QDialog):
         self._rg_preamp.setRange(-12, 12)
         self._rg_preamp.setSuffix(" dB")
         preamp_layout.addWidget(self._rg_preamp)
-        preamp_layout.addWidget(QLabel("(预增益，通常设为 0)"))
+        preamp_layout.addWidget(QLabel("(Preamp, usually set to 0)"))
         preamp_layout.addStretch()
-        layout.addRow("预增益", preamp_layout)
+        layout.addRow("Preamp", preamp_layout)
         
         return group
     
     def _create_eq_group(self) -> QGroupBox:
-        """创建 10 频段 EQ 设置组"""
-        group = QGroupBox("均衡器 (10 频段 EQ)")
+        """Create 10-band EQ settings group"""
+        group = QGroupBox("Equalizer (10-band EQ)")
         main_layout = QVBoxLayout(group)
         
-        # 启用开关和预设
+        # Enable switch and presets
         top_layout = QHBoxLayout()
         
-        self._eq_enabled = QCheckBox("启用均衡器")
+        self._eq_enabled = QCheckBox("Enable equalizer")
         top_layout.addWidget(self._eq_enabled)
         
         top_layout.addStretch()
         
-        top_layout.addWidget(QLabel("预设:"))
+        top_layout.addWidget(QLabel("Preset:"))
         self._eq_preset_combo = QComboBox()
         for preset in EQPreset:
             display_name = self._get_preset_display_name(preset)
@@ -261,15 +261,15 @@ class AudioSettingsDialog(QDialog):
         self._eq_preset_combo.currentIndexChanged.connect(self._on_preset_changed)
         top_layout.addWidget(self._eq_preset_combo)
         
-        # 重置按钮
-        reset_btn = QPushButton("重置")
+        # Reset button
+        reset_btn = QPushButton("Reset")
         reset_btn.setFixedWidth(60)
         reset_btn.clicked.connect(self._reset_eq)
         top_layout.addWidget(reset_btn)
         
         main_layout.addLayout(top_layout)
         
-        # EQ 滑块区域
+        # EQ sliders area
         sliders_layout = QHBoxLayout()
         sliders_layout.setSpacing(8)
         
@@ -285,21 +285,21 @@ class AudioSettingsDialog(QDialog):
     
     def _get_preset_display_name(self, preset: EQPreset) -> str:
         names = {
-            EQPreset.FLAT: "平坦",
-            EQPreset.ROCK: "摇滚",
-            EQPreset.POP: "流行",
-            EQPreset.JAZZ: "爵士",
-            EQPreset.CLASSICAL: "古典",
-            EQPreset.ELECTRONIC: "电子",
-            EQPreset.HIP_HOP: "嘻哈",
-            EQPreset.ACOUSTIC: "原声",
-            EQPreset.VOCAL: "人声",
-            EQPreset.BASS_BOOST: "低音增强",
+            EQPreset.FLAT: "Flat",
+            EQPreset.ROCK: "Rock",
+            EQPreset.POP: "Pop",
+            EQPreset.JAZZ: "Jazz",
+            EQPreset.CLASSICAL: "Classical",
+            EQPreset.ELECTRONIC: "Electronic",
+            EQPreset.HIP_HOP: "Hip-Hop",
+            EQPreset.ACOUSTIC: "Acoustic",
+            EQPreset.VOCAL: "Vocal",
+            EQPreset.BASS_BOOST: "Bass Boost",
         }
         return names.get(preset, preset.value)
     
     def _on_preset_changed(self) -> None:
-        """应用 EQ 预设"""
+        """Apply EQ preset"""
         preset_value = self._eq_preset_combo.currentData()
         try:
             preset = EQPreset(preset_value)
@@ -311,14 +311,14 @@ class AudioSettingsDialog(QDialog):
             pass
     
     def _reset_eq(self) -> None:
-        """重置 EQ 为平坦"""
+        """Reset EQ to Flat"""
         self._eq_preset_combo.setCurrentIndex(0)  # Flat
         for slider in self._eq_sliders:
             slider.set_value(0.0)
     
     def _load_from_config(self) -> None:
-        """从配置加载设置"""
-        # 音频后端
+        """Load settings from configuration"""
+        # Audio backend
         backend = str(self._config.get("audio.backend", "miniaudio"))
         idx = self._backend_combo.findData(backend)
         if idx >= 0:
@@ -357,7 +357,7 @@ class AudioSettingsDialog(QDialog):
         if idx >= 0:
             self._eq_preset_combo.setCurrentIndex(idx)
         
-        # 加载自定义频段值
+        # Load custom band values
         bands = self._config.get("audio.equalizer.bands", [0] * 10)
         if isinstance(bands, list) and len(bands) >= 10:
             for i, slider in enumerate(self._eq_sliders):
@@ -365,8 +365,8 @@ class AudioSettingsDialog(QDialog):
                     slider.set_value(float(bands[i]))
     
     def _on_save(self) -> None:
-        """保存配置"""
-        # 音频后端
+        """Save configuration"""
+        # Audio backend
         backend = self._backend_combo.currentData()
         if backend:
             self._config.set("audio.backend", backend)
@@ -385,16 +385,16 @@ class AudioSettingsDialog(QDialog):
         self._config.set("audio.equalizer.enabled", self._eq_enabled.isChecked())
         self._config.set("audio.equalizer.preset", self._eq_preset_combo.currentData())
         
-        # 保存自定义频段值
+        # Save custom band values
         bands = [slider.get_value() for slider in self._eq_sliders]
         self._config.set("audio.equalizer.bands", bands)
         
         if not self._config.save():
-            QMessageBox.critical(self, "错误", "保存配置失败")
+            QMessageBox.critical(self, "Error", "Failed to save configuration")
             return
         
         QMessageBox.information(
-            self, "提示", 
-            "设置已保存。\n部分更改（如音频后端切换）需要重启应用才能生效。"
+            self, "Information", 
+            "Settings saved.\nSome changes (like audio backend switching) require application restart to take effect."
         )
         self.accept()

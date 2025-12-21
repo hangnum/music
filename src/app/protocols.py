@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-协议定义模块
+Protocols Definition Module
 
-定义应用程序中所有服务的接口协议（Protocol）。
-使用 Protocol 而非 ABC，以支持结构化子类型检查（structural subtyping）。
+Defines the interface protocols (Protocol) for all services in the application.
+Uses Protocol instead of ABC to support structural subtyping checks.
 
-设计决策：
-- 默认使用 Protocol + @runtime_checkable
-- ABC 仅用于需要共享默认实现的基类（如 AudioEngineBase）
-- 运行时检查只在容器装配或测试中做一次性断言
+Design Decisions:
+- Default to using Protocol + @runtime_checkable
+- ABC is only used for base classes that need to share default implementations (e.g., AudioEngineBase)
+- Runtime checks are performed as one-time assertions during container assembly or testing
 """
 
 from __future__ import annotations
@@ -30,14 +30,14 @@ if TYPE_CHECKING:
 
 
 # =============================================================================
-# 事件总线协议
+# Event Bus Protocol
 # =============================================================================
 
 @runtime_checkable
 class IEventBus(Protocol):
-    """事件总线接口
+    """Event Bus Interface
     
-    提供发布-订阅模式的事件系统。
+    Provides a publish-subscribe pattern event system.
     """
     
     def subscribe(
@@ -45,34 +45,34 @@ class IEventBus(Protocol):
         event_type: Enum, 
         callback: Callable[[Any], None]
     ) -> str:
-        """订阅事件
+        """Subscribe to an event
         
         Args:
-            event_type: 事件类型枚举
-            callback: 回调函数
+            event_type: Event type enumeration
+            callback: Callback function
             
         Returns:
-            订阅ID，用于取消订阅
+            Subscription ID, used to unsubscribe
         """
         ...
     
     def unsubscribe(self, subscription_id: str) -> bool:
-        """取消订阅
+        """Unsubscribe from an event
         
         Args:
-            subscription_id: 订阅时返回的ID
+            subscription_id: The ID returned when subscribing
             
         Returns:
-            是否成功取消
+            True if successfully unsubscribed
         """
         ...
     
     def publish(self, event_type: Enum, data: Any = None) -> None:
-        """发布事件
+        """Publish an event
         
         Args:
-            event_type: 事件类型
-            data: 事件数据
+            event_type: Event type
+            data: Event data
         """
         ...
     
@@ -82,187 +82,187 @@ class IEventBus(Protocol):
         data: Any = None, 
         timeout: Optional[float] = None
     ) -> bool:
-        """同步发布事件
+        """Publish an event synchronously
         
         Args:
-            event_type: 事件类型
-            data: 事件数据
-            timeout: 超时时间
+            event_type: Event type
+            data: Event data
+            timeout: Timeout period
             
         Returns:
-            是否在超时前完成
+            True if completed before timeout
         """
         ...
 
 
 # =============================================================================
-# 数据库协议
+# Database Protocol
 # =============================================================================
 
-# 从 core.ports 重导出基础设施接口
+# Re-export infrastructure interfaces from core.ports
 from core.ports.database import IDatabase as _IDatabase, ITrackRepository
 from core.ports.audio import IAudioEngine, IAudioEngineFactory
 from core.ports.llm import ILLMProvider, ILLMProviderFactory, LLMSettings
 
-# 保持向后兼容
+# Maintain backward compatibility
 IDatabase = _IDatabase
 
 
 # =============================================================================
-# 配置服务协议
+# Configuration Service Protocol
 # =============================================================================
 
 @runtime_checkable
 class IConfigService(Protocol):
-    """配置服务接口"""
+    """Configuration Service Interface"""
     
     def get(self, key: str, default: Any = None) -> Any:
-        """获取配置值
+        """Get a configuration value
         
         Args:
-            key: 配置键，支持点号分隔的嵌套键
-            default: 默认值
+            key: Configuration key, supports dot-separated nested keys
+            default: Default value
             
         Returns:
-            配置值
+            Configuration value
         """
         ...
     
     def set(self, key: str, value: Any) -> None:
-        """设置配置值
+        """Set a configuration value
         
         Args:
-            key: 配置键
-            value: 配置值
+            key: Configuration key
+            value: Configuration value
         """
         ...
     
     def save(self) -> None:
-        """保存配置到文件"""
+        """Save configuration to file"""
         ...
 
 
 # =============================================================================
-# 播放服务协议
+# Player Service Protocol
 # =============================================================================
 
 @runtime_checkable
 class IPlayerService(Protocol):
-    """播放服务接口"""
+    """Player Service Interface"""
     
     def play(self, track: Optional["Track"] = None) -> bool:
-        """播放曲目"""
+        """Play a track"""
         ...
     
     def pause(self) -> None:
-        """暂停播放"""
+        """Pause playback"""
         ...
     
     def resume(self) -> None:
-        """恢复播放"""
+        """Resume playback"""
         ...
     
     def stop(self) -> None:
-        """停止播放"""
+        """Stop playback"""
         ...
     
     def next_track(self) -> Optional["Track"]:
-        """下一曲"""
+        """Next track"""
         ...
     
     def previous_track(self) -> Optional["Track"]:
-        """上一曲"""
+        """Previous track"""
         ...
     
     def seek(self, position_ms: int) -> None:
-        """跳转到指定位置"""
+        """Seek to a specified position"""
         ...
     
     def set_volume(self, volume: float) -> None:
-        """设置音量 (0.0 - 1.0)"""
+        """Set volume (0.0 - 1.0)"""
         ...
     
     def get_volume(self) -> float:
-        """获取当前音量"""
+        """Get current volume"""
         ...
     
     @property
     def is_playing(self) -> bool:
-        """是否正在播放"""
+        """Whether music is currently playing"""
         ...
     
     @property
     def current_track(self) -> Optional["Track"]:
-        """当前播放的曲目"""
+        """Currently playing track"""
         ...
     
     @property
     def queue(self) -> List["Track"]:
-        """播放队列"""
+        """Playback queue"""
         ...
     
     def set_queue(self, tracks: List["Track"], start_index: int = 0) -> None:
-        """设置播放队列"""
+        """Set playback queue"""
         ...
     
     def toggle_play(self) -> None:
-        """切换播放/暂停"""
+        """Toggle play/pause"""
         ...
 
 
 # =============================================================================
-# 媒体库服务协议
+# Library Service Protocol
 # =============================================================================
 
 @runtime_checkable
 class ILibraryService(Protocol):
-    """媒体库服务接口"""
+    """Library Service Interface"""
     
     def scan_async(self, directories: List[str]) -> None:
-        """异步扫描目录"""
+        """Scan directories asynchronously"""
         ...
     
     def get_all_tracks(self) -> List["Track"]:
-        """获取所有曲目"""
+        """Get all tracks"""
         ...
     
     def get_track(self, track_id: str) -> Optional["Track"]:
-        """获取单个曲目"""
+        """Get a single track"""
         ...
     
     def search(self, query: str, limit: int = 50) -> Dict[str, Any]:
-        """搜索媒体库"""
+        """Search the library"""
         ...
     
     def get_track_count(self) -> int:
-        """获取曲目总数"""
+        """Get total track count"""
         ...
 
 
 # =============================================================================
-# 歌单服务协议
+# Playlist Service Protocol
 # =============================================================================
 
 @runtime_checkable
 class IPlaylistService(Protocol):
-    """歌单服务接口"""
+    """Playlist Service Interface"""
     
     def create(self, name: str, description: str = "") -> Any:
-        """创建歌单"""
+        """Create a playlist"""
         ...
     
     def get_all(self) -> List[Any]:
-        """获取所有歌单"""
+        """Get all playlists"""
         ...
     
     def get(self, playlist_id: str) -> Optional[Any]:
-        """获取单个歌单"""
+        """Get a single playlist"""
         ...
     
     def add_track(self, playlist_id: str, track_id: str) -> bool:
-        """添加曲目到歌单"""
+        """Add a track to a playlist"""
         ...
     
     def remove_track(self, playlist_id: str, track_id: str) -> bool:
-        """从歌单移除曲目"""
+        """Remove a track from a playlist"""
         ...

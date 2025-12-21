@@ -1,9 +1,9 @@
 """
-DSP (Digital Signal Processing) 模块
+DSP (Digital Signal Processing) Module
 
-提供音频处理相关功能：
-- BiquadFilter: 双二阶滤波器
-- EqualizerProcessor: 10 频段 EQ 处理器
+Provides audio processing related functions:
+- BiquadFilter: Biquad filter
+- EqualizerProcessor: 10-band EQ processor
 """
 
 from core.dsp.biquad_filter import BiquadFilter

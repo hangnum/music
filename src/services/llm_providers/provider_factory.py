@@ -1,7 +1,7 @@
 """
-LLM 提供商工厂
+LLM Provider Factory
 
-根据配置创建对应的 LLM 提供商实例。
+Creates the corresponding LLM provider instance based on configuration.
 """
 
 from __future__ import annotations
@@ -16,21 +16,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# 可用的提供商列表
+# List of available providers
 AVAILABLE_PROVIDERS = ["siliconflow", "gemini"]
 
 
 def create_llm_provider(config: "ConfigService") -> LLMProvider:
-    """根据配置创建 LLM 提供商实例
+    """Create an LLM provider instance based on configuration.
     
     Args:
-        config: 配置服务实例
+        config: Configuration service instance.
     
     Returns:
-        对应的 LLM 提供商实例
+        The corresponding LLM provider instance.
     
     Raises:
-        LLMProviderError: 当提供商未知或配置错误时
+        LLMProviderError: If the provider is unknown or configuration is incorrect.
     """
     provider_name = str(config.get("llm.provider", "siliconflow")).strip().lower()
     
@@ -45,5 +45,5 @@ def create_llm_provider(config: "ConfigService") -> LLMProvider:
     else:
         available = ", ".join(AVAILABLE_PROVIDERS)
         raise LLMProviderError(
-            f"未知的 LLM 提供商: {provider_name}。可用选项: {available}"
+            f"Unknown LLM provider: {provider_name}. Available options: {available}"
         )

@@ -1,5 +1,5 @@
 """
-服务层测试
+Service Layer Tests
 """
 
 import pytest
@@ -9,7 +9,7 @@ import shutil
 
 
 class TestConfigService:
-    """配置服务测试"""
+    """Configuration Service Tests"""
     
     def setup_method(self):
         from services.config_service import ConfigService
@@ -23,7 +23,7 @@ class TestConfigService:
         shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def test_singleton(self):
-        """测试单例模式"""
+        """Test singleton pattern."""
         from services.config_service import ConfigService
         
         config1 = ConfigService(self._config_path)
@@ -31,18 +31,18 @@ class TestConfigService:
         assert config1 is config2
     
     def test_get_default(self):
-        """测试获取默认配置"""
+        """Test getting default configuration."""
         from services.config_service import ConfigService
         
         config = ConfigService(self._config_path)
         
-        # 测试嵌套获取（只验证返回类型和有效范围，不依赖配置文件内容）
+        # Test nested fetch (validates return type and range, independent of file content)
         volume = config.get("playback.default_volume", 0.5)
         assert isinstance(volume, (int, float))
         assert 0.0 <= volume <= 1.0
     
     def test_set_and_get(self):
-        """测试设置和获取"""
+        """Test set and get operations."""
         from services.config_service import ConfigService
         
         config = ConfigService(self._config_path)
@@ -52,7 +52,7 @@ class TestConfigService:
 
 
 class TestPlaylistService:
-    """播放列表服务测试"""
+    """Playlist Service Tests"""
     
     def setup_method(self):
         from core.database import DatabaseManager
@@ -67,32 +67,32 @@ class TestPlaylistService:
         shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def test_create_playlist(self):
-        """测试创建播放列表"""
+        """Test playlist creation."""
         from services.playlist_service import PlaylistService
         
         service = PlaylistService(self.db)
-        playlist = service.create("测试列表", "这是描述")
+        playlist = service.create("Test Playlist", "This is a description")
         
-        assert playlist.name == "测试列表"
-        assert playlist.description == "这是描述"
+        assert playlist.name == "Test Playlist"
+        assert playlist.description == "This is a description"
     
     def test_get_playlist(self):
-        """测试获取播放列表"""
+        """Test fetching a playlist."""
         from services.playlist_service import PlaylistService
         
         service = PlaylistService(self.db)
-        created = service.create("测试列表")
+        created = service.create("Test Playlist")
         
         fetched = service.get(created.id)
         assert fetched is not None
-        assert fetched.name == "测试列表"
+        assert fetched.name == "Test Playlist"
     
     def test_delete_playlist(self):
-        """测试删除播放列表"""
+        """Test playlist deletion."""
         from services.playlist_service import PlaylistService
         
         service = PlaylistService(self.db)
-        playlist = service.create("待删除")
+        playlist = service.create("To Delete")
         
         result = service.delete(playlist.id)
         assert result == True
@@ -102,7 +102,7 @@ class TestPlaylistService:
 
 
 class TestLibraryService:
-    """媒体库服务测试"""
+    """Library Service Tests"""
     
     def setup_method(self):
         from core.database import DatabaseManager
@@ -117,7 +117,7 @@ class TestLibraryService:
         shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def test_get_all_tracks_empty(self):
-        """测试空库获取曲目"""
+        """Test fetching tracks from an empty library."""
         from services.library_service import LibraryService
         
         service = LibraryService(self.db)
@@ -126,18 +126,18 @@ class TestLibraryService:
         assert len(tracks) == 0
     
     def test_search_empty(self):
-        """测试空库搜索"""
+        """Test searching an empty library."""
         from services.library_service import LibraryService
         
         service = LibraryService(self.db)
-        results = service.search("测试")
+        results = service.search("test")
         
         assert len(results["tracks"]) == 0
         assert len(results["albums"]) == 0
         assert len(results["artists"]) == 0
     
     def test_get_track_count(self):
-        """测试曲目计数"""
+        """Test track count retrieval."""
         from services.library_service import LibraryService
         
         service = LibraryService(self.db)
@@ -146,18 +146,19 @@ class TestLibraryService:
         assert count == 0
 
     def test_query_tracks_by_genre(self):
+        """Test querying tracks by genre."""
         from services.library_service import LibraryService
 
         service = LibraryService(self.db)
 
-        # 插入一些曲目（不依赖扫描/元数据）
+        # Insert some tracks (no dependencies on scanning or metadata)
         self.db.insert(
             "tracks",
             {
                 "id": "t1",
                 "title": "Rock Song",
                 "file_path": "rock1.mp3",
-                "genre": "摇滚",
+                "genre": "Rock",
                 "artist_name": "A",
                 "album_name": "X",
                 "track_number": 1,
@@ -169,22 +170,22 @@ class TestLibraryService:
                 "id": "t2",
                 "title": "Pop Song",
                 "file_path": "pop1.mp3",
-                "genre": "流行",
+                "genre": "Pop",
                 "artist_name": "B",
                 "album_name": "Y",
                 "track_number": 1,
             },
         )
 
-        tracks = service.query_tracks(genre="摇滚", limit=10, shuffle=False)
+        tracks = service.query_tracks(genre="Rock", limit=10, shuffle=False)
         assert [t.id for t in tracks] == ["t1"]
 
 
 class TestPlayerService:
-    """播放服务测试"""
+    """Player Service Tests"""
     
     def test_initial_state(self):
-        """测试初始状态"""
+        """Test initial playback state."""
         from services.player_service import PlayerService, PlayMode
         from unittest.mock import MagicMock
         
@@ -200,7 +201,7 @@ class TestPlayerService:
         assert len(player.queue) == 0
     
     def test_set_queue(self):
-        """测试设置队列"""
+        """Test setting the playback queue."""
         from services.player_service import PlayerService
         from models.track import Track
         from unittest.mock import MagicMock
@@ -214,7 +215,7 @@ class TestPlayerService:
         assert len(player.queue) == 5
     
     def test_play_mode_cycle(self):
-        """测试播放模式切换"""
+        """Test play mode switching."""
         from services.player_service import PlayerService, PlayMode
         from unittest.mock import MagicMock
         
@@ -227,7 +228,7 @@ class TestPlayerService:
         assert player.get_play_mode() != initial_mode
 
     def test_track_started_published_synchronously(self):
-        """TRACK_STARTED 应在 play() 返回前触发（避免跨线程 UI 崩溃）"""
+        """TRACK_STARTED should fire before play() returns (to avoid cross-thread UI crashes)."""
         from services.player_service import PlayerService
         from core.event_bus import EventBus, EventType
         from core.audio_engine import PlayerState

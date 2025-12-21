@@ -1,5 +1,5 @@
 """
-UI组件模块
+UI Widgets Module
 """
 
 from .player_controls import PlayerControls

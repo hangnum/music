@@ -1,9 +1,10 @@
 """
-LLM 队列管理服务测试
+LLM Queue Management Service Tests
 """
 
 from services.config_service import ConfigService
-from services.llm_queue_service import LLMQueueService, QueueReorderPlan
+from services.llm_queue_service import LLMQueueService
+from models.queue_plan import QueueReorderPlan
 from models.track import Track
 
 
@@ -161,14 +162,14 @@ def test_parse_plan_includes_library_request():
         queue = [t1]
 
         content = """{
-  "library_request": {"mode": "replace", "genre": "摇滚", "limit": 10, "shuffle": true},
+  "library_request": {"mode": "replace", "genre": "Rock", "limit": 10, "shuffle": true},
   "ordered_track_ids": [],
-  "reason": "调取摇滚"
+  "reason": "Fetch Rock"
 }"""
         svc = LLMQueueService(config=ConfigService("config/does_not_exist.yaml"), client=_FakeClient(content))
-        plan = svc.suggest_reorder("调取摇滚音乐进队列", queue, current_track_id="a")
+        plan = svc.suggest_reorder("fetch rock music into queue", queue, current_track_id="a")
         assert plan.library_request is not None
-        assert plan.library_request.genre == "摇滚"
+        assert plan.library_request.genre == "Rock"
         assert plan.library_request.mode == "replace"
         assert plan.ordered_track_ids == []
     finally:
@@ -182,19 +183,19 @@ def test_apply_plan_semantic_fallback_selects_tracks_when_no_genre_tags():
         t2 = Track(id="t2", title="Numb", artist_name="Linkin Park", album_name="Meteora")
         library = _DummyLibrary([t1, t2])
 
-        # apply_plan 会在 query_tracks 为空时触发语义筛选：
-        # 1) 每批返回 selected_track_ids
+        # apply_plan will trigger semantic selection when query_tracks is empty:
+        # 1) Returns selected_track_ids for each batch
         client = _FakeClientSeq(['{"selected_track_ids":["t2","t1"],"reason":"rock-ish"}'])
         svc = LLMQueueService(config=ConfigService("config/does_not_exist.yaml"), client=client)
 
         player = _DummyPlayer([Track(id="x", title="X")], current_index=0)
         plan = QueueReorderPlan(
             ordered_track_ids=[],
-            library_request=svc._parse_reorder_plan(
-                '{"library_request":{"mode":"replace","genre":"摇滚","limit":2,"semantic_fallback":true},"ordered_track_ids":[]}',
+            library_request=svc.parser.parse_reorder_plan(
+                '{"library_request":{"mode":"replace","genre":"Rock","limit":2,"semantic_fallback":true},"ordered_track_ids":[]}',
                 known_ids=set(),
             ).library_request,
-            instruction="从音乐库调取摇滚音乐进队列",
+            instruction="Fetch rock music from library into queue",
         )
 
         new_queue, new_index = svc.apply_plan(player, plan, library=library)
@@ -211,17 +212,17 @@ def test_resolve_plan_semantic_fallback_works_without_player_mutation():
         t2 = Track(id="t2", title="Numb", artist_name="Linkin Park", album_name="Meteora")
         library = _DummyLibrary([t1, t2])
 
-        # resolve_plan 会在 query_tracks 为空时触发语义筛选（需要 LLM 响应 selected_track_ids）
+        # resolve_plan will trigger semantic selection when query_tracks is empty (requires selected_track_ids from LLM)
         client = _FakeClientSeq(['{"selected_track_ids":["t1","t2"],"reason":"rock"}'])
         svc = LLMQueueService(config=ConfigService("config/does_not_exist.yaml"), client=client)
 
         plan = QueueReorderPlan(
             ordered_track_ids=[],
-            library_request=svc._parse_reorder_plan(
-                '{"library_request":{"mode":"replace","genre":"摇滚","limit":2,"semantic_fallback":true},"ordered_track_ids":[]}',
+            library_request=svc.parser.parse_reorder_plan(
+                '{"library_request":{"mode":"replace","genre":"Rock","limit":2,"semantic_fallback":true},"ordered_track_ids":[]}',
                 known_ids=set(),
             ).library_request,
-            instruction="给我生成一个摇滚队列",
+            instruction="Generate a rock queue for me",
         )
 
         resolved_queue, resolved_index = svc.resolve_plan(plan, queue=[], current_track_id=None, library=library)

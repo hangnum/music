@@ -1,7 +1,7 @@
 """
-10 频段 EQ 处理器
+10-Band EQ Processor
 
-使用级联 Biquad 滤波器实现均衡器处理。
+Implements equalizer processing using cascaded Biquad filters.
 """
 
 from __future__ import annotations
@@ -12,15 +12,15 @@ from typing import List
 from core.dsp.biquad_filter import BiquadFilter
 
 
-# EQ 频段中心频率 (Hz)
+# EQ band center frequencies (Hz)
 EQ_FREQUENCIES = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
 
 
 class EqualizerProcessor:
     """
-    10 频段 EQ 处理器
+    10-Band EQ Processor
     
-    使用级联 Biquad 滤波器实现
+    Implemented using cascaded Biquad filters.
     """
     
     def __init__(self, sample_rate: int = 44100):
@@ -30,41 +30,41 @@ class EqualizerProcessor:
         self._init_filters()
     
     def _init_filters(self) -> None:
-        """初始化 10 个频段滤波器"""
+        """Initialize filters for 10 bands."""
         self.filters = [
             BiquadFilter(self.sample_rate, freq, 0.0)
             for freq in EQ_FREQUENCIES
         ]
     
     def set_bands(self, bands: List[float]) -> None:
-        """设置各频段增益"""
+        """Set gains for each band."""
         for i, gain in enumerate(bands[:10]):
             if i < len(self.filters):
                 self.filters[i].set_gain(gain)
     
     def set_sample_rate(self, sample_rate: int) -> None:
-        """更新采样率"""
+        """Update sample rate."""
         if self.sample_rate != sample_rate:
             self.sample_rate = sample_rate
-            # 重新创建滤波器
+            # Recreate filters
             bands = [f.gain_db for f in self.filters]
             self._init_filters()
             self.set_bands(bands)
     
     def process(self, samples: array.array) -> array.array:
         """
-        处理音频数据
+        Process audio data.
         
         Args:
-            samples: 立体声交错采样
+            samples: Interleaved stereo samples.
             
         Returns:
-            EQ 处理后的采样
+            Samples after EQ processing.
         """
         if not self.enabled:
             return samples
         
-        # 级联处理每个频段
+        # Process each band in cascade.
         result = samples
         for filt in self.filters:
             if filt.gain_db != 0.0:
@@ -73,6 +73,6 @@ class EqualizerProcessor:
         return result
     
     def reset(self) -> None:
-        """重置所有滤波器状态"""
+        """Reset all filter states."""
         for filt in self.filters:
             filt.reset()

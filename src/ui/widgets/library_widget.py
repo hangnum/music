@@ -1,9 +1,13 @@
 """
-媒体库浏览组件
+Media Library Browser Component
 
-显示媒体库中的所有曲目，支持搜索和排序。
-使用 Model-View 架构实现虚拟化渲染，优化大列表性能。
+Displays all tracks in the media library with support for search and sorting.
+Uses Model-View architecture to implement virtualized rendering for optimal performance with large lists.
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -13,18 +17,15 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QRectF
 from PyQt6.QtGui import QAction, QPainter, QColor, QBrush, QPen
-from typing import List
 
 from models.track import Track
-from services.library_service import LibraryService
-from services.player_service import PlayerService
-from services.playlist_service import PlaylistService
-from services.favorites_service import FavoritesService
-from services.tag_service import TagService
-from core.event_bus import EventBus, EventType
+from app.events import EventType
 from ui.models.track_table_model import TrackTableModel, TrackFilterProxyModel
 from ui.resources.design_tokens import tokens
 from ui.styles.theme_manager import ThemeManager
+
+if TYPE_CHECKING:
+    from services.music_app_facade import MusicAppFacade
 
 
 class TagDelegate(QStyledItemDelegate):
@@ -87,30 +88,31 @@ class TagDelegate(QStyledItemDelegate):
 
 class LibraryWidget(QWidget):
     """
-    媒体库浏览组件
-    
-    显示所有曲目，支持搜索、排序和播放操作。
+    Media library browser component
+
+    Displays all tracks with support for search, sorting, and playback operations.
     """
     
     track_double_clicked = pyqtSignal(Track)
     add_to_queue = pyqtSignal(Track)
     
-    def __init__(self, library_service: LibraryService,
-                 player_service: PlayerService, 
-                 playlist_service: PlaylistService = None,
-                 favorites_service: FavoritesService = None,
-                 tag_service: TagService = None,
-                 llm_tagging_service=None,
-                 parent=None):
+    def __init__(
+        self,
+        facade: "MusicAppFacade",
+        llm_tagging_service=None,
+        parent=None
+    ):
+        """Initialize media library component
+
+        Args:
+            facade: Application facade providing access to all services
+            llm_tagging_service: LLM tagging service (optional)
+            parent: Parent component
+        """
         super().__init__(parent)
-        self.library = library_service
-        self.player = player_service
-        self._playlist_service = playlist_service
-        self._favorites_service = favorites_service
-        self._tag_service = tag_service
+        self._facade = facade
         self._llm_tagging_service = llm_tagging_service
-        self.event_bus = EventBus()
-        self._favorite_ids = set()
+        self._favorite_ids: set = set()
         
         self.all_tracks: List[Track] = []
         
@@ -119,42 +121,42 @@ class LibraryWidget(QWidget):
         self._load_tracks()
     
     def _setup_ui(self):
-        """设置UI"""
+        """Set up UI"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 16)
         layout.setSpacing(16)
-        
-        # 标题和搜索栏
+
+        # Title and search bar
         header = QHBoxLayout()
-        
-        title = QLabel("媒体库")
+
+        title = QLabel("Media Library")
         title.setObjectName("titleLabel")
         title.setStyleSheet(ThemeManager.get_title_label_style())
         header.addWidget(title)
-        
+
         header.addStretch()
-        
-        # 搜索框
+
+        # Search box
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("搜索曲目...")
+        self.search_input.setPlaceholderText("Search tracks...")
         self.search_input.setFixedWidth(250)
         self.search_input.textChanged.connect(self._on_search)
         header.addWidget(self.search_input)
-        
-        # 刷新按钮
-        self.refresh_btn = QPushButton("刷新")
+
+        # Refresh button
+        self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.setFixedWidth(60)
         self.refresh_btn.clicked.connect(self._load_tracks)
         header.addWidget(self.refresh_btn)
         
         layout.addLayout(header)
-        
-        # 统计信息
+
+        # Statistics
         self.stats_label = QLabel()
         self.stats_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.stats_label)
-        
-        # 曲目表格 - 使用 Model-View 架构
+
+        # Track table - using Model-View architecture
         self._source_model = TrackTableModel()
         self._proxy_model = TrackFilterProxyModel()
         self._proxy_model.setSourceModel(self._source_model)
@@ -162,7 +164,7 @@ class LibraryWidget(QWidget):
         self.table = QTableView()
         self.table.setModel(self._proxy_model)
         
-        # 表头设置
+        # Header settings
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -172,21 +174,21 @@ class LibraryWidget(QWidget):
         self.table.setColumnWidth(3, 70)
         self.table.setColumnWidth(4, 60)
         self.table.setColumnWidth(5, 80)
-        
-        # 视图属性
+
+        # View properties
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         self.table.setShowGrid(False)
         self.table.setAlternatingRowColors(True)
-        
-        # 性能优化：统一行高
+
+        # Performance optimization: uniform row height
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
-        self.table.verticalHeader().setDefaultSectionSize(50) # 增加行高以容纳 Tag Chips
-        
-        # 设置 Tag 列的 Delegate (假设第3列是 Genre/Tags)
-        # 注意：需要确认 TrackTableModel 的列定义，通常 Genre 是第3列
+        self.table.verticalHeader().setDefaultSectionSize(50) # Increase row height to accommodate Tag Chips
+
+        # Set Tag column Delegate (assuming column 3 is Genre/Tags)
+        # Note: Need to confirm TrackTableModel column definition, usually Genre is column 3
         self.table.setItemDelegateForColumn(3, TagDelegate(self.table))
         
         self.table.setStyleSheet(f"""
@@ -207,60 +209,60 @@ class LibraryWidget(QWidget):
         layout.addWidget(self.table)
     
     def _connect_signals(self):
-        """连接信号"""
-        self.event_bus.subscribe(EventType.LIBRARY_SCAN_COMPLETED, 
-                                  self._on_scan_completed)
-        self.event_bus.subscribe(EventType.TRACK_ADDED, self._on_track_added)
-        self.event_bus.subscribe(EventType.PLAYLIST_UPDATED, self._on_playlist_updated)
-        self.event_bus.subscribe(EventType.PLAYLIST_DELETED, self._on_playlist_deleted)
+        """Connect signals"""
+        self._facade.subscribe(EventType.LIBRARY_SCAN_COMPLETED, 
+                               self._on_scan_completed)
+        self._facade.subscribe(EventType.TRACK_ADDED, self._on_track_added)
+        self._facade.subscribe(EventType.PLAYLIST_UPDATED, self._on_playlist_updated)
+        self._facade.subscribe(EventType.PLAYLIST_DELETED, self._on_playlist_deleted)
     
     def _load_tracks(self):
-        """加载所有曲目"""
-        self.all_tracks = self.library.get_all_tracks()
+        """Load all tracks"""
+        self.all_tracks = self._facade.get_all_tracks()
         self._display_tracks(self.all_tracks)
         self._refresh_favorites()
-    
+
     def _display_tracks(self, tracks: List[Track]):
-        """显示曲目列表 - 使用 Model 实现 O(1) 更新"""
+        """Display track list - using Model for O(1) updates"""
         self._source_model.setTracks(tracks)
         self._update_stats(tracks)
-    
+
     def _update_stats(self, tracks: List[Track]):
-        """更新统计信息"""
+        """Update statistics"""
         total_duration = sum(t.duration_ms for t in tracks)
         hours = total_duration // 3600000
         minutes = (total_duration % 3600000) // 60000
         self.stats_label.setText(
-            f"{len(tracks)} 首曲目 · {hours}小时{minutes}分钟"
+            f"{len(tracks)} tracks · {hours}h {minutes}m"
         )
-    
+
     def _on_search(self, text: str):
-        """搜索曲目 - 使用代理模型过滤"""
+        """Search tracks - using proxy model for filtering"""
         self._proxy_model.setFilterText(text)
-        # 更新统计为过滤后的数量
+        # Update statistics for filtered count
         filtered_count = self._proxy_model.rowCount()
         if text:
-            self.stats_label.setText(f"找到 {filtered_count} 首曲目")
+            self.stats_label.setText(f"Found {filtered_count} tracks")
         else:
             self._update_stats(self.all_tracks)
-    
+
     def _on_row_double_clicked(self, index):
-        """双击行"""
-        # 通过代理模型获取源模型索引
+        """Row double-clicked"""
+        # Get source model index through proxy model
         source_index = self._proxy_model.mapToSource(index)
         track = self._source_model.getTrack(source_index.row())
-        
+
         if track:
-            # 将当前视图中的所有曲目添加到队列
+            # Add all currently visible tracks to queue
             visible_tracks = self._get_visible_tracks()
             track_index = next((i for i, t in enumerate(visible_tracks) 
                                if t.id == track.id), 0)
-            self.player.set_queue(visible_tracks, track_index)
-            self.player.play()
+            self._facade.set_queue(visible_tracks, track_index)
+            self._facade.play()
             self.track_double_clicked.emit(track)
     
     def _get_visible_tracks(self) -> List[Track]:
-        """获取当前显示的所有曲目（过滤后）"""
+        """Get all currently displayed tracks (filtered)"""
         tracks = []
         for row in range(self._proxy_model.rowCount()):
             source_index = self._proxy_model.mapToSource(
@@ -272,64 +274,38 @@ class LibraryWidget(QWidget):
         return tracks
     
     def _refresh_favorites(self) -> None:
-        """刷新收藏状态"""
-        if not self._favorites_service:
-            self._favorite_ids = set()
-            self._source_model.setFavoriteIds(self._favorite_ids)
-            return
-
-        self._favorite_ids = self._favorites_service.get_favorite_ids()
+        """Refresh favorites status"""
+        self._favorite_ids = self._facade.get_favorite_ids()
         self._source_model.setFavoriteIds(self._favorite_ids)
 
     def _set_favorite_for_tracks(self, tracks: List[Track], make_favorite: bool) -> None:
-        """设置曲目收藏状态"""
-        if not self._favorites_service:
-            return
-
+        """Set favorite status for tracks"""
         if make_favorite:
-            self._favorites_service.add_tracks(tracks)
+            self._facade.add_to_favorites(tracks)
         else:
-            self._favorites_service.remove_tracks([t.id for t in tracks])
+            self._facade.remove_from_favorites([t.id for t in tracks])
 
         self._refresh_favorites()
 
     def _on_playlist_updated(self, playlist) -> None:
-        """歌单更新时刷新收藏"""
-        if not self._favorites_service:
-            return
-
-        try:
-            favorites_id = self._favorites_service.get_playlist_id()
-        except Exception:
-            return
-
-        if hasattr(playlist, "id") and playlist.id == favorites_id:
-            self._refresh_favorites()
+        """Refresh favorites when playlist updated"""
+        # Simplified implementation: refresh favorites on any playlist update
+        self._refresh_favorites()
 
     def _on_playlist_deleted(self, playlist_id: str) -> None:
-        """歌单删除时重建收藏歌单"""
-        if not self._favorites_service:
-            return
-
-        try:
-            favorites_id = self._favorites_service.get_playlist_id()
-        except Exception:
-            return
-
-        if playlist_id == favorites_id:
-            self._favorites_service.get_or_create_playlist()
-            self._refresh_favorites()
+        """Refresh favorites when playlist deleted"""
+        self._refresh_favorites()
 
 
     def _show_context_menu(self, pos):
-        """显示右键菜单"""
+        """Show context menu"""
         rows = set(index.row() for index in self.table.selectedIndexes())
         if not rows:
             return
-        
+
         menu = QMenu(self)
-        
-        # 获取选中的曲目
+
+        # Get selected tracks
         selected_tracks = []
         for row in rows:
             source_index = self._proxy_model.mapToSource(
@@ -341,61 +317,61 @@ class LibraryWidget(QWidget):
         
         if len(selected_tracks) == 1:
             track = selected_tracks[0]
-            
-            play_now = QAction("立即播放", self)
+
+            play_now = QAction("Play Now", self)
             play_now.triggered.connect(lambda: self._play_track(track))
             menu.addAction(play_now)
-            
-            play_next = QAction("下一首播放", self)
-            play_next.triggered.connect(lambda: self.player.insert_next(track))
+
+            play_next = QAction("Play Next", self)
+            play_next.triggered.connect(lambda: self._facade._player.insert_next(track))
             menu.addAction(play_next)
-        
-        add_to_queue = QAction(f"添加到队列 ({len(selected_tracks)}首)", self)
+
+        add_to_queue = QAction(f"Add to Queue ({len(selected_tracks)} tracks)", self)
         add_to_queue.triggered.connect(lambda: self._add_tracks_to_queue(selected_tracks))
         menu.addAction(add_to_queue)
 
-        if self._favorites_service:
+        # Favorites feature
+        if self._facade.favorites_service:
             all_favorite = all(t.id in self._favorite_ids for t in selected_tracks)
             if all_favorite:
-                label = "从收藏移除"
+                label = "Remove from Favorites"
                 make_favorite = False
             else:
-                label = f"添加到收藏 ({len(selected_tracks)}首)"
+                label = f"Add to Favorites ({len(selected_tracks)} tracks)"
                 make_favorite = True
             favorite_action = QAction(label, self)
             favorite_action.triggered.connect(
                 lambda: self._set_favorite_for_tracks(selected_tracks, make_favorite)
             )
             menu.addAction(favorite_action)
-        
-        # 添加到歌单子菜单
-        if self._playlist_service:
-            playlist_menu = menu.addMenu(f"添加到歌单 ({len(selected_tracks)}首)")
-            playlists = self._playlist_service.get_all()
-            
-            if playlists:
-                for playlist in playlists:
-                    action = QAction(f"🎵 {playlist.name}", self)
-                    # 使用闭包捕获 playlist.id
-                    action.triggered.connect(
-                        lambda checked, pid=playlist.id: self._add_to_playlist(pid, selected_tracks)
-                    )
-                    playlist_menu.addAction(action)
-            else:
-                no_playlist = QAction("(暂无歌单)", self)
-                no_playlist.setEnabled(False)
-                playlist_menu.addAction(no_playlist)
+
+        # Add to playlist submenu
+        playlist_menu = menu.addMenu(f"Add to Playlist ({len(selected_tracks)} tracks)")
+        playlists = self._facade.get_playlists()
+
+        if playlists:
+            for playlist in playlists:
+                action = QAction(f"🎵 {playlist.name}", self)
+                # Use closure to capture playlist.id
+                action.triggered.connect(
+                    lambda checked, pid=playlist.id: self._add_to_playlist(pid, selected_tracks)
+                )
+                playlist_menu.addAction(action)
+        else:
+            no_playlist = QAction("(No playlists)", self)
+            no_playlist.setEnabled(False)
+            playlist_menu.addAction(no_playlist)
         
         menu.addSeparator()
         
-        # 管理标签
-        manage_tags = QAction(f"管理标签 ({len(selected_tracks)}首)", self)
+        # Manage tags
+        manage_tags = QAction(f"Manage Tags ({len(selected_tracks)} tracks)", self)
         manage_tags.triggered.connect(lambda: self._show_tag_dialog(selected_tracks))
         menu.addAction(manage_tags)
-        
-        # AI 精细标注（仅单曲）
+
+        # AI Detailed Tagging (single track only)
         if len(selected_tracks) == 1:
-            ai_tagging = QAction("🤖 AI 精细标注", self)
+            ai_tagging = QAction("🤖 AI Detailed Tagging", self)
             ai_tagging.triggered.connect(
                 lambda: self._show_detailed_tagging_dialog(selected_tracks[0])
             )
@@ -404,62 +380,59 @@ class LibraryWidget(QWidget):
         menu.exec(self.table.viewport().mapToGlobal(pos))
     
     def _play_track(self, track: Track):
-        """播放曲目"""
+        """Play track"""
         visible_tracks = self._get_visible_tracks()
-        track_index = next((i for i, t in enumerate(visible_tracks) 
+        track_index = next((i for i, t in enumerate(visible_tracks)
                            if t.id == track.id), 0)
-        self.player.set_queue(visible_tracks, track_index)
-        self.player.play()
-    
+        self._facade.set_queue(visible_tracks, track_index)
+        self._facade.play()
+
     def _add_tracks_to_queue(self, tracks: List[Track]):
-        """添加曲目到队列"""
+        """Add tracks to queue"""
         for track in tracks:
-            self.player.add_to_queue(track)
+            self._facade._player.add_to_queue(track)
             self.add_to_queue.emit(track)
-    
+
     def _add_to_playlist(self, playlist_id: str, tracks: List[Track]):
-        """添加曲目到歌单"""
-        if not self._playlist_service:
-            return
-        
+        """Add tracks to playlist"""
         for track in tracks:
-            self._playlist_service.add_track(playlist_id, track)
-    
+            self._facade.add_track_to_playlist(playlist_id, track.id)
+
     def _show_tag_dialog(self, tracks: List[Track]):
-        """显示标签管理对话框"""
+        """Show tag management dialog"""
         from ui.dialogs.tag_dialog import TagDialog
         from PyQt6.QtWidgets import QMessageBox
-        
-        if self._tag_service is None:
+
+        if self._facade.tag_service is None:
             QMessageBox.warning(
-                self, "标签服务不可用",
-                "标签服务未初始化。"
+                self, "Tag Service Unavailable",
+                "Tag service is not initialized."
             )
             return
-        
-        dialog = TagDialog(tracks, self._tag_service, self)
+
+        dialog = TagDialog(tracks, self._facade.tag_service, self)
         dialog.exec()
-    
+
     def _on_scan_completed(self, data):
-        """扫描完成"""
+        """Scan completed"""
         self._load_tracks()
-    
+
     def _on_track_added(self, track):
-        """新曲目添加"""
-        pass  # 可以增量更新
-    
+        """New track added"""
+        pass  # Can implement incremental updates
+
     def _show_detailed_tagging_dialog(self, track: Track):
-        """显示 AI 精细标注对话框"""
+        """Show AI detailed tagging dialog"""
         from ui.dialogs.detailed_tagging_dialog import DetailedTaggingDialog
         from PyQt6.QtWidgets import QMessageBox
-        
+
         if self._llm_tagging_service is None:
             QMessageBox.warning(
-                self, "AI 标注不可用",
-                "LLM 标签标注服务未初始化。\n请检查 LLM API Key 配置。"
+                self, "AI Tagging Unavailable",
+                "LLM tag annotation service is not initialized.\nPlease check LLM API Key configuration."
             )
             return
-        
+
         dialog = DetailedTaggingDialog(track, self._llm_tagging_service, self)
         dialog.tagging_completed.connect(lambda _: self._load_tracks())
         dialog.exec()

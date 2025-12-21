@@ -1,7 +1,7 @@
 """
-UI 数据模型模块
+UI Data Models Module
 
-提供 Model-View 架构的数据模型类。
+Provides data model classes for the Model-View architecture.
 """
 
 from ui.models.track_table_model import TrackTableModel

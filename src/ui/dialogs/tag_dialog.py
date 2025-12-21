@@ -1,7 +1,7 @@
 """
-标签管理对话框
+Tag Management Dialog
 
-用于为曲目添加和管理标签。
+Used for adding and managing tags for tracks.
 """
 
 from PyQt6.QtWidgets import (
@@ -12,18 +12,17 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor
-from typing import List, Optional
+from typing import List
 
 from models.track import Track
 from models.tag import Tag
 from services.tag_service import TagService
-from core.database import DatabaseManager
 from ui.resources.design_tokens import tokens
 from ui.styles.theme_manager import ThemeManager
 
 
 class TagChip(QWidget):
-    """标签芯片组件"""
+    """Tag chip component"""
     
     toggled = pyqtSignal(str, bool)  # tag_id, is_checked
     
@@ -40,12 +39,12 @@ class TagChip(QWidget):
         self.checkbox.stateChanged.connect(self._on_state_changed)
         layout.addWidget(self.checkbox)
         
-        # 颜色指示器
+        # Color indicator
         color_dot = QLabel("●")
         color_dot.setStyleSheet(f"color: {tag.color}; font-size: {tokens.FONT_SIZE_XS}px;")
         layout.addWidget(color_dot)
-        
-        # 标签名
+
+        # Tag name
         name_label = QLabel(tag.name)
         name_label.setStyleSheet(f"color: {tokens.NEUTRAL_200};")
         layout.addWidget(name_label)
@@ -61,61 +60,68 @@ class TagChip(QWidget):
 
 class TagDialog(QDialog):
     """
-    标签管理对话框
-    
-    用于管理选中曲目的标签。
+    Tag Management Dialog
+
+    Used for managing tags of selected tracks.
     """
     
-    tags_updated = pyqtSignal()  # 标签更新后发出信号
+    tags_updated = pyqtSignal()  # Signal emitted when tags are updated
     
-    def __init__(self, tracks: List[Track], 
-                 tag_service: Optional[TagService] = None,
+    def __init__(self, tracks: List[Track],
+                 tag_service: TagService,
                  parent=None):
+        """Initialize tag management dialog
+
+        Args:
+            tracks: List of tracks to manage tags for
+            tag_service: Tag service (must be provided, no longer supports fallback)
+            parent: Parent component
+        """
         super().__init__(parent)
         
         self.tracks = tracks
-        self.tag_service = tag_service or TagService(DatabaseManager())
+        self.tag_service = tag_service
         
-        # 记录每个标签的选中状态：tag_id -> bool
+        # Record selection state for each tag: tag_id -> bool
         self._tag_states: dict[str, bool] = {}
-        # 记录初始状态，用于检测变化
+        # Record initial states for change detection
         self._initial_states: dict[str, bool] = {}
         
         self._setup_ui()
         self._load_tags()
     
     def _setup_ui(self):
-        """设置UI"""
-        self.setWindowTitle("管理标签")
+        """Set up UI"""
+        self.setWindowTitle("Manage Tags")
         self.setMinimumWidth(400)
         self.setMinimumHeight(500)
         
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
         
-        # 标题
+        # Title
         if len(self.tracks) == 1:
-            title_text = f"为 \"{self.tracks[0].title}\" 管理标签"
+            title_text = f"Manage tags for \"{self.tracks[0].title}\""
         else:
-            title_text = f"为 {len(self.tracks)} 首曲目管理标签"
+            title_text = f"Manage tags for {len(self.tracks)} tracks"
         
         title = QLabel(title_text)
         title.setStyleSheet(f"font-size: {tokens.FONT_SIZE_LG}px; font-weight: bold; color: {tokens.NEUTRAL_200};")
         title.setWordWrap(True)
         layout.addWidget(title)
         
-        # 分隔线
+        # Separator line
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setStyleSheet(f"background-color: {tokens.NEUTRAL_700};")
         layout.addWidget(line)
-        
-        # 标签列表区域
-        tags_label = QLabel("选择标签:")
+
+        # Tag list area
+        tags_label = QLabel("Select tags:")
         tags_label.setStyleSheet(f"color: {tokens.NEUTRAL_500};")
         layout.addWidget(tags_label)
-        
-        # 可滚动的标签列表
+
+        # Scrollable tag list
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet(f"""
@@ -134,21 +140,21 @@ class TagDialog(QDialog):
         
         layout.addWidget(scroll, 1)
         
-        # 分隔线
+        # Separator line
         line2 = QFrame()
         line2.setFrameShape(QFrame.Shape.HLine)
         line2.setStyleSheet(f"background-color: {tokens.NEUTRAL_700};")
         layout.addWidget(line2)
-        
-        # 创建新标签区域
-        create_label = QLabel("创建新标签:")
+
+        # Create new tag area
+        create_label = QLabel("Create new tag:")
         create_label.setStyleSheet(f"color: {tokens.NEUTRAL_500};")
         layout.addWidget(create_label)
         
         create_row = QHBoxLayout()
         
         self.new_tag_input = QLineEdit()
-        self.new_tag_input.setPlaceholderText("输入标签名...")
+        self.new_tag_input.setPlaceholderText("Enter tag name...")
         self.new_tag_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {tokens.NEUTRAL_800};
@@ -170,18 +176,18 @@ class TagDialog(QDialog):
         self.color_btn.clicked.connect(self._pick_color)
         create_row.addWidget(self.color_btn)
         
-        self.add_btn = QPushButton("添加")
+        self.add_btn = QPushButton("Add")
         self.add_btn.setStyleSheet(ThemeManager.get_primary_button_style())
         self.add_btn.clicked.connect(self._create_tag)
         create_row.addWidget(self.add_btn)
         
         layout.addLayout(create_row)
         
-        # 底部按钮
+        # Bottom buttons
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch()
-        
-        cancel_btn = QPushButton("取消")
+
+        cancel_btn = QPushButton("Cancel")
         cancel_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {tokens.NEUTRAL_750};
@@ -197,14 +203,14 @@ class TagDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         buttons_layout.addWidget(cancel_btn)
         
-        save_btn = QPushButton("保存")
+        save_btn = QPushButton("Save")
         save_btn.setStyleSheet(ThemeManager.get_primary_button_style())
         save_btn.clicked.connect(self._save)
         buttons_layout.addWidget(save_btn)
         
         layout.addLayout(buttons_layout)
         
-        # 设置对话框样式
+        # Set dialog style
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {tokens.NEUTRAL_850};
@@ -212,7 +218,7 @@ class TagDialog(QDialog):
         """)
     
     def _update_color_button(self):
-        """更新颜色按钮显示"""
+        """Update color button display"""
         self.color_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {self._current_color};
@@ -225,19 +231,19 @@ class TagDialog(QDialog):
         """)
     
     def _pick_color(self):
-        """打开颜色选择器"""
+        """Open color picker"""
         color = QColorDialog.getColor(
-            QColor(self._current_color), 
-            self, 
-            "选择标签颜色"
+            QColor(self._current_color),
+            self,
+            "Select Tag Color"
         )
         if color.isValid():
             self._current_color = color.name()
             self._update_color_button()
     
     def _load_tags(self):
-        """加载所有标签并显示"""
-        # 清空现有标签
+        """Load all tags and display"""
+        # Clear existing tags
         while self.tags_layout.count():
             item = self.tags_layout.takeAt(0)
             if item.widget():
@@ -246,20 +252,20 @@ class TagDialog(QDialog):
         all_tags = self.tag_service.get_all_tags()
         
         if not all_tags:
-            empty = QLabel("暂无标签，请先创建")
+            empty = QLabel("No tags available, please create one first")
             empty.setStyleSheet(f"color: {tokens.NEUTRAL_500}; padding: 20px;")
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.tags_layout.addWidget(empty)
             return
         
-        # 获取选中曲目已有的标签
+        # Get existing tags for selected tracks
         track_tag_ids = set()
         for track in self.tracks:
             tags = self.tag_service.get_track_tags(track.id)
             for tag in tags:
                 track_tag_ids.add(tag.id)
         
-        # 创建标签芯片
+        # Create tag chips
         for tag in all_tags:
             is_checked = tag.id in track_tag_ids
             chip = TagChip(tag, is_checked, self)
@@ -270,38 +276,38 @@ class TagDialog(QDialog):
             self._initial_states[tag.id] = is_checked
     
     def _on_tag_toggled(self, tag_id: str, is_checked: bool):
-        """标签选中状态变化"""
+        """Tag selection state changed"""
         self._tag_states[tag_id] = is_checked
     
     def _create_tag(self):
-        """创建新标签"""
+        """Create new tag"""
         name = self.new_tag_input.text().strip()
         if not name:
-            QMessageBox.warning(self, "提示", "请输入标签名称")
+            QMessageBox.warning(self, "Tip", "Please enter a tag name")
             return
-        
-        # 检查是否已存在
+
+        # Check if already exists
         existing = self.tag_service.get_tag_by_name(name)
         if existing:
-            QMessageBox.warning(self, "提示", f"标签 \"{name}\" 已存在")
+            QMessageBox.warning(self, "Tip", f"Tag \"{name}\" already exists")
             return
-        
-        # 创建标签
+
+        # Create tag
         tag = self.tag_service.create_tag(name, self._current_color)
         if tag:
             self.new_tag_input.clear()
             self._current_color = tokens.NEUTRAL_500
             self._update_color_button()
             
-            # 重新加载标签列表
+            # Reload tag list
             self._load_tags()
-            
-            # 自动选中新创建的标签
+
+            # Auto-select newly created tag
             self._tag_states[tag.id] = True
             self._update_chip_state(tag.id, True)
     
     def _update_chip_state(self, tag_id: str, checked: bool):
-        """更新指定标签芯片的选中状态"""
+        """Update selection state of specified tag chip"""
         for i in range(self.tags_layout.count()):
             widget = self.tags_layout.itemAt(i).widget()
             if isinstance(widget, TagChip) and widget.tag.id == tag_id:
@@ -309,8 +315,8 @@ class TagDialog(QDialog):
                 break
     
     def _save(self):
-        """保存标签变更"""
-        # 找出需要添加和移除的标签
+        """Save tag changes"""
+        # Find tags to add and remove
         tags_to_add = []
         tags_to_remove = []
         
@@ -321,7 +327,7 @@ class TagDialog(QDialog):
             elif not is_checked and initial:
                 tags_to_remove.append(tag_id)
         
-        # 为每个曲目应用变更
+        # Apply changes to each track
         for track in self.tracks:
             for tag_id in tags_to_add:
                 self.tag_service.add_tag_to_track(track.id, tag_id)

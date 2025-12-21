@@ -1,7 +1,7 @@
 """
-Google Gemini 提供商实现
+Google Gemini Provider Implementation
 
-使用 Gemini API (generateContent) 提供聊天补全功能。
+Uses the Gemini API (generateContent) to provide chat completion functionality.
 """
 
 from __future__ import annotations
@@ -22,25 +22,25 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class GeminiSettings(LLMSettings):
-    """Google Gemini 特定设置
+    """Google Gemini specific settings.
     
     Attributes:
-        base_url: API 基础 URL
-        api_key_env: 环境变量名称（用于获取 API Key）
+        base_url: API base URL.
+        api_key_env: Environment variable name for the API key.
     """
     base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     api_key_env: str = "GOOGLE_GEMINI_API_KEY"
 
 
 class GeminiProvider(LLMProvider):
-    """Google Gemini API 提供商
+    """Google Gemini API Provider.
     
     Endpoint: {base_url}/models/{model}:generateContent
     Auth: ?key=<api_key> (URL parameter)
     
-    消息格式转换：
-    - OpenAI 'system' role -> Gemini 系统指令 (systemInstruction)
-    - OpenAI 'user'/'assistant' -> Gemini 'user'/'model'
+    Message format conversion:
+    - OpenAI 'system' role -> Gemini system instruction (systemInstruction).
+    - OpenAI 'user'/'assistant' -> Gemini 'user'/'model'.
     """
     
     def __init__(self, settings: GeminiSettings):
@@ -56,7 +56,7 @@ class GeminiProvider(LLMProvider):
     
     @staticmethod
     def from_config(config: ConfigService) -> "GeminiProvider":
-        """从配置服务创建提供商实例"""
+        """Create a provider instance from the configuration service."""
         base_url = config.get("llm.gemini.base_url", "https://generativelanguage.googleapis.com/v1beta")
         model = config.get("llm.gemini.model", "gemini-2.0-flash")
         api_key_env = config.get("llm.gemini.api_key_env", "GOOGLE_GEMINI_API_KEY")
@@ -68,7 +68,7 @@ class GeminiProvider(LLMProvider):
         
         if not api_key:
             raise LLMProviderError(
-                f"缺少 Gemini API Key：请在配置 `llm.gemini.api_key` 或环境变量 `{api_key_env}` 中提供"
+                f"Missing Gemini API Key: please provide it in configuration `llm.gemini.api_key` or environment variable `{api_key_env}`."
             )
         
         return GeminiProvider(
@@ -87,7 +87,7 @@ class GeminiProvider(LLMProvider):
     def _convert_messages_to_gemini_format(
         self, messages: Sequence[Dict[str, str]]
     ) -> tuple[str | None, List[Dict[str, Any]]]:
-        """将 OpenAI 消息格式转换为 Gemini 格式
+        """Convert OpenAI message format to Gemini format.
         
         Returns:
             (system_instruction, contents)
@@ -100,16 +100,16 @@ class GeminiProvider(LLMProvider):
             content = msg.get("content", "")
             
             if role == "system":
-                # Gemini 使用 systemInstruction 字段
+                # Gemini uses the systemInstruction field.
                 system_instruction = content
             elif role == "assistant":
-                # Gemini 使用 "model" 作为助手角色
+                # Gemini uses "model" as the assistant role.
                 contents.append({
                     "role": "model",
                     "parts": [{"text": content}]
                 })
             else:
-                # user 或其他角色映射到 user
+                # user or other roles map to user.
                 contents.append({
                     "role": "user",
                     "parts": [{"text": content}]
@@ -118,7 +118,7 @@ class GeminiProvider(LLMProvider):
         return system_instruction, contents
     
     def chat_completions(self, messages: Sequence[Dict[str, str]]) -> str:
-        """执行聊天补全请求"""
+        """Execute chat completion request."""
         url = f"{self._settings.base_url.rstrip('/')}/models/{self._settings.model}:generateContent"
         url_with_key = f"{url}?key={self._settings.api_key}"
         
@@ -132,13 +132,13 @@ class GeminiProvider(LLMProvider):
             }
         }
         
-        # 添加系统指令
+        # Add system instruction.
         if system_instruction:
             payload["systemInstruction"] = {
                 "parts": [{"text": system_instruction}]
             }
         
-        # JSON 模式：Gemini 使用 responseMimeType
+        # JSON mode: Gemini uses responseMimeType.
         if self._settings.json_mode:
             payload["generationConfig"]["responseMimeType"] = "application/json"
         
@@ -165,19 +165,19 @@ class GeminiProvider(LLMProvider):
             logger.error(f"Gemini API HTTP {e.code}: {body or e.reason}")
             raise LLMProviderError(f"Gemini API HTTP {e.code}: {body or e.reason}") from e
         except URLError as e:
-            logger.error(f"Gemini API 请求失败: {e.reason}")
-            raise LLMProviderError(f"Gemini API 请求失败: {e.reason}") from e
+            logger.error(f"Gemini API request failed: {e.reason}")
+            raise LLMProviderError(f"Gemini API request failed: {e.reason}") from e
         
         try:
             data = json.loads(raw)
-            # Gemini 响应格式: {"candidates": [{"content": {"parts": [{"text": "..."}]}}]}
+            # Gemini response format: {"candidates": [{"content": {"parts": [{"text": "..."}]}}]}
             candidates = data.get("candidates", [])
             if not candidates:
-                raise LLMProviderError(f"Gemini 未返回候选结果: {raw[:400]}")
+                raise LLMProviderError(f"Gemini returned no candidates: {raw[:400]}")
             
             parts = candidates[0].get("content", {}).get("parts", [])
             if not parts:
-                raise LLMProviderError(f"Gemini 响应缺少 parts: {raw[:400]}")
+                raise LLMProviderError(f"Gemini response missing parts: {raw[:400]}")
             
             content = parts[0].get("text", "")
             logger.debug(f"Gemini response: {content[:200]}...")
@@ -185,13 +185,13 @@ class GeminiProvider(LLMProvider):
         except LLMProviderError:
             raise
         except Exception as e:
-            logger.error(f"Gemini 响应解析失败: {raw[:400]}")
-            raise LLMProviderError(f"Gemini 响应解析失败: {raw[:400]}") from e
+            logger.error(f"Gemini response parsing failed: {raw[:400]}")
+            raise LLMProviderError(f"Gemini response parsing failed: {raw[:400]}") from e
     
     def validate_connection(self) -> bool:
-        """验证 API 连接是否有效"""
+        """Validate if the API connection is functional."""
         try:
-            # 使用明确的 JSON 提示词，避免 json_mode 下返回非 JSON
+            # Use explicit JSON prompt to avoid non-JSON responses in JSON mode.
             self.chat_completions([{
                 "role": "user", 
                 "content": 'Respond with this exact JSON: {"status": "ok"}'

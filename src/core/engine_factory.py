@@ -1,7 +1,7 @@
 """
-音频引擎工厂
+Audio Engine Factory
 
-提供音频引擎的创建和管理，支持多后端切换。
+Provides for the creation and management of audio engines, supporting switching between multiple backends.
 """
 
 import logging
@@ -11,84 +11,84 @@ from core.audio_engine import AudioEngineBase, PygameAudioEngine
 
 logger = logging.getLogger(__name__)
 
-# 引擎注册表
+# Engine registry
 _ENGINE_REGISTRY: Dict[str, Type[AudioEngineBase]] = {}
 
 
 def register_engine(name: str, engine_class: Type[AudioEngineBase]) -> None:
     """
-    注册音频引擎
+    Register an audio engine.
 
     Args:
-        name: 引擎名称标识
-        engine_class: 引擎类
+        name: Engine name identifier
+        engine_class: Engine class
     """
     _ENGINE_REGISTRY[name] = engine_class
 
 
-# 注册内置引擎
+# Register built-in engines
 register_engine("pygame", PygameAudioEngine)
 
-# 尝试注册可选引擎
+# Try to register optional engines
 try:
     from core.miniaudio_engine import MiniaudioEngine
     register_engine("miniaudio", MiniaudioEngine)
 except Exception:
-    logger.debug("miniaudio 后端不可用")
+    logger.debug("miniaudio backend unavailable")
 
 try:
     from core.vlc_engine import VLCEngine
     register_engine("vlc", VLCEngine)
 except Exception:
-    logger.debug("VLC 后端不可用")
+    logger.debug("VLC backend unavailable")
 
 
 class AudioEngineFactory:
     """
-    音频引擎工厂
+    Audio Engine Factory
 
-    根据配置创建合适的音频引擎实例，支持降级策略。
+    Creates appropriate audio engine instances based on configuration, supporting fallback strategies.
 
-    使用示例:
-        # 创建指定后端
+    Usage Example:
+        # Create a specific backend
         engine = AudioEngineFactory.create("miniaudio")
 
-        # 自动选择最佳可用后端
+        # Automatically select the best available backend
         engine = AudioEngineFactory.create_best_available()
 
-        # 获取可用后端列表
+        # Get list of available backends
         backends = AudioEngineFactory.get_available_backends()
     """
 
-    # 后端优先级（降级顺序）
+    # Backend priority (fallback order)
     PRIORITY_ORDER = ["miniaudio", "vlc", "pygame"]
 
     @classmethod
     def create(cls, backend: str = "miniaudio") -> AudioEngineBase:
         """
-        创建指定的音频引擎
+        Create a specified audio engine.
 
-        如果指定后端不可用，会自动降级到可用后端。
+        If the specified backend is unavailable, it will automatically fall back to an available one.
 
         Args:
-            backend: 后端名称 ("miniaudio", "vlc", "pygame")
+            backend: Backend name ("miniaudio", "vlc", "pygame")
 
         Returns:
-            AudioEngineBase: 音频引擎实例
+            AudioEngineBase: Audio engine instance
 
         Raises:
-            RuntimeError: 所有后端都不可用时抛出
+            RuntimeError: If no backends are available
         """
-        # 尝试创建指定后端
+        # Try to create the specified backend
         if backend in _ENGINE_REGISTRY:
             try:
                 engine = _ENGINE_REGISTRY[backend]()
-                logger.info("使用音频后端: %s", backend)
+                logger.info("Using audio backend: %s", backend)
                 return engine
             except Exception as e:
-                logger.warning("创建 %s 后端失败: %s，尝试降级", backend, e)
+                logger.warning("Failed to create %s backend: %s, attempting fallback", backend, e)
 
-        # 降级策略：按优先级尝试其他后端
+        # Fallback strategy: try other backends by priority
         return cls.create_best_available(exclude=[backend])
 
     @classmethod
@@ -96,18 +96,18 @@ class AudioEngineFactory:
         cls, exclude: Optional[List[str]] = None
     ) -> AudioEngineBase:
         """
-        创建最佳可用音频引擎
+        Create the best available audio engine.
 
-        按优先级顺序尝试各后端。
+        Tries each backend in priority order.
 
         Args:
-            exclude: 排除的后端名称列表
+            exclude: List of backend names to exclude
 
         Returns:
-            AudioEngineBase: 音频引擎实例
+            AudioEngineBase: Audio engine instance
 
         Raises:
-            RuntimeError: 所有后端都不可用时抛出
+            RuntimeError: If no backends are available
         """
         exclude = exclude or []
 
@@ -119,20 +119,20 @@ class AudioEngineFactory:
 
             try:
                 engine = _ENGINE_REGISTRY[backend]()
-                logger.info("使用音频后端: %s", backend)
+                logger.info("Using audio backend: %s", backend)
                 return engine
             except Exception as e:
-                logger.debug("后端 %s 不可用: %s", backend, e)
+                logger.debug("Backend %s unavailable: %s", backend, e)
 
-        raise RuntimeError("没有可用的音频后端。请安装 pygame、miniaudio 或 VLC。")
+        raise RuntimeError("No audio backends available. Please install pygame, miniaudio, or VLC.")
 
     @classmethod
     def get_available_backends(cls) -> List[str]:
         """
-        获取可用的后端列表
+        Get a list of available backends.
 
         Returns:
-            List[str]: 可用后端名称列表，按优先级排序
+            List[str]: List of available backend names, sorted by priority.
         """
         available = []
 
@@ -142,22 +142,22 @@ class AudioEngineFactory:
 
             engine_class = _ENGINE_REGISTRY[backend]
             
-            # 检查子类是否重写了 probe() 方法（而非继承基类的默认实现）
+            # Check if the subclass overrides the probe() method (instead of inheriting the base class's default implementation)
             has_custom_probe = (
-                'probe' in engine_class.__dict__ or  # 直接定义在类上
+                'probe' in engine_class.__dict__ or  # Defined directly on the class
                 any('probe' in base.__dict__ for base in engine_class.__mro__[1:-1] 
-                    if base.__name__ != 'AudioEngineBase')  # 定义在中间父类上
+                    if base.__name__ != 'AudioEngineBase')  # Defined on an intermediate parent class
             )
             
             if has_custom_probe:
-                # 使用静态 probe() 方法（不触碰播放状态）
+                # Use static probe() method (without touching playback state)
                 try:
                     if engine_class.probe():
                         available.append(backend)
                 except Exception:
                     pass
             else:
-                # 没有 probe 方法的引擎：尝试实例化
+                # Engine without a probe method: try instantiating
                 try:
                     engine = engine_class()
                     available.append(backend)
@@ -171,13 +171,13 @@ class AudioEngineFactory:
     @classmethod
     def get_backend_info(cls, backend: str) -> Dict[str, bool]:
         """
-        获取后端的特性支持信息
+        Get feature support information for a backend.
 
         Args:
-            backend: 后端名称
+            backend: Backend name
 
         Returns:
-            Dict[str, bool]: 特性支持情况
+            Dict[str, bool]: Feature support status
         """
         if backend not in _ENGINE_REGISTRY:
             return {}
@@ -199,20 +199,20 @@ class AudioEngineFactory:
     @classmethod
     def is_available(cls, backend: str) -> bool:
         """
-        检查后端是否可用
+        Check if a backend is available.
 
         Args:
-            backend: 后端名称
+            backend: Backend name
 
         Returns:
-            bool: 是否可用
+            bool: True if available
         """
         if backend not in _ENGINE_REGISTRY:
             return False
 
         engine_class = _ENGINE_REGISTRY[backend]
         
-        # 检查子类是否重写了 probe() 方法
+        # Check if the subclass overrides the probe() method
         has_custom_probe = (
             'probe' in engine_class.__dict__ or
             any('probe' in base.__dict__ for base in engine_class.__mro__[1:-1] 
@@ -225,7 +225,7 @@ class AudioEngineFactory:
             except Exception:
                 return False
         
-        # 没有 probe 方法的引擎：尝试实例化
+        # Engine without a probe method: try instantiating
         try:
             engine = engine_class()
             if hasattr(engine, 'cleanup'):

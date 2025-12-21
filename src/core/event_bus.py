@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-事件总线模块 - 发布订阅模式实现
+Event Bus Module - Publish-Subscribe Pattern Implementation
 
-提供模块间松耦合的通信机制。
+Provides loose-coupled communication mechanism between modules.
 
-设计说明：
-- 这是纯 Python 实现，不依赖任何 UI 框架
-- Qt 主线程派发已移至 ui/qt_event_bus.py 的 QtEventBusAdapter
-- 如需在 Qt 环境中使用，请使用 AppContainerFactory 创建的适配器
+Design Notes:
+- This is a pure Python implementation, does not depend on any UI framework
+- Qt main thread dispatch has been moved to QtEventBusAdapter in ui/qt_event_bus.py
+- If using in Qt environment, please use the adapter created by AppContainerFactory
 """
 
 from typing import Dict, Callable, Any, Optional
@@ -21,32 +21,32 @@ logger = logging.getLogger(__name__)
 
 
 class EventType(Enum):
-    """事件类型枚举"""
+    """Event type enumeration"""
     
-    # 播放事件
+    # Playback events
     TRACK_LOADED = "track_loaded"
     TRACK_STARTED = "track_started"
     TRACK_ENDED = "track_ended"
-    PLAYBACK_STOPPED = "playback_stopped"  # 手动停止（区分自然结束）
+    PLAYBACK_STOPPED = "playback_stopped"  # Manual stop (distinguished from natural end)
     TRACK_PAUSED = "track_paused"
     TRACK_RESUMED = "track_resumed"
     POSITION_CHANGED = "position_changed"
     VOLUME_CHANGED = "volume_changed"
     
-    # 播放列表事件
+    # Playlist events
     PLAYLIST_CREATED = "playlist_created"
     PLAYLIST_UPDATED = "playlist_updated"
     PLAYLIST_DELETED = "playlist_deleted"
     QUEUE_CHANGED = "queue_changed"
     
-    # 媒体库事件
+    # Library events
     LIBRARY_SCAN_STARTED = "library_scan_started"
     LIBRARY_SCAN_PROGRESS = "library_scan_progress"
     LIBRARY_SCAN_COMPLETED = "library_scan_completed"
     TRACK_ADDED = "track_added"
     TRACK_REMOVED = "track_removed"
     
-    # 系统事件
+    # System events
     CONFIG_CHANGED = "config_changed"
     THEME_CHANGED = "theme_changed"
     ERROR_OCCURRED = "error_occurred"
@@ -54,26 +54,26 @@ class EventType(Enum):
 
 class EventBus:
     """
-    事件总线 - 单例模式
+    Event Bus - Singleton Pattern
     
-    提供发布-订阅模式的事件系统，支持异步事件处理。
+    Provides publish-subscribe pattern event system, supports asynchronous event handling.
     
-    注意：这是纯 Python 实现。如需在 Qt UI 中使用（确保回调在主线程执行），
-    请通过 AppContainerFactory 获取 QtEventBusAdapter 包装后的实例。
+    Note: This is a pure Python implementation. If using in Qt UI (to ensure callbacks execute in main thread),
+    please get the QtEventBusAdapter wrapped instance through AppContainerFactory.
     
-    使用示例:
+    Usage example:
         event_bus = EventBus()
         
-        # 订阅事件
+        # Subscribe to event
         def on_track_started(track):
-            logger.info("播放: %s", track.title)
+            logger.info("Playing: %s", track.title)
         
         sub_id = event_bus.subscribe(EventType.TRACK_STARTED, on_track_started)
         
-        # 发布事件
+        # Publish event
         event_bus.publish(EventType.TRACK_STARTED, track)
         
-        # 取消订阅
+        # Unsubscribe
         event_bus.unsubscribe(sub_id)
     """
     
@@ -103,14 +103,14 @@ class EventBus:
         callback: Callable[[Any], None]
     ) -> str:
         """
-        订阅事件
+        Subscribe to event
         
         Args:
-            event_type: 事件类型
-            callback: 回调函数，接收事件数据作为参数
+            event_type: Event type
+            callback: Callback function, receiving event data as an argument
             
         Returns:
-            str: 订阅ID，用于取消订阅
+            str: Subscription ID, used for unsubscription
         """
         subscription_id = str(uuid.uuid4())
         
@@ -123,13 +123,13 @@ class EventBus:
     
     def unsubscribe(self, subscription_id: str) -> bool:
         """
-        取消订阅
+        Unsubscribe
         
         Args:
-            subscription_id: 订阅时返回的ID
+            subscription_id: The ID returned when subscribing
             
         Returns:
-            bool: 是否成功取消
+            bool: Whether the unsubscription was successful
         """
         with self._sub_lock:
             for event_type in self._subscribers:
@@ -140,13 +140,13 @@ class EventBus:
     
     def publish(self, event_type: EventType, data: Any = None) -> None:
         """
-        异步发布事件
+        Publish event asynchronously
         
-        回调函数将在线程池中异步执行。
+        The callback function will be executed asynchronously in the thread pool.
         
         Args:
-            event_type: 事件类型
-            data: 事件数据
+            event_type: Event type
+            data: Event data
         """
         with self._sub_lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
@@ -161,17 +161,17 @@ class EventBus:
         timeout: Optional[float] = 5.0,
     ) -> bool:
         """
-        同步发布事件
+        Publish event synchronously
         
-        在当前线程中同步执行所有回调。
+        All callbacks will be executed synchronously in the current thread.
         
         Args:
-            event_type: 事件类型
-            data: 事件数据
-            timeout: 此参数保留以兼容接口，在纯 Python 实现中不使用
+            event_type: Event type
+            data: Event data
+            timeout: This parameter is kept for interface compatibility; it is not used in the pure Python implementation.
 
         Returns:
-            bool: 始终返回 True（同步执行无超时问题）
+            bool: Always returns True (synchronous execution has no timeout issues)
         """
         with self._sub_lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
@@ -182,28 +182,28 @@ class EventBus:
         return True
 
     def _safe_call(self, callback: Callable, data: Any) -> None:
-        """安全调用回调函数"""
+        """Safely call a callback function"""
         try:
             callback(data)
         except Exception as e:
-            # 避免循环：不使用publish发布错误事件
-            logger.error("事件回调执行错误: %s", e)
+            # Avoid loop: Do not use publish to report error events
+            logger.error("Event callback execution error: %s", e)
     
     def clear(self) -> None:
-        """清除所有订阅"""
+        """Clear all subscriptions"""
         with self._sub_lock:
             self._subscribers.clear()
     
     def shutdown(self) -> None:
-        """关闭事件总线"""
+        """Shutdown the event bus"""
         self._executor.shutdown(wait=True)
     
     @classmethod
     def reset_instance(cls) -> None:
-        """重置单例实例（仅用于测试）
+        """Reset the singleton instance (for testing only)
         
-        警告：此方法将在未来版本中移除。
-        请使用 AppContainerFactory.create_for_testing() 创建独立的测试实例。
+        Warning: This method will be removed in a future version.
+        Please use AppContainerFactory.create_for_testing() to create independent test instances.
         """
         import warnings
         warnings.warn(

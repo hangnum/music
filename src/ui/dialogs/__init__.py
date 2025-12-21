@@ -1,5 +1,5 @@
 """
-UI 对话框
+UI Dialogs
 """
 
 from .llm_settings_dialog import LLMSettingsDialog

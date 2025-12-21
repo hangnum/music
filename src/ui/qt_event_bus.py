@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Qt 事件总线适配器
+Qt Event Bus Adapter
 
-将纯 Python EventBus 的回调派发到 Qt 主线程，实现 core 层与 Qt 的解耦。
+Dispatches callbacks from the pure Python EventBus to the Qt main thread, 
+decoupling the core layer from Qt.
 
-设计原则：
-- core 层的 EventBus 保持纯 Python，不依赖 Qt
-- Qt 主线程派发逻辑完全在 UI 层实现
-- 通过适配器模式桥接两者
-- publish_sync 必须等待所有 Qt 回调执行完成
+Design Principles:
+- The core layer's EventBus remains pure Python and does not depend on Qt.
+- Qt main thread dispatch logic is fully implemented in the UI layer.
+- Bridges the two via the adapter pattern.
+- publish_sync must wait for all Qt callbacks to complete.
 """
 
 from __future__ import annotations
@@ -27,67 +28,67 @@ logger = logging.getLogger(__name__)
 
 
 class QtEventBusAdapter(QObject):
-    """Qt 事件总线适配器
+    """Qt Event Bus Adapter
     
-    将回调派发到 Qt 主线程，确保 UI 更新在主线程执行。
+    Dispatches callbacks to the Qt main thread, ensuring UI updates are performed there.
     
-    工作原理：
-    1. subscribe 时，将原始回调注册到本地注册表，并向内部 bus 注册包装器
-    2. publish 时，内部 bus 调用包装器，包装器发射 Qt 信号异步派发到主线程
-    3. publish_sync 时，直接遍历本地注册表，使用同步信号等待每个回调完成
+    How it works:
+    1. During subscribe, the original callback is registered in a local registry, and a wrapper is registered with the internal bus.
+    2. During publish, the internal bus calls the wrapper, which emits a Qt signal to asynchronously dispatch to the main thread.
+    3. During publish_sync, the local registry is traversed, using synchronous signals to wait for each callback to complete.
     
-    使用示例:
+    Usage Example:
         from core.event_bus import EventBus
         
         pure_bus = EventBus()
         qt_bus = QtEventBusAdapter(pure_bus)
         
-        # 现在可以在任意线程发布事件，回调会在主线程执行
+        # Now events can be published from any thread, and callbacks will execute in the main thread.
         qt_bus.subscribe(EventType.TRACK_STARTED, self._on_track_started)
     """
     
-    # 异步派发信号
+    # Asynchronous dispatch signal
     _dispatch_signal = pyqtSignal(object, object)
-    # 同步派发信号（带完成事件）
+    # Synchronous dispatch signal (with completion event)
     _dispatch_sync_signal = pyqtSignal(object, object, object)
     
     def __init__(self, inner_bus: "EventBus"):
-        """初始化适配器
+        """Initialize the adapter.
         
         Args:
-            inner_bus: 底层的纯 Python EventBus
+            inner_bus: The underlying pure Python EventBus.
             
         Raises:
-            RuntimeError: 如果没有 Qt 应用实例运行
+            RuntimeError: If no Qt application instance is running.
         """
         super().__init__()
         
-        # 确保在 Qt 主线程执行：移动到应用主线程
+        # Ensure execution in the Qt main thread: move to application main thread
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance()
         if app is None:
             raise RuntimeError(
-                "QtEventBusAdapter 需要一个正在运行的 QApplication 实例。"
-                "请先创建 QApplication 后再初始化适配器。"
+                "QtEventBusAdapter requires a running QApplication instance. "
+                "Please create a QApplication before initializing the adapter."
             )
         
         main_thread = app.thread()
         if QThread.currentThread() != main_thread:
-            # 如果不在主线程创建，移动到主线程
+            # If not created in the main thread, move to it
             self.moveToThread(main_thread)
-            logger.debug("QtEventBusAdapter 已移动到 Qt 主线程")
+            logger.debug("QtEventBusAdapter moved to Qt main thread")
         
         self._bus = inner_bus
         self._lock = threading.Lock()
         
-        # 本地回调注册表：{subscription_id: (event_type, original_callback)}
-        # 用于 publish_sync 时直接派发到 Qt 主线程
+        # Local callback registry: {subscription_id: (event_type, original_callback)}
+        # Used for direct dispatch to the Qt main thread during publish_sync.
         self._callbacks: Dict[str, tuple] = {}
         
-        # 按事件类型索引：{event_type: {subscription_id: original_callback}}
+        # Index by event type: {event_type: {subscription_id: original_callback}}
         self._callbacks_by_type: Dict[Any, Dict[str, Callable]] = {}
         
-        # 连接信号到槽，使用 QueuedConnection 确保在主线程执行
+        # Connect signals to slots using QueuedConnection to ensure execution in the main thread.
         self._dispatch_signal.connect(
             self._on_dispatch,
             Qt.ConnectionType.QueuedConnection
@@ -102,25 +103,25 @@ class QtEventBusAdapter(QObject):
         event_type: "Enum",
         callback: Callable[[Any], None]
     ) -> str:
-        """订阅事件
+        """Subscribe to an event.
         
-        回调将在 Qt 主线程执行。
+        Callbacks will be executed in the Qt main thread.
         
         Args:
-            event_type: 事件类型
-            callback: 回调函数
+            event_type: Event type
+            callback: Callback function
             
         Returns:
-            订阅ID
+            Subscription ID
         """
         def qt_wrapper(data: Any) -> None:
-            """将回调包装为 Qt 信号发射（异步）"""
+            """Wrap the callback to emit as a Qt signal (asynchronous)."""
             self._dispatch_signal.emit(callback, data)
         
-        # 向内部 bus 注册包装器
+        # Register the wrapper with the internal bus
         subscription_id = self._bus.subscribe(event_type, qt_wrapper)
         
-        # 在本地注册表中保存原始回调（用于 publish_sync）
+        # Save the original callback in the local registry (for publish_sync)
         with self._lock:
             self._callbacks[subscription_id] = (event_type, callback)
             if event_type not in self._callbacks_by_type:
@@ -130,17 +131,17 @@ class QtEventBusAdapter(QObject):
         return subscription_id
     
     def unsubscribe(self, subscription_id: str) -> bool:
-        """取消订阅
+        """Unsubscribe from an event.
         
         Args:
-            subscription_id: 订阅ID
+            subscription_id: Subscription ID
             
         Returns:
-            是否成功取消
+            True if successfully unsubscribed.
         """
         result = self._bus.unsubscribe(subscription_id)
         
-        # 从本地注册表中移除
+        # Remove from local registry
         with self._lock:
             if subscription_id in self._callbacks:
                 event_type, _ = self._callbacks.pop(subscription_id)
@@ -150,13 +151,13 @@ class QtEventBusAdapter(QObject):
         return result
     
     def publish(self, event_type: "Enum", data: Any = None) -> None:
-        """发布事件（异步）
+        """Publish an event (asynchronous).
         
-        回调将通过 Qt 信号异步派发到主线程执行。
+        The callback will be dispatched via Qt signal to the main thread for execution.
         
         Args:
-            event_type: 事件类型
-            data: 事件数据
+            event_type: Event type
+            data: Event data
         """
         self._bus.publish(event_type, data)
     
@@ -166,27 +167,27 @@ class QtEventBusAdapter(QObject):
         data: Any = None,
         timeout: Optional[float] = 5.0
     ) -> bool:
-        """同步发布事件
+        """Publish an event synchronously.
         
-        等待所有回调在 Qt 主线程执行完成后返回。
-        如果当前已在 Qt 主线程，则直接执行回调（避免死锁）。
+        Waits for all callbacks to finish in the Qt main thread before returning.
+        If currently in the Qt main thread, executes callbacks directly to avoid deadlock.
         
         Args:
-            event_type: 事件类型
-            data: 事件数据
-            timeout: 每个回调的超时时间（秒）
+            event_type: Event type
+            data: Event data
+            timeout: Timeout for each callback (seconds)
             
         Returns:
-            是否所有回调都在超时前完成
+            True if all callbacks completed before the timeout.
         """
-        # 获取需要调用的回调列表
+        # Get the list of callbacks to be called
         with self._lock:
             callbacks = list(self._callbacks_by_type.get(event_type, {}).values())
         
         if not callbacks:
             return True
         
-        # 检查是否在 Qt 主线程
+        # Check if in the Qt main thread
         try:
             current_thread = QThread.currentThread()
             from PyQt6.QtWidgets import QApplication
@@ -203,13 +204,13 @@ class QtEventBusAdapter(QObject):
         
         for callback in callbacks:
             if is_main_thread:
-                # 已在主线程，直接执行
+                # Already in main thread, execute directly
                 try:
                     callback(data)
                 except Exception as e:
-                    logger.error("Qt 事件回调执行失败: %s", e)
+                    logger.error("Qt event callback execution failed: %s", e)
             else:
-                # 在工作线程，使用同步信号派发并等待
+                # In worker thread, dispatch via sync signal and wait
                 done_event = threading.Event()
                 self._dispatch_sync_signal.emit(callback, data, done_event)
                 
@@ -220,7 +221,7 @@ class QtEventBusAdapter(QObject):
                 
                 if not completed:
                     logger.warning(
-                        "QtEventBusAdapter.publish_sync 超时等待回调: %s", 
+                        "QtEventBusAdapter.publish_sync timed out waiting for callback: %s", 
                         callback
                     )
                     all_completed = False
@@ -228,25 +229,25 @@ class QtEventBusAdapter(QObject):
         return all_completed
     
     def clear(self) -> None:
-        """清除所有订阅"""
+        """Clear all subscriptions."""
         self._bus.clear()
         with self._lock:
             self._callbacks.clear()
             self._callbacks_by_type.clear()
     
     def shutdown(self) -> None:
-        """关闭事件总线"""
+        """Shutdown the event bus."""
         self._bus.shutdown()
     
     def _on_dispatch(self, callback: Callable, data: Any) -> None:
-        """异步派发槽函数
+        """Asynchronous dispatch slot function.
         
-        在 Qt 主线程中执行回调。
+        Executes callback in the Qt main thread.
         """
         try:
             callback(data)
         except Exception as e:
-            logger.error("Qt 事件回调执行失败: %s", e)
+            logger.error("Qt event callback execution failed: %s", e)
     
     def _on_dispatch_sync(
         self,
@@ -254,13 +255,13 @@ class QtEventBusAdapter(QObject):
         data: Any,
         done_event: threading.Event
     ) -> None:
-        """同步派发槽函数
+        """Synchronous dispatch slot function.
         
-        在 Qt 主线程中执行回调，完成后设置事件。
+        Executes callback in the Qt main thread and sets the event upon completion.
         """
         try:
             callback(data)
         except Exception as e:
-            logger.error("Qt 事件回调执行失败: %s", e)
+            logger.error("Qt event callback execution failed: %s", e)
         finally:
             done_event.set()

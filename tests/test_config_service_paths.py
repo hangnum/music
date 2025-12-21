@@ -1,7 +1,8 @@
 """
-ConfigService 路径/隔离相关的回归测试。
+Regression tests for ConfigService path handling and isolation.
 
-目标：避免误写仓库模板配置文件，且确保测试环境不会污染真实用户目录。
+Goal: Avoid overwriting repository template configuration files and ensure 
+that the test environment does not pollute the real user directories.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ def _reset_config_service():
 
 def _sandbox_user_config_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     base = tmp_path / "user-config"
-    # windows/mac/linux 都设置，避免平台差异导致落到真实用户目录
+    # Set for Windows/Mac/Linux to avoid platform differences leaking to real user directories
     monkeypatch.setenv("APPDATA", str(base))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(base))
     return base
@@ -41,7 +42,7 @@ def test_custom_config_path_save_and_reload_round_trip(tmp_path: Path, monkeypat
     assert config.save() is True
     assert custom_path.exists()
 
-    # custom 模式不应写入用户目录
+    # Custom mode should not write to the default user directory
     assert ConfigService._get_user_config_path().exists() is False
 
     ConfigService.reset_instance()
@@ -59,7 +60,8 @@ def test_passing_default_template_path_does_not_write_to_repo_template(
     template_path = Path("config/default_config.yaml")
     before = template_path.read_text(encoding="utf-8")
 
-    # 传入默认模板路径时，仍应保存到用户目录（避免回写仓库文件）
+    # When the default template path is passed, it should still save to the user directory
+    # (avoiding writing back to the repository file).
     config = ConfigService("config/default_config.yaml")
     config.set("ui.window_width", 999)
     assert config.save() is True

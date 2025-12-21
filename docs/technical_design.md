@@ -1,17 +1,17 @@
-# 高质量音乐播放器 - 技术设计文档
+# High-Quality Music Player - Technical Design Document
 
-## 1. 核心模块详细设计
+## 1. Core Module Detailed Design
 
-### 1.1 音频引擎模块 (AudioEngine)
+### 1.1 Audio Engine Module (AudioEngine)
 
-#### 1.1.1 设计目标
+#### 1.1.1 Design Goals
 
-- 支持多种音频格式的解码与播放
-- 提供统一的播放控制接口
-- **支持高级音频特性**：无缝播放 (Gapless)、淡入淡出 (Crossfade)、ReplayGain、10段均衡器 (EQ)
-- **多后端支持**：通过工厂模式支持 Miniaudio (默认/高保真)、VLC (兼容性)、Pygame (基础)
+- Support decoding and playback of various audio formats
+- Provide a unified playback control interface
+- **Support advanced audio features**: Gapless playback, Crossfade, ReplayGain, 10-band Equalizer (EQ)
+- **Multi-backend support**: Support Miniaudio (default/hi-fi), VLC (compatibility), and Pygame (basic) via Factory pattern
 
-#### 1.1.2 类设计
+#### 1.1.2 Class Design
 
 ```python
 # src/core/audio_engine.py
@@ -21,75 +21,75 @@ from typing import Optional, Callable, List
 from enum import Enum
 
 class AudioEngineBase(ABC):
-    """音频引擎基类"""
+    """Audio engine base class"""
     
-    # ... (原有基础播放控制方法: play, pause, stop, seek, etc.)
+    # ... (Original basic playback control methods: play, pause, stop, seek, etc.)
     
-    # ===== 高级特性接口 =====
+    # ===== Advanced Features Interface =====
     
     @abstractmethod
     def supports_gapless(self) -> bool:
-        """是否支持无缝播放"""
+        """Whether gapless playback is supported"""
         return False
 
     @abstractmethod
     def supports_crossfade(self) -> bool:
-        """是否支持淡入淡出"""
+        """Whether crossfade is supported"""
         return False
 
     @abstractmethod
     def supports_equalizer(self) -> bool:
-        """是否支持EQ"""
+        """Whether EQ is supported"""
         return False
 
     @abstractmethod
     def supports_replay_gain(self) -> bool:
-        """是否支持ReplayGain"""
+        """Whether ReplayGain is supported"""
         return False
 
     @abstractmethod
     def set_next_track(self, file_path: str) -> bool:
-        """预加载下一曲 (用于Gapless)"""
+        """Preload next track (for Gapless)"""
         return False
 
     @abstractmethod
     def set_crossfade_duration(self, duration_ms: int) -> None:
-        """设置淡入淡出时长"""
+        """Set crossfade duration"""
         pass
 
     @abstractmethod
     def set_replay_gain(self, gain_db: float, peak: float = 1.0) -> None:
-        """设置ReplayGain"""
+        """Set ReplayGain"""
         pass
 
     @abstractmethod
     def set_equalizer(self, bands: List[float]) -> None:
-        """设置10段EQ增益"""
+        """Set 10-band EQ gain"""
         pass
 
 # src/core/engine_factory.py
 
 class AudioEngineFactory:
-    """音频引擎工厂"""
+    """Audio engine factory"""
     
     PRIORITY_ORDER = ["miniaudio", "vlc", "pygame"]
 
     @classmethod
     def create(cls, backend: str = "miniaudio") -> AudioEngineBase:
-        """创建引擎实例，支持自动降级"""
+        """Create engine instance with automatic fallback"""
         pass
 
 # src/core/miniaudio_engine.py
 
 class MiniaudioEngine(AudioEngineBase):
     """
-    基于 miniaudio 的高性能音频引擎
-    支持: Gapless, Crossfade, ReplayGain, 10-Band EQ (Biquad Filter)
+    Miniaudio-based high-performance audio engine
+    Supports: Gapless, Crossfade, ReplayGain, 10-Band EQ (Biquad Filter)
     """
     pass
 ```
 
-#### 1.1.3 均衡器模型 (EQPreset)
+#### 1.1.3 Equalizer Model (EQPreset)
 
 ```python
 # src/models/eq_preset.py
@@ -98,24 +98,24 @@ class EQPreset(Enum):
     FLAT = "flat"
     ROCK = "rock"
     POP = "pop"
-    # ... 其他预设
+    # ... other presets
 
 @dataclass
 class EQBands:
-    bands: tuple  # 10个频段的dB值
+    bands: tuple  # dB values for 10 bands
 ```
 
 ---
 
-### 1.2 事件总线模块 (EventBus)
+### 1.2 Event Bus Module (EventBus)
 
-#### 1.2.1 设计目标
+#### 1.2.1 Design Goals
 
-- 实现发布-订阅模式
-- 支持异步事件处理
-- 线程安全
+- Implement publish-subscribe pattern
+- Support asynchronous event processing
+- Thread-safe
 
-#### 1.2.2 类设计
+#### 1.2.2 Class Design
 
 ```python
 # src/core/event_bus.py
@@ -128,7 +128,7 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
 class EventType(Enum):
-    # 播放事件
+    # Playback events
     TRACK_LOADED = "track_loaded"
     TRACK_STARTED = "track_started"
     TRACK_ENDED = "track_ended"
@@ -137,26 +137,26 @@ class EventType(Enum):
     POSITION_CHANGED = "position_changed"
     VOLUME_CHANGED = "volume_changed"
     
-    # 播放列表事件
+    # Playlist events
     PLAYLIST_CREATED = "playlist_created"
     PLAYLIST_UPDATED = "playlist_updated"
     PLAYLIST_DELETED = "playlist_deleted"
     QUEUE_CHANGED = "queue_changed"
     
-    # 媒体库事件
+    # Media library events
     LIBRARY_SCAN_STARTED = "library_scan_started"
     LIBRARY_SCAN_PROGRESS = "library_scan_progress"
     LIBRARY_SCAN_COMPLETED = "library_scan_completed"
     TRACK_ADDED = "track_added"
     TRACK_REMOVED = "track_removed"
     
-    # 系统事件
+    # System events
     CONFIG_CHANGED = "config_changed"
     THEME_CHANGED = "theme_changed"
     ERROR_OCCURRED = "error_occurred"
 
 class EventBus:
-    """事件总线 - 单例模式"""
+    """Event Bus - Singleton Pattern"""
     
     _instance: Optional['EventBus'] = None
     _lock = threading.Lock()
@@ -181,7 +181,7 @@ class EventBus:
     
     def subscribe(self, event_type: EventType, 
                   callback: Callable[[Any], None]) -> str:
-        """订阅事件，返回订阅ID"""
+        """Subscribe to event, returns subscription ID"""
         subscription_id = str(uuid.uuid4())
         
         with self._lock:
@@ -192,7 +192,7 @@ class EventBus:
         return subscription_id
     
     def unsubscribe(self, subscription_id: str) -> bool:
-        """取消订阅"""
+        """Unsubscribe"""
         with self._lock:
             for event_type in self._subscribers:
                 if subscription_id in self._subscribers[event_type]:
@@ -201,7 +201,7 @@ class EventBus:
         return False
     
     def publish(self, event_type: EventType, data: Any = None) -> None:
-        """发布事件"""
+        """Publish event"""
         with self._lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
         
@@ -209,7 +209,7 @@ class EventBus:
             self._executor.submit(self._safe_call, callback, data)
     
     def publish_sync(self, event_type: EventType, data: Any = None) -> None:
-        """同步发布事件"""
+        """Publish event synchronously"""
         with self._lock:
             callbacks = list(self._subscribers.get(event_type, {}).values())
         
@@ -217,7 +217,7 @@ class EventBus:
             self._safe_call(callback, data)
     
     def _safe_call(self, callback: Callable, data: Any) -> None:
-        """安全调用回调"""
+        """Safely call callback"""
         try:
             callback(data)
         except Exception as e:
@@ -227,21 +227,21 @@ class EventBus:
             })
     
     def shutdown(self) -> None:
-        """关闭事件总线"""
+        """Shutdown event bus"""
         self._executor.shutdown(wait=True)
 ```
 
 ---
 
-### 1.3 元数据解析模块 (Metadata)
+### 1.3 Metadata Parsing Module (Metadata)
 
-#### 1.3.1 设计目标
+#### 1.3.1 Design Goals
 
-- 解析多种音频格式的元数据
-- 提取封面图片
-- 支持元数据写入
+- Parse metadata for multiple audio formats
+- Extract cover art
+- Support metadata writing
 
-#### 1.3.2 类设计
+#### 1.3.2 Class Design
 
 ```python
 # src/core/metadata.py
@@ -253,7 +253,7 @@ import base64
 
 @dataclass
 class AudioMetadata:
-    """音频元数据"""
+    """Audio metadata"""
     title: str = ""
     artist: str = ""
     album: str = ""
@@ -273,14 +273,14 @@ class AudioMetadata:
     cover_mime: str = ""
 
 class MetadataParser:
-    """元数据解析器"""
+    """Metadata parser"""
     
     SUPPORTED_FORMATS = {'.mp3', '.flac', '.wav', '.ogg', '.m4a', 
                          '.aac', '.wma', '.ape', '.opus'}
     
     @classmethod
     def parse(cls, file_path: str) -> Optional[AudioMetadata]:
-        """解析音频文件元数据"""
+        """Parse audio file metadata"""
         path = Path(file_path)
         
         if not path.exists():
@@ -304,7 +304,7 @@ class MetadataParser:
             
             metadata = AudioMetadata(file_path=file_path)
             
-            # 基本信息
+            # Basic information
             if audio.info:
                 metadata.duration_ms = int(audio.info.length * 1000)
                 metadata.bitrate = getattr(audio.info, 'bitrate', 0)
@@ -313,7 +313,7 @@ class MetadataParser:
             
             metadata.format = suffix[1:].upper()
             
-            # 根据格式解析标签
+            # Parse tags based on format
             if suffix == '.mp3':
                 cls._parse_mp3(file_path, metadata)
             elif suffix == '.flac':
@@ -325,19 +325,19 @@ class MetadataParser:
             else:
                 cls._parse_generic(audio, metadata)
             
-            # 如果没有标题，使用文件名
+            # Use filename if no title
             if not metadata.title:
                 metadata.title = path.stem
             
             return metadata
             
         except Exception as e:
-            print(f"解析元数据失败: {file_path}, 错误: {e}")
+            print(f"Failed to parse metadata: {file_path}, Error: {e}")
             return None
     
     @classmethod
     def _parse_mp3(cls, file_path: str, metadata: AudioMetadata) -> None:
-        """解析MP3元数据"""
+        """Parse MP3 metadata"""
         from mutagen.mp3 import MP3
         from mutagen.id3 import ID3
         
@@ -366,7 +366,7 @@ class MetadataParser:
                     else:
                         metadata.track_number = int(track_str)
                 
-                # 封面
+                # Cover art
                 for key in tags:
                     if key.startswith('APIC'):
                         apic = tags[key]
@@ -374,11 +374,11 @@ class MetadataParser:
                         metadata.cover_mime = apic.mime
                         
         except Exception as e:
-            print(f"解析MP3标签失败: {e}")
+            print(f"Failed to parse MP3 tags: {e}")
     
     @classmethod
     def _parse_flac(cls, audio, metadata: AudioMetadata) -> None:
-        """解析FLAC元数据"""
+        """Parse FLAC metadata"""
         metadata.title = audio.get('title', [''])[0]
         metadata.artist = audio.get('artist', [''])[0]
         metadata.album = audio.get('album', [''])[0]
@@ -397,21 +397,21 @@ class MetadataParser:
             except:
                 pass
         
-        # FLAC封面
+        # FLAC cover
         if audio.pictures:
             metadata.cover_data = audio.pictures[0].data
             metadata.cover_mime = audio.pictures[0].mime
     
     @classmethod
     def _parse_ogg(cls, audio, metadata: AudioMetadata) -> None:
-        """解析OGG元数据"""
+        """Parse OGG metadata"""
         metadata.title = audio.get('title', [''])[0]
         metadata.artist = audio.get('artist', [''])[0]
         metadata.album = audio.get('album', [''])[0]
     
     @classmethod
     def _parse_m4a(cls, audio, metadata: AudioMetadata) -> None:
-        """解析M4A/AAC元数据"""
+        """Parse M4A/AAC metadata"""
         metadata.title = audio.get('\xa9nam', [''])[0]
         metadata.artist = audio.get('\xa9ART', [''])[0]
         metadata.album = audio.get('\xa9alb', [''])[0]
@@ -422,7 +422,7 @@ class MetadataParser:
     
     @classmethod
     def _parse_generic(cls, audio, metadata: AudioMetadata) -> None:
-        """通用元数据解析"""
+        """Generic metadata parsing"""
         if hasattr(audio, 'tags') and audio.tags:
             tags = audio.tags
             metadata.title = tags.get('title', [''])[0] if 'title' in tags else ''
@@ -431,18 +431,18 @@ class MetadataParser:
     
     @staticmethod
     def get_supported_formats() -> List[str]:
-        """获取支持的格式列表"""
+        """Get list of supported formats"""
         return list(MetadataParser.SUPPORTED_FORMATS)
 ```
 
 ---
 
-### 1.4 数据库管理模块 (Database)
+### 1.4 Database Management Module (Database)
 
-#### 1.4.1 数据库Schema
+#### 1.4.1 Database Schema
 
 ```sql
--- 艺术家表
+-- Artists table
 CREATE TABLE IF NOT EXISTS artists (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -478,6 +478,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     play_count INTEGER DEFAULT 0,
     last_played TIMESTAMP,
     rating INTEGER DEFAULT 0,
+    is_favorite BOOLEAN DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (artist_id) REFERENCES artists(id),
     FOREIGN KEY (album_id) REFERENCES albums(id)
@@ -523,7 +524,7 @@ CREATE TABLE IF NOT EXISTS track_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
--- LLM 标签任务表
+-- LLM Tagging Jobs table
 CREATE TABLE IF NOT EXISTS llm_tagging_jobs (
     id TEXT PRIMARY KEY,
     started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -534,7 +535,7 @@ CREATE TABLE IF NOT EXISTS llm_tagging_jobs (
     error_message TEXT
 );
 
--- LLM 已打标曲目记录
+-- LLM Tagged Tracks records
 CREATE TABLE IF NOT EXISTS llm_tagged_tracks (
     track_id TEXT PRIMARY KEY,
     tagged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -543,7 +544,7 @@ CREATE TABLE IF NOT EXISTS llm_tagged_tracks (
     FOREIGN KEY (job_id) REFERENCES llm_tagging_jobs(id) ON DELETE SET NULL
 );
 
--- 索引
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
@@ -553,7 +554,7 @@ CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_position ON playlist_tracks(playlist_id, position);
 ```
 
-#### 1.4.2 类设计
+#### 1.4.2 Class Design
 
 ```python
 # src/core/database.py
@@ -566,7 +567,7 @@ from contextlib import contextmanager
 import re # Added for _is_write_sql
 
 class DatabaseManager:
-    """数据库管理器 - 单例模式"""
+    """Database Manager - Singleton Pattern"""
     
     _instance: Optional['DatabaseManager'] = None
     _lock = threading.Lock()
@@ -593,7 +594,7 @@ class DatabaseManager:
     
     @property
     def _conn(self) -> sqlite3.Connection:
-        """获取线程本地连接"""
+        """Get thread-local connection"""
         if not hasattr(self._local, 'connection'):
             self._local.connection = sqlite3.connect(self._db_path)
             self._local.connection.row_factory = sqlite3.Row
@@ -601,7 +602,7 @@ class DatabaseManager:
     
     @contextmanager
     def transaction(self):
-        """事务上下文管理器"""
+        """Transaction context manager"""
         with self._write_lock:
             try:
                 self._in_transaction = True
@@ -614,7 +615,7 @@ class DatabaseManager:
                 self._in_transaction = False
     
     def execute(self, sql: str, params: tuple = (), max_retries: int = 5, retry_delay: float = 0.1) -> sqlite3.Cursor:
-        """执行SQL，支持自动提交、写入锁和重试机制"""
+        """Execute SQL with auto-commit, write lock, and retry mechanism"""
         is_write = self._is_write_sql(sql)
         
         for i in range(max_retries):
@@ -635,20 +636,20 @@ class DatabaseManager:
                 raise
     
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[Dict]:
-        """获取单条记录"""
+        """Fetch single record"""
         cursor = self.execute(sql, params)
         row = cursor.fetchone()
         return dict(row) if row else None
     
     def fetch_all(self, sql: str, params: tuple = ()) -> List[Dict]:
-        """获取所有记录"""
+        """Fetch all records"""
         cursor = self.execute(sql, params)
         return [dict(row) for row in cursor.fetchall()]
     
     def _init_schema(self) -> None:
-        """初始化数据库Schema"""
+        """Initialize database Schema"""
         schema_sql = """
-        -- 艺术家表
+        -- Artists table
         CREATE TABLE IF NOT EXISTS artists (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -656,7 +657,7 @@ class DatabaseManager:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         
-        -- 专辑表
+        -- Albums table
         CREATE TABLE IF NOT EXISTS albums (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
@@ -667,7 +668,7 @@ class DatabaseManager:
             FOREIGN KEY (artist_id) REFERENCES artists(id)
         );
         
-        -- 音轨表
+        -- Tracks table
         CREATE TABLE IF NOT EXISTS tracks (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
@@ -684,12 +685,13 @@ class DatabaseManager:
             play_count INTEGER DEFAULT 0,
             last_played TIMESTAMP,
             rating INTEGER DEFAULT 0,
+    is_favorite BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (artist_id) REFERENCES artists(id),
             FOREIGN KEY (album_id) REFERENCES albums(id)
         );
         
-        -- 播放列表表
+        -- Playlists table
         CREATE TABLE IF NOT EXISTS playlists (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -699,7 +701,7 @@ class DatabaseManager:
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         
-        -- 播放列表-音轨关联表
+        -- Playlist tracks mapping table
         CREATE TABLE IF NOT EXISTS playlist_tracks (
             playlist_id TEXT NOT NULL,
             track_id TEXT NOT NULL,
@@ -710,7 +712,7 @@ class DatabaseManager:
             FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
         );
         
-        -- 标签表
+        -- Tags table
         CREATE TABLE IF NOT EXISTS tags (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
@@ -718,7 +720,7 @@ class DatabaseManager:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         
-        -- 曲目-标签关联表
+        -- Track tags mapping table
         CREATE TABLE IF NOT EXISTS track_tags (
             track_id TEXT NOT NULL,
             tag_id TEXT NOT NULL,
@@ -728,7 +730,7 @@ class DatabaseManager:
             FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
         );
         
-        -- 索引
+        -- Indexes
         CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist_id);
         CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_id);
         CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
@@ -750,7 +752,7 @@ class DatabaseManager:
 
     @classmethod
     def _is_write_sql(cls, sql: str) -> bool:
-        """识别是否为写入操作 (支持 CTE/WITH)"""
+        """Identify if the SQL statement is a write operation (supports CTE/WITH)"""
         write_keywords = ("INSERT", "UPDATE", "DELETE", "REPLACE", "CREATE", "DROP", "ALTER")
         stripped = cls._strip_leading_sql_comments(sql).lstrip().upper()
         if not stripped: return False
@@ -763,7 +765,7 @@ class DatabaseManager:
         return False
 
     def close(self) -> None:
-        """关闭连接"""
+        """Close connection"""
         if hasattr(self._local, 'connection'):
             self._local.connection.close()
             del self._local.connection
@@ -771,15 +773,15 @@ class DatabaseManager:
 
 ---
 
-### 1.5 LLM 提供商架构 (LLMProvider Framework)
+### 1.5 LLM Provider Framework (LLMProvider Framework)
 
-#### 1.5.1 设计目标
+#### 1.5.1 Design Goals
 
-- 支持多种 LLM 模型（如 GPT, Gemini, DeepSeek）。
-- 统一的输入输出接口。
-- 易于扩展新的模型提供商。
+- Support multiple LLM models (e.g., GPT, Gemini, DeepSeek).
+- Unified input and output interface.
+- Easy to extend with new model providers.
 
-#### 1.5.2 类设计
+#### 1.5.2 Class Design
 
 ```python
 from abc import ABC, abstractmethod
@@ -793,45 +795,45 @@ class LLMProvider(ABC):
 
 ---
 
-### 1.6 标签服务架构 (TagService)
+### 1.6 Tag Service Architecture (TagService)
 
-#### 1.6.1 核心职责
+#### 1.6.1 Core Responsibilities
 
-- 提供标签的增删改查。
-- 管理标签与媒体库曲目的多对多关系。
+- Provide CRUD operations for tags.
+- Manage many-to-many relationships between tags and tracks in the media library.
 
 ---
 
-### 1.7 LLM 打标服务架构 (LLMTaggingService)
+### 1.7 LLM Tagging Service Architecture (LLMTaggingService)
 
-#### 1.7.1 设计目标
+#### 1.7.1 Design Goals
 
-- 自动对媒体库中的曲目进行批量打标。
-- 支持断点续传和进度管理。
-- 避免重复对同一首曲目进行打标。
+- Automatically perform batch tagging for tracks in the media library.
+- Support resume from breakpoint and progress management.
+- Avoid duplicate tagging for the same track.
 
-#### 1.7.2 类设计
+#### 1.7.2 Class Design
 
 ```python
 class LLMTaggingService:
     def start_tagging_job(self, track_ids: List[str] = None) -> str:
-        """启动打标任务"""
+        """Start tagging job"""
         pass
 
     def stop_tagging_job(self, job_id: str) -> bool:
-        """停止任务"""
+        """Stop job"""
         pass
         
     def get_job_status(self, job_id: str) -> TaggingJobStatus:
-        """获取任务状态"""
+        """Get job status"""
         pass
 ```
 
 ---
 
-## 2. 服务层设计
+## 2. Service Layer Design
 
-### 2.1 播放服务 (PlayerService)
+### 2.1 Player Service (PlayerService)
 
 ```python
 # src/services/player_service.py
@@ -861,7 +863,7 @@ class PlaybackState:
     play_mode: PlayMode = PlayMode.SEQUENTIAL
 
 class PlayerService:
-    """播放服务"""
+    """Player Service"""
     
     def __init__(self, audio_engine: Optional[AudioEngineBase] = None):
         self._engine = audio_engine or PygameAudioEngine()
@@ -872,13 +874,13 @@ class PlayerService:
         self._play_mode: PlayMode = PlayMode.SEQUENTIAL
         self._shuffle_indices: List[int] = []
         
-        # 绑定引擎回调
+        # Bind engine callbacks
         self._engine.set_on_end(self._on_track_end)
         self._engine.set_on_error(self._on_error)
     
     @property
     def state(self) -> PlaybackState:
-        """获取当前播放状态"""
+        """Get current playback state"""
         current_track = self._queue[self._current_index] if 0 <= self._current_index < len(self._queue) else None
         return PlaybackState(
             current_track=current_track,
@@ -890,7 +892,7 @@ class PlayerService:
         )
     
     def set_queue(self, tracks: List[Track], start_index: int = 0) -> None:
-        """设置播放队列"""
+        """Set playback queue"""
         self._queue = tracks.copy()
         self._current_index = start_index
         self._shuffle_indices = list(range(len(tracks)))
@@ -899,7 +901,7 @@ class PlayerService:
         self._event_bus.publish(EventType.QUEUE_CHANGED, self._queue)
     
     def play(self, track: Optional[Track] = None) -> bool:
-        """播放指定曲目或当前曲目"""
+        """Play specified track or current track"""
         if track:
             if track in self._queue:
                 self._current_index = self._queue.index(track)
@@ -918,19 +920,19 @@ class PlayerService:
         return False
     
     def pause(self) -> None:
-        """暂停播放"""
+        """Pause playback"""
         if self._engine.state == PlayerState.PLAYING:
             self._engine.pause()
             self._event_bus.publish(EventType.TRACK_PAUSED)
     
     def resume(self) -> None:
-        """恢复播放"""
+        """Resume playback"""
         if self._engine.state == PlayerState.PAUSED:
             self._engine.resume()
             self._event_bus.publish(EventType.TRACK_RESUMED)
     
     def toggle_play(self) -> None:
-        """切换播放/暂停"""
+        """Toggle play/pause"""
         if self._engine.state == PlayerState.PLAYING:
             self.pause()
         elif self._engine.state == PlayerState.PAUSED:
@@ -939,12 +941,12 @@ class PlayerService:
             self.play()
     
     def stop(self) -> None:
-        """停止播放"""
+        """Stop playback"""
         self._engine.stop()
         self._event_bus.publish(EventType.TRACK_ENDED)
     
     def next_track(self) -> Optional[Track]:
-        """下一曲"""
+        """Next track"""
         if not self._queue:
             return None
         
@@ -969,11 +971,11 @@ class PlayerService:
         return self._queue[self._current_index]
     
     def previous_track(self) -> Optional[Track]:
-        """上一曲"""
+        """Previous track"""
         if not self._queue:
             return None
         
-        # 如果播放超过3秒，重新播放当前曲目
+        # If played for more than 3 seconds, replay the current track
         if self._engine.get_position() > 3000:
             self.seek(0)
             return self._queue[self._current_index]
@@ -987,24 +989,24 @@ class PlayerService:
         return self._queue[self._current_index]
     
     def seek(self, position_ms: int) -> None:
-        """跳转到指定位置"""
+        """Seek to specified position"""
         self._engine.seek(position_ms)
         self._event_bus.publish(EventType.POSITION_CHANGED, position_ms)
     
     def set_volume(self, volume: float) -> None:
-        """设置音量"""
+        """Set volume"""
         self._engine.set_volume(volume)
         self._event_bus.publish(EventType.VOLUME_CHANGED, volume)
     
     def set_play_mode(self, mode: PlayMode) -> None:
-        """设置播放模式"""
+        """Set playback mode"""
         self._play_mode = mode
         if mode == PlayMode.SHUFFLE:
             self._shuffle_indices = list(range(len(self._queue)))
             random.shuffle(self._shuffle_indices)
     
     def _on_track_end(self) -> None:
-        """曲目播放结束回调"""
+        """Track playback ended callback"""
         self._event_bus.publish(EventType.TRACK_ENDED)
         
         if self._play_mode == PlayMode.REPEAT_ONE:
@@ -1013,7 +1015,7 @@ class PlayerService:
             self.next_track()
     
     def _on_error(self, error: str) -> None:
-        """错误回调"""
+        """Error callback"""
         self._event_bus.publish(EventType.ERROR_OCCURRED, {
             "source": "PlayerService",
             "error": error
@@ -1022,9 +1024,9 @@ class PlayerService:
 
 ---
 
-## 3. 数据模型设计
+## 3. Data Model Design
 
-### 3.1 Track模型
+### 3.1 Track Model
 
 ```python
 # src/models/track.py
@@ -1039,7 +1041,7 @@ import uuid
 
 @dataclass
 class Track:
-    """音轨数据模型"""
+    """Track data model"""
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     title: str = ""
@@ -1062,13 +1064,14 @@ class Track:
     play_count: int = 0
     last_played: Optional[datetime] = None
     rating: int = 0
+    is_favorite: bool = False
     
     cover_path: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.now)
     
     @property
     def duration_str(self) -> str:
-        """格式化时长字符串"""
+        """Format duration string"""
         total_seconds = self.duration_ms // 1000
         minutes = total_seconds // 60
         seconds = total_seconds % 60
@@ -1076,13 +1079,13 @@ class Track:
     
     @property
     def display_name(self) -> str:
-        """显示名称"""
+        """Display name"""
         if self.artist_name:
             return f"{self.artist_name} - {self.title}"
         return self.title
     
     def to_dict(self) -> dict:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             'id': self.id,
             'title': self.title,
@@ -1104,7 +1107,7 @@ class Track:
     
     @classmethod
     def from_dict(cls, data: dict) -> 'Track':
-        """从字典创建"""
+        """Create from dictionary"""
         return cls(
             id=data.get('id', str(uuid.uuid4())),
             title=data.get('title', ''),
@@ -1127,61 +1130,61 @@ class Track:
 
 ---
 
-## 4. UI设计规范
+## 4. UI Design Specification
 
-### 4.1 主窗口布局
+### 4.1 Main Window Layout
 
 ```text
 +----------------------------------------------------------+
-|  [Logo]  搜索框                        [最小化][最大化][关闭] |
+|  [Logo]  Search Bar                    [Min][Max][Close] |
 +----------+-----------------------------------------------+
 |          |                                               |
-| 侧边栏    |                   主内容区                    |
+| Sidebar  |                   Main Content Area           |
 |          |                                               |
-| - 发现    |   根据选择显示不同内容:                        |
-| - 最近    |   - 音乐库浏览                                |
-| - 播放列表 |   - 专辑详情                                  |
-| - 设置    |   - 搜索结果                                  |
-|          |   - 设置页面                                  |
+| - Browse |   Display content based on selection:         |
+| - Recent |   - Music library browsing                    |
+| - Playlist|   - Album details                             |
+| - Settings|   - Search results                            |
+|          |   - Settings page                             |
 |          |                                               |
 +----------+-----------------------------------------------+
 |                                                          |
-|  [封面]  歌曲信息   [上一曲][播放][下一曲]  进度条  音量  模式 |
+|  [Cover] Track Info [Prev][Play/Pause][Next] Progress Vol Mode |
 |                                                          |
 +----------------------------------------------------------+
 ```
 
-### 4.2 配色方案
+### 4.2 Color Scheme
 
-#### 深色主题
+#### Dark Theme
 
-| 元素 | 颜色 |
+| Element | Color |
 |------|------|
-| 背景主色 | #121212 |
-| 背景次色 | #1E1E1E |
-| 表面色 | #282828 |
-| 主强调色 | #1DB954 |
-| 文字主色 | #FFFFFF |
-| 文字次色 | #B3B3B3 |
-| 边框色 | #333333 |
+| Primary Background | #121212 |
+| Secondary Background | #1E1E1E |
+| Surface Color | #282828 |
+| Primary Accent | #1DB954 |
+| Primary Text | #FFFFFF |
+| Secondary Text | #B3B3B3 |
+| Border Color | #333333 |
 
-#### 浅色主题
+#### Light Theme
 
-| 元素 | 颜色 |
+| Element | Color |
 |------|------|
-| 背景主色 | #FFFFFF |
-| 背景次色 | #F5F5F5 |
-| 表面色 | #EEEEEE |
-| 主强调色 | #1DB954 |
-| 文字主色 | #191414 |
-| 文字次色 | #666666 |
-| 边框色 | #E0E0E0 |
+| Primary Background | #FFFFFF |
+| Secondary Background | #F5F5F5 |
+| Surface Color | #EEEEEE |
+| Primary Accent | #1DB954 |
+| Primary Text | #191414 |
+| Secondary Text | #666666 |
+| Border Color | #E0E0E0 |
 
 ---
 
-## 5. 配置管理
+## 5. Configuration Management
 
-### 5.1 默认配置
+### 5.1 Default Configuration
 
 ```yaml
 # config/default_config.yaml
@@ -1242,32 +1245,34 @@ shortcuts:
 
 ---
 
-## 6. 依赖列表
+## 6. Dependency List
 
 ```text
 # requirements.txt
 
-# GUI框架
+# requirements.txt
+
+# GUI Framework
 PyQt6>=6.4.0
 
-# 音频播放
+# Audio Playback
 pygame>=2.5.0
-miniaudio>=1.59       # 高保真音频后端 (Gapless/Crossfade/EQ)
-python-vlc>=3.0.18122 # VLC后端
+miniaudio>=1.59       # High-fidelity audio backend (Gapless/Crossfade/EQ)
+python-vlc>=3.0.18122 # VLC backend
 
-# 元数据解析
+# Metadata Parsing
 mutagen>=1.46.0
 
-# 配置管理
+# Configuration Management
 PyYAML>=6.0
 
-# 数据库
-# SQLite3 (Python内置)
+# Database
+# SQLite3 (Built-in)
 
-# 工具库
-Pillow>=10.0.0  # 图像处理
+# Utilities
+Pillow>=10.0.0  # Image processing
 
-# 开发依赖
+# Development Dependencies
 pytest>=7.0.0
 pytest-qt>=4.2.0
 black>=23.0.0
@@ -1277,9 +1282,9 @@ mypy>=1.0.0
 
 ---
 
-## 7. 测试策略
+## 7. Testing Strategy
 
-### 7.1 单元测试示例
+### 7.1 Unit Testing Example
 
 ```python
 # tests/test_audio_engine.py
@@ -1320,7 +1325,7 @@ class TestPygameAudioEngine:
             assert engine.volume == 1.0
 ```
 
-### 7.2 集成测试
+### 7.2 Integration Testing
 
 ```python
 # tests/test_player_service.py
@@ -1352,28 +1357,28 @@ class TestPlayerService:
         player.set_queue(tracks)
         player.set_play_mode(PlayMode.SHUFFLE)
         
-        # 验证shuffle_indices已生成
+        # Verify shuffle_indices are generated
         assert len(player._shuffle_indices) == 10
 ```
 
 ---
 
-## 8. 性能优化指南
+## 8. Performance Optimization Guide
 
-### 8.1 内存优化
+### 8.1 Memory Optimization
 
-- 使用弱引用管理封面图片缓存
-- 延迟加载元数据
-- 分页加载大型播放列表
+- Use weak references for cover art cache management
+- Lazy load metadata
+- Paginated loading for large playlists
 
-### 8.2 响应性优化
+### 8.2 Responsiveness Optimization
 
-- 耗时操作放入后台线程
-- 使用事件队列避免UI阻塞
-- 增量更新媒体库
+- Offload time-consuming operations to background threads
+- Use event queue to avoid UI blocking
+- Incremental media library updates
 
-### 8.3 启动优化
+### 8.3 Startup Optimization
 
-- 延迟初始化非必要模块
-- 缓存历史状态
-- 使用SQLite预编译语句
+- Lazy initialization for non-essential modules
+- Cache historical states
+- Use SQLite prepared statements

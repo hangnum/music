@@ -13,7 +13,10 @@
       "Bash(git log:*)",
       "WebSearch",
       "Skill(plan)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(findstr:*)",
+      "Skill(code-review)",
+      "Bash(PYTHONPATH=src python:*)"
     ]
   }
 }

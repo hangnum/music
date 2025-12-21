@@ -1,5 +1,5 @@
 """
-艺术家数据模型
+Artist data model
 """
 
 from dataclasses import dataclass, field
@@ -11,7 +11,7 @@ import uuid
 @dataclass
 class Artist:
     """
-    艺术家数据模型
+    Artist data model
     """
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -22,7 +22,7 @@ class Artist:
     created_at: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> dict:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             'id': self.id,
             'name': self.name,
@@ -34,7 +34,7 @@ class Artist:
     
     @classmethod
     def from_dict(cls, data: dict) -> 'Artist':
-        """从字典创建Artist对象"""
+        """Create Artist object from dictionary"""
         created_at = datetime.now()
         if data.get('created_at'):
             try:

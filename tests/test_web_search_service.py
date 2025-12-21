@@ -1,7 +1,7 @@
 """
-WebSearchService 单元测试
+WebSearchService Unit Tests
 
-测试网络搜索服务的各项功能，使用 Mock 避免真实网络请求。
+Tests for various web search service functionalities using Mocks to avoid real network requests.
 """
 
 import pytest
@@ -11,155 +11,155 @@ from services.web_search_service import WebSearchService, SearchResult
 
 
 class TestWebSearchServiceInit:
-    """测试初始化"""
+    """Tests for initialization."""
     
     def test_init_default_timeout(self):
-        """测试默认超时时间"""
+        """Test default timeout period."""
         service = WebSearchService()
         assert service._timeout == 10.0
     
     def test_init_custom_timeout(self):
-        """测试自定义超时时间"""
+        """Test custom timeout period."""
         service = WebSearchService(timeout=5.0)
         assert service._timeout == 5.0
     
     def test_ddgs_lazy_load(self):
-        """测试 DDGS 懒加载"""
+        """Test lazy loading of the DDGS client."""
         service = WebSearchService()
         assert service._ddgs is None
 
 
 class TestCleanText:
-    """测试文本清理功能"""
+    """Tests for text cleaning functionality."""
     
     def test_clean_normal_text(self):
-        """测试正常文本"""
+        """Test cleaning normal text."""
         service = WebSearchService()
-        result = service._clean_text("这是一首流行歌曲")
-        assert result == "这是一首流行歌曲"
+        result = service._clean_text("This is a pop song")
+        assert result == "This is a pop song"
     
     def test_clean_whitespace(self):
-        """测试多余空白"""
+        """Test cleaning of extra whitespace."""
         service = WebSearchService()
-        result = service._clean_text("  多余   空白  ")
-        assert result == "多余 空白"
+        result = service._clean_text("  extra   whitespace  ")
+        assert result == "extra whitespace"
     
     def test_clean_noise_login(self):
-        """测试过滤登录相关噪音"""
+        """Test filtering login-related noise."""
         service = WebSearchService()
-        result = service._clean_text("请登录后查看完整内容")
+        result = service._clean_text("Please login to view full content")
         assert result == ""
     
     def test_clean_noise_download(self):
-        """测试过滤下载相关噪音"""
+        """Test filtering download-related noise."""
         service = WebSearchService()
-        result = service._clean_text("立即下载APP体验更多")
+        result = service._clean_text("Download APP now for more experience")
         assert result == ""
     
     def test_clean_noise_404(self):
-        """测试过滤404错误"""
+        """Test filtering 404 error noise."""
         service = WebSearchService()
-        result = service._clean_text("404页面不存在")
+        result = service._clean_text("404 Page not found")
         assert result == ""
     
     def test_clean_empty_string(self):
-        """测试空字符串"""
+        """Test cleaning an empty string."""
         service = WebSearchService()
         result = service._clean_text("")
         assert result == ""
     
     def test_clean_none(self):
-        """测试 None 值"""
+        """Test cleaning a None value."""
         service = WebSearchService()
         result = service._clean_text(None)
         assert result == ""
 
 
 class TestRelevanceFilter:
-    """测试相关性过滤"""
+    """Tests for relevance filtering."""
     
     def test_relevant_with_keyword(self):
-        """测试包含关键词的内容"""
+        """Test relevance when keywords are present."""
         service = WebSearchService()
-        result = service._is_relevant("周杰伦是著名歌手", ["周杰伦"])
+        result = service._is_relevant("Jay Chou is a famous singer", ["Jay Chou"])
         assert result is True
     
     def test_relevant_case_insensitive(self):
-        """测试大小写不敏感"""
+        """Test case-insensitive relevance matching."""
         service = WebSearchService()
         result = service._is_relevant("Rock music is great", ["rock"])
         assert result is True
     
     def test_irrelevant_content(self):
-        """测试不相关内容"""
+        """Test filtering irrelevant content."""
         service = WebSearchService()
-        result = service._is_relevant("今日天气晴朗", ["周杰伦", "七里香"])
+        result = service._is_relevant("The weather is sunny today", ["Jay Chou", "Qi Li Xiang"])
         assert result is False
     
     def test_empty_keywords(self):
-        """测试空关键词列表（不过滤）"""
+        """Test that empty keywords do not result in filtering."""
         service = WebSearchService()
-        result = service._is_relevant("任何内容", [])
+        result = service._is_relevant("Any content", [])
         assert result is True
     
     def test_empty_body(self):
-        """测试空内容"""
+        """Test relevance check with empty body."""
         service = WebSearchService()
-        result = service._is_relevant("", ["关键词"])
+        result = service._is_relevant("", ["keyword"])
         assert result is True
 
 
 class TestDeduplicate:
-    """测试去重功能"""
+    """Tests for deduplication."""
     
     def test_deduplicate_exact(self):
-        """测试完全相同的内容"""
+        """Test deduplication of identical content."""
         service = WebSearchService()
-        texts = ["内容A", "内容A", "内容B"]
+        texts = ["Content A", "Content A", "Content B"]
         result = service._deduplicate(texts)
-        assert result == ["内容A", "内容B"]
+        assert result == ["Content A", "Content B"]
     
     def test_deduplicate_prefix(self):
-        """测试相同前缀的长文本"""
+        """Test deduplication based on long text prefix."""
         service = WebSearchService()
         long_text = "A" * 60
-        texts = [long_text, long_text + "更多内容"]
+        texts = [long_text, long_text + " more content"]
         result = service._deduplicate(texts)
-        # 由于前50字符相同，应该去重
+        # Should deduplicate because the first 50 characters match
         assert len(result) == 1
     
     def test_deduplicate_preserve_order(self):
-        """测试保留顺序"""
+        """Test that order is preserved during deduplication."""
         service = WebSearchService()
-        texts = ["第一", "第二", "第三"]
+        texts = ["First", "Second", "Third"]
         result = service._deduplicate(texts)
-        assert result == ["第一", "第二", "第三"]
+        assert result == ["First", "Second", "Third"]
     
     def test_deduplicate_empty(self):
-        """测试空列表"""
+        """Test deduplication of an empty list."""
         service = WebSearchService()
         result = service._deduplicate([])
         assert result == []
 
 
 class TestSearchMusicInfo:
-    """测试音乐搜索"""
+    """Tests for music information search."""
     
     @patch.object(WebSearchService, '_do_search')
     def test_search_with_artist_and_title(self, mock_search):
-        """测试艺术家+歌曲搜索"""
-        mock_search.return_value = ["周杰伦的七里香是一首R&B风格歌曲"]
+        """Test artist and title search."""
+        mock_search.return_value = ["Jay Chou's Qi Li Xiang is an R&B style song"]
         
         service = WebSearchService()
-        result = service.search_music_info("周杰伦", "七里香")
+        result = service.search_music_info("Jay Chou", "Qi Li Xiang")
         
         assert len(result) >= 0
-        # 验证至少调用了一次搜索
+        # Verify that search was called at least once
         assert mock_search.called
     
     @patch.object(WebSearchService, '_do_search')
     def test_search_empty_input(self, mock_search):
-        """测试空输入"""
+        """Test search with empty input."""
         service = WebSearchService()
         result = service.search_music_info("", "")
         
@@ -168,91 +168,91 @@ class TestSearchMusicInfo:
     
     @patch.object(WebSearchService, '_do_search')
     def test_search_filters_irrelevant(self, mock_search):
-        """测试过滤不相关结果"""
+        """Test filtering of irrelevant search results."""
         mock_search.return_value = [
-            "周杰伦七里香专辑介绍",
-            "今日股市行情分析",
+            "Jay Chou Qi Li Xiang album introduction",
+            "Today's stock market analysis",
         ]
         
         service = WebSearchService()
-        result = service.search_music_info("周杰伦", "七里香")
+        result = service.search_music_info("Jay Chou", "Qi Li Xiang")
         
-        # 不相关的股市内容应被过滤
-        assert "股市" not in str(result)
+        # Stock market content should be filtered out
+        assert "stock market" not in str(result)
 
 
 class TestSearchArtistInfo:
-    """测试艺术家搜索"""
+    """Tests for artist information search."""
     
     @patch.object(WebSearchService, '_do_search')
     def test_search_artist(self, mock_search):
-        """测试艺术家信息搜索"""
-        mock_search.return_value = ["周杰伦，华语流行音乐代表人物"]
+        """Test artist info retrieval."""
+        mock_search.return_value = ["Jay Chou, a representative figure of Chinese pop music"]
         
         service = WebSearchService()
-        result = service.search_artist_info("周杰伦")
+        result = service.search_artist_info("Jay Chou")
         
         assert len(result) >= 0
         assert mock_search.called
     
     def test_search_artist_empty(self):
-        """测试空艺术家名"""
+        """Test artist search with empty name."""
         service = WebSearchService()
         result = service.search_artist_info("")
         assert result == []
 
 
 class TestSearchAlbumInfo:
-    """测试专辑搜索"""
+    """Tests for album information search."""
     
     @patch.object(WebSearchService, '_do_search')
     def test_search_album(self, mock_search):
-        """测试专辑信息搜索"""
-        mock_search.return_value = ["七里香专辑获得多项大奖"]
+        """Test album info retrieval."""
+        mock_search.return_value = ["Common Jasmine Orange album won multiple awards"]
         
         service = WebSearchService()
-        result = service.search_album_info("周杰伦", "七里香")
+        result = service.search_album_info("Jay Chou", "Qi Li Xiang")
         
         assert mock_search.called
     
     def test_search_album_empty(self):
-        """测试空专辑名"""
+        """Test album search with empty name."""
         service = WebSearchService()
-        result = service.search_album_info("周杰伦", "")
+        result = service.search_album_info("Jay Chou", "")
         assert result == []
 
 
 class TestGetMusicContext:
-    """测试综合上下文获取"""
+    """Tests for comprehensive context retrieval."""
     
     @patch.object(WebSearchService, 'search_music_info')
     @patch.object(WebSearchService, 'search_artist_info')
     @patch.object(WebSearchService, 'search_album_info')
     def test_get_context_structured(self, mock_album, mock_artist, mock_music):
-        """测试结构化输出"""
-        mock_music.return_value = ["R&B风格歌曲"]
-        mock_artist.return_value = ["华语流行歌手"]
-        mock_album.return_value = ["2004年发行专辑"]
+        """Test structured output generation."""
+        mock_music.return_value = ["R&B style song"]
+        mock_artist.return_value = ["Chinese pop singer"]
+        mock_album.return_value = ["Album released in 2004"]
         
         service = WebSearchService()
-        result = service.get_music_context("周杰伦", "七里香", "七里香")
+        result = service.get_music_context("Jay Chou", "Qi Li Xiang", "Qi Li Xiang")
         
-        # 验证包含结构化标签
-        assert "[歌曲]" in result
+        # Verify inclusion of structured tags
+        assert "[Song]" in result
     
     @patch.object(WebSearchService, 'search_music_info')
     def test_get_context_max_chars(self, mock_music):
-        """测试最大字符限制"""
+        """Test character limit for context."""
         mock_music.return_value = ["A" * 1000]
         
         service = WebSearchService()
-        result = service.get_music_context("艺术家", "歌曲", None, max_total_chars=100)
+        result = service.get_music_context("Artist", "Song", None, max_total_chars=100)
         
         assert len(result) <= 103  # 100 + "..." 
     
     @patch.object(WebSearchService, 'search_music_info')
     def test_get_context_empty_results(self, mock_music):
-        """测试无搜索结果"""
+        """Test context retrieval with no results."""
         mock_music.return_value = []
         
         service = WebSearchService()
@@ -262,10 +262,10 @@ class TestGetMusicContext:
 
 
 class TestDoSearch:
-    """测试底层搜索执行"""
+    """Tests for underlying search execution."""
     
     def test_do_search_ddgs_not_installed(self):
-        """测试 ddgs 未安装时的行为"""
+        """Test behavior when ddgs is not installed."""
         service = WebSearchService()
         service._ddgs = None
         
@@ -275,7 +275,7 @@ class TestDoSearch:
     
     @patch('services.web_search_service.WebSearchService._get_ddgs')
     def test_do_search_exception_handling(self, mock_get_ddgs):
-        """测试搜索异常处理"""
+        """Test exception handling during search."""
         mock_ddgs = MagicMock()
         mock_ddgs.text.side_effect = Exception("Network error")
         mock_get_ddgs.return_value = mock_ddgs
@@ -283,12 +283,12 @@ class TestDoSearch:
         service = WebSearchService()
         result = service._do_search("test query", 3)
         
-        # 异常时返回空列表
+        # Return empty list on exception
         assert result == []
     
     @patch('services.web_search_service.WebSearchService._get_ddgs')
     def test_do_search_truncates_long_results(self, mock_get_ddgs):
-        """测试长结果截断"""
+        """Test truncation of long search results."""
         mock_ddgs = MagicMock()
         mock_ddgs.text.return_value = [{"body": "A" * 300}]
         mock_get_ddgs.return_value = mock_ddgs
@@ -296,21 +296,21 @@ class TestDoSearch:
         service = WebSearchService()
         result = service._do_search("test query", 3)
         
-        # 结果应该被截断
+        # Result should be truncated
         if result:
-            assert len(result[0]) <= 155  # 150 + "…" 或句号截断
+            assert len(result[0]) <= 155  # 150 + "…" or truncated at period
 
 
 class TestSearchResult:
-    """测试 SearchResult 数据类"""
+    """Tests for the SearchResult data class."""
     
     def test_search_result_creation(self):
-        """测试创建搜索结果"""
+        """Test creation of search result."""
         result = SearchResult(
-            title="测试标题",
-            body="测试内容",
+            title="Test Title",
+            body="Test Content",
             url="https://example.com"
         )
-        assert result.title == "测试标题"
-        assert result.body == "测试内容"
+        assert result.title == "Test Title"
+        assert result.body == "Test Content"
         assert result.url == "https://example.com"

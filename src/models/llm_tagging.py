@@ -1,5 +1,5 @@
 """
-LLM 标签标注相关数据模型
+Data models related to LLM tagging
 """
 
 from __future__ import annotations
@@ -10,13 +10,13 @@ from typing import Optional
 
 
 class LLMTaggingError(RuntimeError):
-    """LLM 标注错误"""
+    """LLM tagging error"""
     pass
 
 
 @dataclass
 class TaggingJobStatus:
-    """标注任务状态"""
+    """Tagging job status"""
     job_id: str
     status: str  # pending | running | completed | failed | stopped
     total_tracks: int
@@ -27,7 +27,7 @@ class TaggingJobStatus:
     
     @property
     def progress(self) -> float:
-        """进度百分比 (0.0 - 1.0)"""
+        """Progress percentage (0.0 - 1.0)"""
         if self.total_tracks == 0:
             return 0.0
         return self.processed_tracks / self.total_tracks

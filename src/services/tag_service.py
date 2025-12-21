@@ -1,7 +1,7 @@
 """
-标签服务模块
+Tag Service Module
 
-提供标签的创建、管理、以及曲目与标签的关联操作。
+Provides tag creation, management, and track-tag association operations.
 """
 
 from typing import List, Optional
@@ -17,48 +17,48 @@ logger = logging.getLogger(__name__)
 
 class TagService:
     """
-    标签服务
+    Tag Service
     
-    提供标签的 CRUD 操作以及曲目-标签关联管理。
+    Provides CRUD operations for tags and track-tag association management.
     
-    使用示例:
+    Usage example:
         tag_service = TagService(db)
         
-        # 创建标签
-        tag = tag_service.create_tag("喜欢", "#FF5733")
+        # Create tag
+        tag = tag_service.create_tag("Favorite", "#FF5733")
         
-        # 为曲目添加标签
+        # Add tag to track
         tag_service.add_tag_to_track(track_id, tag.id)
         
-        # 获取曲目的所有标签
+        # Get all tags for track
         tags = tag_service.get_track_tags(track_id)
     """
     
     def __init__(self, db: Optional[DatabaseManager] = None):
         """
-        初始化标签服务
+        Initialize the Tag Service.
         
         Args:
-            db: 数据库管理器实例，如果为 None 则使用默认实例
+            db: Database manager instance; if None, use the default instance.
         """
         self._db = db or DatabaseManager()
     
-    # ========== 标签 CRUD ==========
+    # ========== Tag CRUD ==========
     
     def create_tag(self, name: str, color: str = "#808080", 
                    source: str = "user") -> Optional[Tag]:
         """
-        创建新标签
+        Create a new tag.
         
         Args:
-            name: 标签名称
-            color: 标签颜色（十六进制格式）
-            source: 标签来源 ("user" 表示用户创建, "llm" 表示 LLM 标注)
+            name: Tag name
+            color: Tag color (hex format)
+            source: Tag source ("user" for user-created, "llm" for LLM-tagged)
             
         Returns:
-            创建的标签对象，如果标签名已存在则返回 None
+            Created Tag object, or None if a tag with the same name already exists.
         """
-        # 检查是否存在同名标签（不区分大小写）
+        # Check if tag with same name exists (case-insensitive)
         existing = self.get_tag_by_name(name)
         if existing:
             return None
@@ -83,13 +83,13 @@ class TagService:
     
     def get_tag(self, tag_id: str) -> Optional[Tag]:
         """
-        根据 ID 获取标签
+        Get a tag by ID.
         
         Args:
-            tag_id: 标签 ID
+            tag_id: Tag ID
             
         Returns:
-            标签对象，如果不存在则返回 None
+            Tag object, or None if it does not exist.
         """
         row = self._db.fetch_one(
             "SELECT * FROM tags WHERE id = ?",
@@ -103,13 +103,13 @@ class TagService:
     
     def get_tag_by_name(self, name: str) -> Optional[Tag]:
         """
-        根据名称获取标签（不区分大小写）
+        Get a tag by name (case-insensitive).
         
         Args:
-            name: 标签名称
+            name: Tag name
             
         Returns:
-            标签对象，如果不存在则返回 None
+            Tag object, or None if it does not exist.
         """
         row = self._db.fetch_one(
             "SELECT * FROM tags WHERE name = ? COLLATE NOCASE",
@@ -123,10 +123,10 @@ class TagService:
     
     def get_all_tags(self) -> List[Tag]:
         """
-        获取所有标签
+        Get all tags.
         
         Returns:
-            标签列表，按名称排序
+            List of Tag objects, sorted by name.
         """
         rows = self._db.fetch_all(
             "SELECT * FROM tags ORDER BY name COLLATE NOCASE"
@@ -137,19 +137,19 @@ class TagService:
     def update_tag(self, tag_id: str, name: Optional[str] = None, 
                    color: Optional[str] = None) -> bool:
         """
-        更新标签
+        Update a tag.
         
         Args:
-            tag_id: 标签 ID
-            name: 新名称（可选）
-            color: 新颜色（可选）
+            tag_id: Tag ID
+            name: New name (optional)
+            color: New color (optional)
             
         Returns:
-            是否更新成功
+            True if the update was successful.
         """
         data = {}
         if name is not None:
-            # 检查新名称是否与其他标签冲突
+            # Check if the new name conflicts with another tag
             existing = self.get_tag_by_name(name)
             if existing and existing.id != tag_id:
                 return False
@@ -166,31 +166,31 @@ class TagService:
     
     def delete_tag(self, tag_id: str) -> bool:
         """
-        删除标签
+        Delete a tag.
         
-        会同时删除所有曲目与该标签的关联。
+        This also removes all track associations with this tag.
         
         Args:
-            tag_id: 标签 ID
+            tag_id: Tag ID
             
         Returns:
-            是否删除成功
+            True if deletion was successful.
         """
         affected = self._db.delete("tags", "id = ?", (tag_id,))
         return affected > 0
     
-    # ========== 曲目-标签关联 ==========
+    # ========== Track-tag association ==========
     
     def add_tag_to_track(self, track_id: str, tag_id: str) -> bool:
         """
-        为曲目添加标签
+        Add a tag to a track.
         
         Args:
-            track_id: 曲目 ID
-            tag_id: 标签 ID
+            track_id: Track ID
+            tag_id: Tag ID
             
         Returns:
-            是否添加成功
+            True if successfully added.
         """
         try:
             cursor = self._db.execute(
@@ -199,20 +199,20 @@ class TagService:
             )
             return cursor.rowcount > 0
         except Exception:
-            # 可能是重复添加或外键约束失败
-            logger.warning("添加标签失败: track_id=%s, tag_id=%s", track_id, tag_id, exc_info=True)
+            # Could be duplicate insertion or foreign key constraint failure
+            logger.warning("Failed to add tag: track_id=%s, tag_id=%s", track_id, tag_id, exc_info=True)
             return False
     
     def remove_tag_from_track(self, track_id: str, tag_id: str) -> bool:
         """
-        从曲目移除标签
+        Remove a tag from a track.
         
         Args:
-            track_id: 曲目 ID
-            tag_id: 标签 ID
+            track_id: Track ID
+            tag_id: Tag ID
             
         Returns:
-            是否移除成功
+            True if successfully removed.
         """
         affected = self._db.delete(
             "track_tags",
@@ -223,13 +223,13 @@ class TagService:
     
     def get_track_tags(self, track_id: str) -> List[Tag]:
         """
-        获取曲目的所有标签
+        Get all tags for a specific track.
         
         Args:
-            track_id: 曲目 ID
+            track_id: Track ID
             
         Returns:
-            标签列表
+            List of Tag objects.
         """
         rows = self._db.fetch_all(
             """
@@ -245,13 +245,13 @@ class TagService:
     
     def get_track_tag_names(self, track_id: str) -> List[str]:
         """
-        获取曲目的所有标签名称（便于显示）
+        Get all tag names for a specific track (useful for display).
         
         Args:
-            track_id: 曲目 ID
+            track_id: Track ID
             
         Returns:
-            标签名称列表
+            List of tag names.
         """
         rows = self._db.fetch_all(
             """
@@ -267,13 +267,13 @@ class TagService:
     
     def get_tracks_by_tag(self, tag_id: str) -> List[str]:
         """
-        获取标签下的所有曲目 ID
+        Get all track IDs associated with a specific tag.
         
         Args:
-            tag_id: 标签 ID
+            tag_id: Tag ID
             
         Returns:
-            曲目 ID 列表
+            List of track IDs.
         """
         rows = self._db.fetch_all(
             "SELECT track_id FROM track_tags WHERE tag_id = ?",
@@ -284,23 +284,23 @@ class TagService:
     
     def set_track_tags(self, track_id: str, tag_ids: List[str]) -> bool:
         """
-        设置曲目的标签（替换所有现有标签）
+        Set tags for a track (replaces all existing tags).
         
-        使用事务确保原子性：如果中途失败，会回滚所有更改。
+        Uses a transaction to ensure atomicity: if any step fails, all changes are rolled back.
         
         Args:
-            track_id: 曲目 ID
-            tag_ids: 新的标签 ID 列表
+            track_id: Track ID
+            tag_ids: New list of tag IDs
             
         Returns:
-            是否设置成功
+            True if successful.
         """
         try:
             with self._db.transaction():
-                # 先删除现有关联
+                # First delete existing associations
                 self._db.delete("track_tags", "track_id = ?", (track_id,))
                 
-                # 添加新关联
+                # Add new associations
                 for tag_id in tag_ids:
                     self._db.insert("track_tags", {
                         "track_id": track_id,
@@ -310,21 +310,21 @@ class TagService:
             
             return True
         except Exception:
-            logger.warning("设置曲目标签失败: track_id=%s, tag_ids=%s", track_id, tag_ids, exc_info=True)
+            logger.warning("Failed to set track tags: track_id=%s, tag_ids=%s", track_id, tag_ids, exc_info=True)
             return False
     
-    # ========== 搜索 ==========
+    # ========== Search ==========
     
     def search_tags(self, query: str, limit: int = 20) -> List[Tag]:
         """
-        搜索标签
+        Search for tags.
         
         Args:
-            query: 搜索关键词
-            limit: 结果数量限制
+            query: Search keyword
+            limit: Result count limit
             
         Returns:
-            匹配的标签列表
+            List of matching Tag objects.
         """
         rows = self._db.fetch_all(
             """
@@ -340,23 +340,23 @@ class TagService:
     
     def get_tag_count(self) -> int:
         """
-        获取标签总数
+        Get the total number of tags.
         
         Returns:
-            标签数量
+            Tag count.
         """
         result = self._db.fetch_one("SELECT COUNT(*) as count FROM tags")
         return result['count'] if result else 0
     
     def get_track_count_by_tag(self, tag_id: str) -> int:
         """
-        获取标签下的曲目数量
+        Get the number of tracks associated with a specific tag.
         
         Args:
-            tag_id: 标签 ID
+            tag_id: Tag ID
             
         Returns:
-            曲目数量
+            Track count.
         """
         result = self._db.fetch_one(
             "SELECT COUNT(*) as count FROM track_tags WHERE tag_id = ?",
@@ -364,20 +364,20 @@ class TagService:
         )
         return result['count'] if result else 0
     
-    # ========== LLM 批量标注支持 ==========
+    # ========== LLM Batch Tagging Support ==========
     
     def create_tag_if_not_exists(self, name: str, color: str = "#808080",
                                   source: str = "user") -> Tag:
         """
-        创建标签（如已存在则返回现有标签）
+        Create a tag if it doesn't already exist.
         
         Args:
-            name: 标签名称
-            color: 标签颜色
-            source: 标签来源
+            name: Tag name
+            color: Tag color
+            source: Tag source
             
         Returns:
-            标签对象（新创建或已存在的）
+            Tag object (newly created or existing).
         """
         existing = self.get_tag_by_name(name)
         if existing:
@@ -385,22 +385,22 @@ class TagService:
         
         tag = self.create_tag(name, color, source)
         if tag is None:
-            # 并发情况下可能刚被创建，再次获取
+            # Might have been created recently in a concurrent scenario
             return self.get_tag_by_name(name)  # type: ignore
         return tag
     
     def batch_add_tags_to_track(self, track_id: str, tag_names: List[str],
                                  source: str = "llm") -> int:
         """
-        批量为曲目添加标签（自动创建不存在的标签）
+        Add multiple tags to a track (creating non-existent tags automatically).
         
         Args:
-            track_id: 曲目 ID
-            tag_names: 标签名称列表
-            source: 标签来源
+            track_id: Track ID
+            tag_names: List of tag names
+            source: Tag source
             
         Returns:
-            成功添加的标签数量
+            Number of successfully added tags.
         """
         added = 0
         for name in tag_names:
@@ -418,17 +418,17 @@ class TagService:
                            match_mode: str = "any",
                            limit: int = 200) -> List[str]:
         """
-        按标签名称搜索曲目 ID
+        Search for track IDs by tag names.
         
         Args:
-            tag_names: 标签名称列表
-            match_mode: 匹配模式
-                - "any": 匹配任一标签（OR）
-                - "all": 匹配所有标签（AND）
-            limit: 结果数量限制
+            tag_names: List of tag names
+            match_mode: Matching mode
+                - "any": Match any tag (OR)
+                - "all": Match all tags (AND)
+            limit: Result count limit
             
         Returns:
-            曲目 ID 列表
+            List of track IDs.
         """
         if not tag_names:
             return []
@@ -438,7 +438,7 @@ class TagService:
             return []
         
         if match_mode == "all":
-            # 必须匹配所有标签
+            # Must match all tags
             placeholders = ",".join(["?" for _ in tag_names])
             query = f"""
                 SELECT tt.track_id
@@ -451,7 +451,7 @@ class TagService:
             """
             params = tuple(tag_names) + (len(tag_names), limit)
         else:
-            # 匹配任一标签
+            # Match any tag
             placeholders = ",".join(["?" for _ in tag_names])
             query = f"""
                 SELECT DISTINCT tt.track_id
@@ -468,17 +468,17 @@ class TagService:
     def get_untagged_tracks(self, source: str = "llm", 
                             limit: int = 500) -> List[str]:
         """
-        获取未被指定来源标注的曲目 ID
+        Get IDs of tracks not tagged by a specific source.
         
         Args:
-            source: 标签来源（"llm" = 获取未被 LLM 标注的曲目）
-            limit: 结果数量限制
+            source: Tag source ("llm" = get tracks not tagged by LLM)
+            limit: Result count limit
             
         Returns:
-            曲目 ID 列表
+            List of track IDs.
         """
         if source == "llm":
-            # 查找不在 llm_tagged_tracks 表中的曲目
+            # Find tracks not in the llm_tagged_tracks table
             query = """
                 SELECT t.id
                 FROM tracks t
@@ -487,7 +487,7 @@ class TagService:
                 LIMIT ?
             """
         else:
-            # 查找没有指定来源标签的曲目
+            # Find tracks without tags from the specified source
             query = """
                 SELECT t.id
                 FROM tracks t
@@ -507,13 +507,13 @@ class TagService:
     
     def get_all_tag_names(self, source: Optional[str] = None) -> List[str]:
         """
-        获取所有标签名称
+        Get all tag names.
         
         Args:
-            source: 筛选特定来源的标签（None = 所有来源）
+            source: Filter tags by a specific source (None = all sources)
             
         Returns:
-            标签名称列表
+            List of tag names.
         """
         if source:
             rows = self._db.fetch_all(
@@ -529,14 +529,14 @@ class TagService:
     
     def mark_track_as_tagged(self, track_id: str, job_id: Optional[str] = None) -> bool:
         """
-        标记曲目已被 LLM 标注
+        Mark a track as having been tagged by LLM.
         
         Args:
-            track_id: 曲目 ID
-            job_id: 标注任务 ID（可选）
+            track_id: Track ID
+            job_id: Tagging job ID (optional)
             
         Returns:
-            是否标记成功
+            True if marking was successful.
         """
         try:
             cursor = self._db.execute(
@@ -545,6 +545,6 @@ class TagService:
             )
             return cursor.rowcount > 0
         except Exception:
-            logger.warning("标记曲目LLM标注状态失败: track_id=%s, job_id=%s", track_id, job_id, exc_info=True)
+            logger.warning("Failed to mark track LLM tagging status: track_id=%s, job_id=%s", track_id, job_id, exc_info=True)
             return False
 

@@ -84,6 +84,7 @@ The project adheres to SOLID principles and separates concerns into four main la
 
 ```text
 src/
+├── app/            # Application Bootstrap & DI Container
 ├── core/           # Low-level logic (AudioEngine, EventBus, Database, LLMProvider)
 ├── models/         # Data classes (Track, Album, Tag, etc.)
 ├── services/       # Business logic (PlayerService, LibraryService, TagService)
@@ -105,14 +106,14 @@ tests/              # Unit and Integration tests
 
 > **IMPORTANT**: All files must be placed in their corresponding directories.
 
-| 文件类型 | 目标目录 | 示例 |
-|---------|---------|------|
-| 文档 | `docs/` | `docs/architecture.md` |
-| 测试代码 | `tests/` | `tests/test_tag_service.py` |
-| 源代码 | `src/` 对应层 | `src/services/tag_service.py` |
-| 配置文件 | `config/` | `config/default_config.yaml` |
+| File Type | Target Directory | Example |
+|-----------|------------------|---------|
+| Documentation | `docs/` | `docs/architecture.md` |
+| Test Code | `tests/` | `tests/test_tag_service.py` |
+| Source Code | `src/` (corresponding layer) | `src/services/tag_service.py` |
+| Configuration | `config/` | `config/default_config.yaml` |
 
-禁止在项目根目录或其他非标准位置创建源代码或测试文件。
+Do not create source code or test files in the project root or other non-standard locations.
 
 ## 6. Agent Directives
 

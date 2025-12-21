@@ -1,71 +1,68 @@
 """
-UI 组件单元测试
+UI Components Unit Tests
 
-测试 PlayerControls, SystemTray 等组件的核心逻辑。
+Test core logic of PlayerControls, SystemTray and other components.
 """
 
 import pytest
 from unittest.mock import MagicMock
 
 
-class TestPlayerControlsFormatTime:
-    """PlayerControls._format_time 单元测试"""
-
     @pytest.fixture
     def player_controls(self, qapp):
-        """创建 PlayerControls 实例"""
+        """Create PlayerControls instance"""
         from ui.widgets.player_controls import PlayerControls
         from services.player_service import PlayerService
         
-        # 创建模拟引擎
+        # Create mock engine
         mock_engine = MagicMock()
         mock_engine.state = MagicMock()
         mock_engine.get_position.return_value = 0
         mock_engine.get_duration.return_value = 0
         mock_engine.volume = 1.0
         
-        # 创建 PlayerService
+        # Create PlayerService
         player_service = PlayerService(audio_engine=mock_engine)
         
         return PlayerControls(player_service)
     
     def test_format_time_zero(self, player_controls):
-        """格式化 0 毫秒"""
+        """Format 0 milliseconds"""
         result = player_controls._format_time(0)
         assert result == "0:00"
     
     def test_format_time_one_minute(self, player_controls):
-        """格式化 1 分钟"""
+        """Format 1 minute."""
         result = player_controls._format_time(60000)
         assert result == "1:00"
     
     def test_format_time_with_seconds(self, player_controls):
-        """格式化分秒"""
+        """Format minutes and seconds."""
         result = player_controls._format_time(90000)
         assert result == "1:30"
     
     def test_format_time_single_digit_seconds(self, player_controls):
-        """单位数秒补零"""
+        """Pad single-digit seconds with zero."""
         result = player_controls._format_time(65000)
         assert result == "1:05"
     
     def test_format_time_ten_minutes(self, player_controls):
-        """格式化 10 分钟"""
+        """Format 10 minutes."""
         result = player_controls._format_time(600000)
         assert result == "10:00"
     
     def test_format_time_long_duration(self, player_controls):
-        """格式化较长时间"""
-        result = player_controls._format_time(3661000)  # 61 分 1 秒
+        """Format longer duration."""
+        result = player_controls._format_time(3661000)  # 61 minutes 1 second
         assert result == "61:01"
 
 
 class TestPlayerControlsInitialState:
-    """PlayerControls 初始状态测试"""
+    """Tests for the initial state of PlayerControls."""
 
     @pytest.fixture
     def player_controls(self, qapp):
-        """创建 PlayerControls 实例"""
+        """Create a PlayerControls instance."""
         from ui.widgets.player_controls import PlayerControls
         from services.player_service import PlayerService
         from core.event_bus import EventBus
@@ -87,35 +84,35 @@ class TestPlayerControlsInitialState:
         EventBus.reset_instance()
     
     def test_initial_track_label_empty(self, player_controls):
-        """初始曲目标签为空或默认"""
-        # 初始没有播放曲目
+        """The initial track label should be empty or a default string."""
+        # No track playing initially
         text = player_controls.title_label.text()
-        assert text in ("", "未播放", "-", "未在播放")
+        assert text in ("", "Not Playing", "-", "No track playing")
     
     def test_initial_artist_label_empty(self, player_controls):
-        """初始艺术家标签为空或默认"""
+        """The initial artist label should be empty or a default string."""
         text = player_controls.artist_label.text()
         assert text in ("", "-", " ", "Apple Music")
     
     def test_progress_slider_exists(self, player_controls):
-        """进度条存在"""
+        """The progress bar should exist."""
         assert player_controls.progress_slider is not None
     
     def test_volume_slider_exists(self, player_controls):
-        """音量滑块存在"""
+        """The volume slider should exist."""
         assert player_controls.volume_slider is not None
     
     def test_play_button_exists(self, player_controls):
-        """播放按钮存在"""
+        """The play button should exist."""
         assert player_controls.play_btn is not None
 
 
 class TestPlayerControlsButtons:
-    """PlayerControls 按钮交互测试"""
+    """Tests for button interactions in PlayerControls."""
 
     @pytest.fixture
     def player_controls(self, qapp):
-        """创建 PlayerControls 实例"""
+        """Create a PlayerControls instance."""
         from ui.widgets.player_controls import PlayerControls
         from services.player_service import PlayerService
         from core.event_bus import EventBus
@@ -137,109 +134,87 @@ class TestPlayerControlsButtons:
         EventBus.reset_instance()
     
     def test_prev_button_exists(self, player_controls):
-        """上一曲按钮存在"""
+        """The previous track button should exist."""
         assert player_controls.prev_btn is not None
     
     def test_next_button_exists(self, player_controls):
-        """下一曲按钮存在"""
+        """The next track button should exist."""
         assert player_controls.next_btn is not None
     
     def test_shuffle_button_exists(self, player_controls):
-        """随机按钮存在"""
+        """The shuffle button should exist."""
         assert player_controls.shuffle_btn is not None
     
     def test_repeat_button_exists(self, player_controls):
-        """循环按钮存在"""
+        """The repeat button should exist."""
         assert player_controls.repeat_btn is not None
 
 
 class TestSystemTray:
-    """SystemTray 单元测试"""
+    """SystemTray Unit Tests"""
 
     @pytest.fixture
     def system_tray_class(self, qapp):
-        """获取 SystemTray 类"""
+        """Get the SystemTray class."""
         from ui.widgets.system_tray import SystemTray
         return SystemTray
     
     def test_can_import(self, system_tray_class):
-        """能够导入 SystemTray"""
+        """SystemTray should be importable."""
         assert system_tray_class is not None
 
 
 class TestLibraryWidget:
-    """LibraryWidget 单元测试"""
+    """LibraryWidget Unit Tests"""
 
     @pytest.fixture
-    def mock_db(self):
-        """创建模拟数据库"""
+    def container(self, qapp):
+        """Create a test container."""
         import tempfile
         import shutil
-        from core.database import DatabaseManager
+        from app.container_factory import AppContainerFactory
         
-        DatabaseManager.reset_instance()
         tmpdir = tempfile.mkdtemp(prefix="music-library-widget-")
         db_path = f"{tmpdir}/test.db"
-        db = DatabaseManager(db_path)
+        config_path = f"{tmpdir}/config.yaml"
         
-        yield db, tmpdir
+        container = AppContainerFactory.create_for_testing(
+            config_path=config_path,
+            db_path=db_path,
+        )
         
-        DatabaseManager.reset_instance()
+        yield container, tmpdir
+        
         shutil.rmtree(tmpdir, ignore_errors=True)
     
     @pytest.fixture
-    def services(self, mock_db):
-        """创建服务"""
-        from services.library_service import LibraryService
-        from services.player_service import PlayerService
-        from services.playlist_service import PlaylistService
-        from core.event_bus import EventBus
-        
-        EventBus.reset_instance()
-        db, _ = mock_db
-        
-        mock_engine = MagicMock()
-        mock_engine.state = MagicMock()
-        mock_engine.get_position.return_value = 0
-        mock_engine.get_duration.return_value = 0
-        mock_engine.volume = 0.8
-        
-        library = LibraryService(db)
-        player = PlayerService(audio_engine=mock_engine)
-        playlist = PlaylistService(db)
-        
-        return library, player, playlist
-    
-    @pytest.fixture
-    def widget(self, qapp, services):
-        """创建 LibraryWidget 实例"""
+    def widget(self, container):
+        """Create a LibraryWidget instance."""
         from ui.widgets.library_widget import LibraryWidget
-        from core.event_bus import EventBus
         
-        library, player, playlist = services
-        widget = LibraryWidget(library, player, playlist)
+        cont, _ = container
+        widget = LibraryWidget(facade=cont.facade)
         yield widget
-        EventBus.reset_instance()
     
     def test_table_view_exists(self, widget):
-        """表格视图存在"""
+        """The table view should exist."""
         assert widget.table is not None
     
     def test_search_input_exists(self, widget):
-        """搜索框存在"""
+        """The search input box should exist."""
         assert widget.search_input is not None
     
     def test_stats_label_exists(self, widget):
-        """统计标签存在"""
+        """The statistics label should exist."""
         assert widget.stats_label is not None
     
     def test_search_placeholder(self, widget):
-        """搜索框有占位符"""
+        """The search box should have a placeholder."""
         placeholder = widget.search_input.placeholderText()
         assert len(placeholder) > 0
     
     def test_update_stats_empty(self, widget):
-        """更新空库统计"""
+        """Test updating statistics for an empty library."""
         widget._update_stats([])
         assert "0" in widget.stats_label.text()
 
@@ -248,7 +223,7 @@ class TestPlaylistManagerWidget:
 
     @pytest.fixture
     def mock_db(self):
-        """创建模拟数据库"""
+        """Create a mock database."""
         import tempfile
         import shutil
         from core.database import DatabaseManager
@@ -265,13 +240,13 @@ class TestPlaylistManagerWidget:
     
     @pytest.fixture
     def playlist_service(self, mock_db):
-        """创建歌单服务"""
+        """Create a playlist service."""
         from services.playlist_service import PlaylistService
         return PlaylistService(mock_db)
     
     @pytest.fixture
     def widget(self, qapp, playlist_service):
-        """创建 PlaylistManagerWidget 实例"""
+        """Create a PlaylistManagerWidget instance."""
         from ui.widgets.playlist_manager_widget import PlaylistManagerWidget
         from core.event_bus import EventBus
         
@@ -281,43 +256,43 @@ class TestPlaylistManagerWidget:
         EventBus.reset_instance()
     
     def test_initial_empty_list(self, widget):
-        """初始化时列表为空"""
+        """The list should be empty initially."""
         assert widget.list_widget.count() == 0
     
     def test_info_label_shows_count(self, widget):
-        """信息标签显示正确数量"""
-        assert "0 个歌单" in widget.info_label.text()
+        """The info label should display the correct count."""
+        assert "0 playlists" in widget.info_label.text()
     
     def test_add_button_exists(self, widget):
-        """添加按钮存在"""
+        """The add button should exist."""
         assert widget.add_btn is not None
     
     def test_list_widget_exists(self, widget):
-        """列表控件存在"""
+        """The list control should exist."""
         assert widget.list_widget is not None
     
     def test_refresh_with_playlists(self, widget, playlist_service):
-        """刷新后显示新建的歌单"""
-        # 创建歌单
+        """New playlists should be displayed after refresh."""
+        # Create playlist
         playlist_service.create("Test Playlist", "Description")
         
-        # 刷新
+        # Refresh
         widget.refresh()
         
         assert widget.list_widget.count() == 1
-        assert "1 个歌单" in widget.info_label.text()
+        assert "1 playlists" in widget.info_label.text()
     
     def test_get_selected_playlist_none(self, widget):
-        """无选中时返回 None"""
+        """Should return None when nothing is selected."""
         assert widget.get_selected_playlist() is None
     
     def test_playlist_selected_signal(self, widget, playlist_service, qtbot):
-        """双击歌单时发出信号"""
-        # 创建歌单
+        """Double-clicking a playlist should emit a signal."""
+        # Create playlist
         playlist = playlist_service.create("Test Playlist")
         widget.refresh()
         
-        # 模拟双击
+        # Simulate double-click
         with qtbot.waitSignal(widget.playlist_selected, timeout=1000) as blocker:
             item = widget.list_widget.item(0)
             widget.list_widget.itemDoubleClicked.emit(item)
@@ -326,11 +301,11 @@ class TestPlaylistManagerWidget:
 
 
 class TestPlaylistDetailWidget:
-    """PlaylistDetailWidget 单元测试"""
+    """PlaylistDetailWidget Unit Tests"""
 
     @pytest.fixture  
     def mock_db(self):
-        """创建模拟数据库"""
+        """Create a mock database."""
         import tempfile
         import shutil
         from core.database import DatabaseManager
@@ -347,7 +322,7 @@ class TestPlaylistDetailWidget:
     
     @pytest.fixture
     def services(self, mock_db):
-        """创建服务"""
+        """Create services."""
         from services.playlist_service import PlaylistService
         from services.player_service import PlayerService
         
@@ -364,7 +339,7 @@ class TestPlaylistDetailWidget:
     
     @pytest.fixture
     def widget(self, qapp, services):
-        """创建 PlaylistDetailWidget 实例"""
+        """Create a PlaylistDetailWidget instance."""
         from ui.widgets.playlist_detail_widget import PlaylistDetailWidget
         from core.event_bus import EventBus
         
@@ -375,24 +350,24 @@ class TestPlaylistDetailWidget:
         EventBus.reset_instance()
     
     def test_initial_state(self, widget):
-        """初始状态正确"""
-        assert widget.title_label.text() == "歌单详情"
-        assert widget.info_label.text() == "0 首曲目"
+        """Initial state should be correct."""
+        assert widget.title_label.text() == "Playlist Details"
+        assert widget.info_label.text() == "0 tracks"
     
     def test_back_button_exists(self, widget):
-        """返回按钮存在"""
+        """The back button should exist."""
         assert widget.back_btn is not None
     
     def test_play_all_button_exists(self, widget):
-        """播放全部按钮存在"""
+        """The play all button should exist."""
         assert widget.play_all_btn is not None
     
     def test_list_view_exists(self, widget):
-        """列表视图存在"""
+        """The list view should exist."""
         assert widget.list_view is not None
     
     def test_set_playlist_updates_title(self, widget, services):
-        """设置歌单更新标题"""
+        """Setting a playlist should update the title."""
         playlist_service, _ = services
         playlist = playlist_service.create("My Awesome Playlist", "A great playlist")
         
@@ -401,22 +376,23 @@ class TestPlaylistDetailWidget:
         assert widget.title_label.text() == "My Awesome Playlist"
     
     def test_back_requested_signal(self, widget, qtbot):
-        """点击返回按钮发出信号"""
+        """Clicking the back button should emit a signal."""
         with qtbot.waitSignal(widget.back_requested, timeout=1000):
             widget.back_btn.click()
 
 
 class TestPlaylistWidget:
-    """PlaylistWidget 单元测试"""
+    """PlaylistWidget Unit Tests"""
 
     @pytest.fixture
     def widget(self, qapp):
-        """创建 PlaylistWidget 实例"""
+        """Create a PlaylistWidget instance."""
         from ui.widgets.playlist_widget import PlaylistWidget
         from services.player_service import PlayerService
         from core.event_bus import EventBus
         
         EventBus.reset_instance()
+        event_bus = EventBus()
         
         mock_engine = MagicMock()
         mock_engine.state = MagicMock()
@@ -425,39 +401,39 @@ class TestPlaylistWidget:
         mock_engine.volume = 0.8
         
         player_service = PlayerService(audio_engine=mock_engine)
-        widget = PlaylistWidget(player_service)
+        widget = PlaylistWidget(player_service, event_bus)
         yield widget
         EventBus.reset_instance()
     
     def test_initial_empty_queue(self, widget):
-        """初始队列为空"""
+        """The queue should be empty initially."""
         widget.update_list()
-        assert "0 首曲目" in widget.info_label.text()
+        assert "0 tracks" in widget.info_label.text()
     
     def test_list_view_exists(self, widget):
-        """列表视图存在"""
+        """The list view should exist."""
         assert widget.list_view is not None
     
     def test_clear_button_exists(self, widget):
-        """清空按钮存在"""
+        """The clear button should exist."""
         assert widget.clear_btn is not None
     
     def test_llm_button_exists(self, widget):
-        """LLM 按钮存在"""
+        """The LLM button should exist."""
         assert widget.llm_btn is not None
     
     def test_llm_chat_requested_signal(self, widget, qtbot):
-        """点击 LLM 按钮发出信号"""
+        """Clicking the LLM button should emit a signal."""
         with qtbot.waitSignal(widget.llm_chat_requested, timeout=1000):
             widget.llm_btn.click()
 
 
 class TestMiniPlayer:
-    """MiniPlayer 单元测试"""
+    """MiniPlayer Unit Tests"""
 
     @pytest.fixture
     def mini_player(self, qapp):
-        """创建 MiniPlayer 实例"""
+        """Create a MiniPlayer instance."""
         from ui.mini_player import MiniPlayer
         from services.player_service import PlayerService
         from core.event_bus import EventBus
@@ -476,31 +452,31 @@ class TestMiniPlayer:
         EventBus.reset_instance()
     
     def test_window_title(self, mini_player):
-        """窗口标题正确"""
+        """The window title should be correct."""
         assert mini_player.windowTitle() == "Mini Player"
     
     def test_play_button_exists(self, mini_player):
-        """播放按钮存在"""
+        """The play button should exist."""
         assert mini_player.play_btn is not None
     
     def test_prev_button_exists(self, mini_player):
-        """上一曲按钮存在"""
+        """The previous track button should exist."""
         assert mini_player.prev_btn is not None
     
     def test_next_button_exists(self, mini_player):
-        """下一曲按钮存在"""
+        """The next track button should exist."""
         assert mini_player.next_btn is not None
     
     def test_progress_slider_exists(self, mini_player):
-        """进度条存在"""
+        """The progress slider should exist."""
         assert mini_player.progress_slider is not None
     
     def test_title_label_exists(self, mini_player):
-        """标题标签存在"""
+        """The title label should exist."""
         assert mini_player.title_label is not None
     
     def test_expand_requested_signal(self, mini_player, qtbot):
-        """点击展开按钮发出信号"""
+        """Clicking the expand button should emit a signal."""
         with qtbot.waitSignal(mini_player.expand_requested, timeout=1000):
             mini_player.expand_btn.click()
 

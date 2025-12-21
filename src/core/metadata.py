@@ -1,8 +1,8 @@
 """
-元数据解析模块
+Metadata Parser Module
 
-解析音频文件的元数据信息，包括标题、艺术家、专辑、封面等。
-支持多种音频格式：MP3, FLAC, WAV, OGG, M4A, AAC等。
+Parses metadata information from audio files, including title, artist, album, cover, etc.
+Supports multiple audio formats: MP3, FLAC, WAV, OGG, M4A, AAC, etc.
 """
 
 from dataclasses import dataclass, field
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AudioMetadata:
-    """音频元数据"""
+    """Audio metadata"""
     
     title: str = ""
     artist: str = ""
@@ -38,15 +38,15 @@ class AudioMetadata:
 
 class MetadataParser:
     """
-    元数据解析器
+    Metadata parser
     
-    使用mutagen库解析各种音频格式的元数据。
+    Uses mutagen library to parse metadata of various audio formats.
     
-    使用示例:
+    Usage example:
         metadata = MetadataParser.parse("path/to/song.mp3")
         if metadata:
-            print(f"标题: {metadata.title}")
-            print(f"艺术家: {metadata.artist}")
+            print(f"Title: {metadata.title}")
+            print(f"Artist: {metadata.artist}")
     """
     
     SUPPORTED_FORMATS = {'.mp3', '.flac', '.wav', '.ogg', '.m4a', 
@@ -55,13 +55,13 @@ class MetadataParser:
     @classmethod
     def parse(cls, file_path: str) -> Optional[AudioMetadata]:
         """
-        解析音频文件元数据
+        Parse audio file metadata
         
         Args:
-            file_path: 音频文件路径
+            file_path: Audio file path
             
         Returns:
-            AudioMetadata: 元数据对象，解析失败返回None
+            AudioMetadata: Metadata object, returns None if parsing fails
         """
         path = Path(file_path)
         
@@ -81,7 +81,7 @@ class MetadataParser:
             
             metadata = AudioMetadata(file_path=file_path)
             
-            # 解析基本信息
+            # Parse basic information
             if audio.info:
                 metadata.duration_ms = int(audio.info.length * 1000)
                 metadata.bitrate = getattr(audio.info, 'bitrate', 0)
@@ -90,7 +90,7 @@ class MetadataParser:
             
             metadata.format = suffix[1:].upper()
             
-            # 根据格式解析标签
+            # Parse tags based on format
             if suffix == '.mp3':
                 cls._parse_mp3(file_path, metadata)
             elif suffix == '.flac':
@@ -102,19 +102,19 @@ class MetadataParser:
             else:
                 cls._parse_generic(audio, metadata)
             
-            # 如果没有标题，使用文件名
+            # If no title, use filename
             if not metadata.title:
                 metadata.title = path.stem
             
             return metadata
             
         except Exception as e:
-            logger.debug("解析失败: %s, 错误: %s", file_path, e)
+            logger.debug("Parsing failed: %s, Error: %s", file_path, e)
             return None
     
     @classmethod
     def _parse_mp3(cls, file_path: str, metadata: AudioMetadata) -> None:
-        """解析MP3元数据"""
+        """Parse MP3 metadata"""
         try:
             from mutagen.mp3 import MP3
             
@@ -124,7 +124,7 @@ class MetadataParser:
             if tags is None:
                 return
             
-            # 基本标签
+            # Basic tags
             if 'TIT2' in tags:
                 metadata.title = str(tags['TIT2'])
             if 'TPE1' in tags:
@@ -136,14 +136,14 @@ class MetadataParser:
             if 'TCON' in tags:
                 metadata.genre = str(tags['TCON'])
             
-            # 年份
+            # Year
             if 'TDRC' in tags:
                 try:
                     metadata.year = int(str(tags['TDRC'])[:4])
                 except (ValueError, IndexError) as e:
                     logger.debug("MP3 year parse failed for %s: %s", file_path, e)
             
-            # 曲目号
+            # Track number
             if 'TRCK' in tags:
                 track_str = str(tags['TRCK'])
                 if '/' in track_str:
@@ -159,7 +159,7 @@ class MetadataParser:
                     except ValueError as e:
                         logger.debug("MP3 track number parse failed for %s: %s", file_path, e)
             
-            # 封面图片
+            # Cover image
             for key in tags:
                 if key.startswith('APIC'):
                     apic = tags[key]
@@ -168,14 +168,14 @@ class MetadataParser:
                     break
                     
         except Exception as e:
-            logger.debug("MP3解析错误: %s", e)
+            logger.debug("MP3 parsing error: %s", e)
     
     @classmethod
     def _parse_flac(cls, audio, metadata: AudioMetadata) -> None:
-        """解析FLAC元数据"""
+        """Parse FLAC metadata"""
         cls._parse_vorbis_comment(audio, metadata)
         
-        # FLAC封面
+        # FLAC cover
         if hasattr(audio, 'pictures') and audio.pictures:
             pic = audio.pictures[0]
             metadata.cover_data = pic.data
@@ -183,7 +183,7 @@ class MetadataParser:
     
     @classmethod
     def _parse_vorbis_comment(cls, audio, metadata: AudioMetadata) -> None:
-        """解析Vorbis Comment格式（FLAC, OGG等）"""
+        """Parse Vorbis Comment format (FLAC, OGG, etc.)"""
         if not hasattr(audio, 'get'):
             return
             
@@ -193,14 +193,14 @@ class MetadataParser:
         metadata.album_artist = audio.get('albumartist', [''])[0]
         metadata.genre = audio.get('genre', [''])[0]
         
-        # 年份
+        # Year
         if 'date' in audio:
             try:
                 metadata.year = int(audio['date'][0][:4])
             except (ValueError, IndexError) as e:
                 logger.debug("Vorbis year parse failed for %s: %s", metadata.file_path, e)
         
-        # 曲目号
+        # Track number
         if 'tracknumber' in audio:
             try:
                 metadata.track_number = int(audio['tracknumber'][0])
@@ -209,7 +209,7 @@ class MetadataParser:
     
     @classmethod
     def _parse_m4a(cls, audio, metadata: AudioMetadata) -> None:
-        """解析M4A/AAC元数据"""
+        """Parse M4A/AAC metadata"""
         if not hasattr(audio, 'get'):
             return
             
@@ -218,14 +218,14 @@ class MetadataParser:
         metadata.album = audio.get('\xa9alb', [''])[0]
         metadata.genre = audio.get('\xa9gen', [''])[0]
         
-        # 年份
+        # Year
         if '\xa9day' in audio:
             try:
                 metadata.year = int(audio['\xa9day'][0][:4])
             except (ValueError, IndexError) as e:
                 logger.debug("M4A year parse failed for %s: %s", metadata.file_path, e)
         
-        # 曲目号
+        # Track number
         if 'trkn' in audio:
             try:
                 track_info = audio['trkn'][0]
@@ -234,14 +234,14 @@ class MetadataParser:
             except (IndexError, TypeError) as e:
                 logger.debug("M4A track number parse failed for %s: %s", metadata.file_path, e)
         
-        # 封面
+        # Cover
         if 'covr' in audio and audio['covr']:
             metadata.cover_data = bytes(audio['covr'][0])
             metadata.cover_mime = 'image/jpeg'
     
     @classmethod
     def _parse_generic(cls, audio, metadata: AudioMetadata) -> None:
-        """通用元数据解析"""
+        """Generic metadata parsing"""
         if hasattr(audio, 'tags') and audio.tags:
             tags = audio.tags
             if hasattr(tags, 'get'):
@@ -251,11 +251,11 @@ class MetadataParser:
     
     @staticmethod
     def get_supported_formats() -> List[str]:
-        """获取支持的格式列表"""
+        """Get list of supported formats"""
         return list(MetadataParser.SUPPORTED_FORMATS)
     
     @staticmethod
     def is_supported(file_path: str) -> bool:
-        """检查文件格式是否支持"""
+        """Check if file format is supported"""
         suffix = Path(file_path).suffix.lower()
         return suffix in MetadataParser.SUPPORTED_FORMATS

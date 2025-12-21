@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-端口接口包
+Ports Interfaces Package
 
-定义应用程序与外部基础设施（数据库、音频引擎、LLM）之间的接口。
+Defines the interfaces between the application and external infrastructure (database, audio engine, LLM).
 
-设计原则：
-- 使用 Protocol 定义接口，支持结构化子类型
-- 服务层依赖这些接口而非具体实现
-- 便于测试时使用 fake/mock 替换
+Design Principles:
+- Use Protocol to define interfaces, supporting structural subtyping.
+- Service layer depends on these interfaces rather than concrete implementations.
+- Facilitates replacing with fake/mock during testing.
 """
 
 from core.ports.database import IDatabase, ITrackRepository

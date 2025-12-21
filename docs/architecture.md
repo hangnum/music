@@ -26,43 +26,43 @@
 
 ---
 
-## 2. 系统架构
+## 2. System Architecture
 
-### 2.1 整体架构图
+### 2.1 Overall Architecture Diagram
 
 ```mermaid
 graph TB
     subgraph UI Layer
-        MW[MainWindow<br/>主窗口]
-        PC[PlayerControls<br/>播放控制]
-        PL[PlaylistView<br/>播放列表]
-        LB[LibraryView<br/>媒体库]
-        ST[SettingsView<br/>设置]
+        MW[MainWindow]
+        PC[PlayerControls]
+        PL[PlaylistView]
+        LB[LibraryView]
+        ST[SettingsView]
     end
     
     subgraph Service Layer
-        PS[PlayerService<br/>播放服务]
-        PLS[PlaylistService<br/>播放列表服务]
-        LBS[LibraryService<br/>媒体库服务]
-        CS[ConfigService<br/>配置服务]
-        TS[TagService<br/>标签服务]
-        LLM[LLMQueueService<br/>智能队列服务]
-        LTS[LLMTaggingService<br/>智能打标服务]
-        DPS[DailyPlaylistService<br/>每日歌单服务]
+        PS[PlayerService]
+        PLS[PlaylistService]
+        LBS[LibraryService]
+        CS[ConfigService]
+        TS[TagService]
+        LLM[LLMQueueService]
+        LTS[LLMTaggingService]
+        DPS[DailyPlaylistService]
     end
     
     subgraph Core Layer
-        AE[AudioEngine<br/>音频引擎]
-        MD[MetadataParser<br/>元数据解析]
-        DB[DatabaseManager<br/>数据库管理]
-        EM[EventBus<br/>事件总线]
-        LP[LLMProvider<br/>LLM 提供商]
+        AE[AudioEngine]
+        MD[MetadataParser]
+        DB[DatabaseManager]
+        EM[EventBus]
+        LP[LLMProvider]
     end
     
     subgraph Data Layer
-        SQL[(SQLite<br/>数据库)]
-        CFG[(.yaml<br/>配置文件)]
-        CACHE[(Cache<br/>缓存)]
+        SQL[(SQLite)]
+        CFG[(.yaml Configuration)]
+        CACHE[(Cache)]
     end
     
     MW --> PC & PL & LB & ST
@@ -83,105 +83,106 @@ graph TB
     DB --> SQL
 ```
 
-### 2.2 分层架构说明
+### 2.2 Layered Architecture Description
 
-#### 2.2.1 UI层 (Presentation Layer)
+#### 2.2.1 UI Layer (Presentation Layer)
 
-负责用户界面的展示和交互，不包含业务逻辑。
+Responsible for user interface display and interaction, containing no business logic.
 
-| 组件 | 职责 | 依赖 |
-|------|------|------|
-| MainWindow | 主窗口布局管理 | 所有UI组件 |
-| PlayerControls | 播放/暂停/进度控制 | PlayerService |
-| PlaylistView | 播放列表展示与操作 | PlaylistService |
-| LibraryView | 媒体库浏览与搜索 | LibraryService |
-| SettingsView | 应用设置界面 | ConfigService |
-| AudioSettingsDialog | 音频参数设置 (Backend/EQ/Crossfade) | ConfigService/PlayerService |
+| Component | Responsibility | Dependency |
+|-----------|----------------|------------|
+| MainWindow | Main window layout management | All UI components |
+| PlayerControls | Play/Pause/Progress control | PlayerService |
+| PlaylistView | Playlist display and operation | PlaylistService |
+| LibraryView | Media library browsing and search | LibraryService |
+| SettingsView | Application settings interface | ConfigService |
+| ThemeManager | Theme management and DesignTokens | ConfigService |
+| AudioSettingsDialog | Audio parameter settings (Backend/EQ/Crossfade) | ConfigService/PlayerService |
 
-#### 2.2.2 服务层 (Service Layer)
+#### 2.2.2 Service Layer
 
-业务逻辑的核心，协调各模块之间的交互。
+The core of business logic, coordinating interactions between modules.
 
-| 组件 | 职责 | 接口 |
-|------|------|------|
-| PlayerService | 播放状态管理、播放队列 | IPlayerService |
-| PlaylistService | 播放列表CRUD操作 | IPlaylistService |
-| LibraryService | 媒体库扫描、索引、搜索 | ILibraryService |
-| TagService | 标签CRUD及关联管理 | ITagService |
-| LLMQueueService | 基于自然语言的队列重排 | ILLMQueueService |
-| LLMTaggingService | 批量自动为曲目打标 | ILLMTaggingService |
-| DailyPlaylistService | 基于标签生成每日歌单 | - |
-| TagQueryParser | 自然语言解析为标签查询 | - |
-| ConfigService | 配置读写、热更新 | IConfigService |
+| Component | Responsibility | Interface |
+|-----------|----------------|-----------|
+| PlayerService | Playback state management, playback queue | IPlayerService |
+| PlaylistService | Playlist CRUD operations | IPlaylistService |
+| LibraryService | Media library scanning, indexing, search | ILibraryService |
+| TagService | Tag CRUD and relationship management | ITagService |
+| LLMQueueService | Natural language-based queue reordering | ILLMQueueService |
+| LLMTaggingService | Batch automatic tagging for tracks | ILLMTaggingService |
+| DailyPlaylistService | Tag-based daily playlist generation | - |
+| TagQueryParser | Natural language parsing for tag queries | - |
+| ConfigService | Configuration read/write, hot updates | IConfigService |
 
-#### 2.2.3 核心层 (Core Layer)
+#### 2.2.3 Core Layer
 
-底层功能实现，提供基础能力。
+Low-level functionality implementation, providing foundational capabilities.
 
-| 组件 | 职责 | 特性 |
-|------|------|------|
-| AudioEngineFactory| 音频引擎工厂 | 支持后端自动选择与降级 |
-| MiniaudioEngine | 高保真音频引擎 | Gapless, Crossfade, EQ, ReplayGain |
-| VLCEngine | VLC音频引擎 | 广泛的格式支持 |
-| MetadataParser | 元数据解析与写入 | 支持多格式 |
-| DatabaseManager | SQLite操作封装 | 连接池、事务、并发优化 |
-| EventBus | 事件发布订阅 | 线程安全、解耦 |
-| LLMProvider | LLM 客户端抽象 | 多提供商支持 (SiliconFlow/Gemini) |
+| Component | Responsibility | Features |
+|-----------|----------------|----------|
+| AudioEngineFactory| Audio engine factory | Supports backend auto-selection and fallback (Miniaudio->VLC) |
+| MiniaudioEngine | High-fidelity audio engine | Gapless, Crossfade, EQ, ReplayGain |
+| VLCEngine | VLC audio engine | Extensive format support |
+| MetadataParser | Metadata parsing and writing | Multi-format support |
+| DatabaseManager | SQLite operation encapsulation | Connection pool, transactions, concurrency optimization |
+| EventBus | Event publish-subscribe | Thread-safe, decoupled |
+| LLMProvider | LLM provider abstraction | Multi-provider support (SiliconFlow/Gemini) |
 
-#### 2.2.4 数据层 (Data Layer)
+#### 2.2.4 Data Layer
 
-数据持久化存储。
+Persistent data storage.
 
-| 组件 | 用途 |
-|------|------|
-| SQLite | 媒体库、播放列表存储 |
-| YAML配置 | 应用配置持久化 |
-| 缓存 | 封面图片、元数据缓存 |
+| Component | Purpose |
+|-----------|---------|
+| SQLite | Media library, playlist storage |
+| YAML Config | Application configuration persistence |
+| Cache | Cover art, metadata cache |
 
 ---
 
-## 3. 模块设计
+## 3. Module Design
 
-### 3.1 目录结构
+### 3.1 Directory Structure
 
 ```text
 music/
-├── scripts/                   # 构建脚本
+├── scripts/                   # Build scripts
 │   ├── build.py
 │   ├── build.bat
 │   └── build.sh
-├── src/                       # 源代码
-│   ├── main.py               # 程序入口
-│   ├── core/                 # 核心层
+├── src/                       # Source code
+│   ├── main.py               # Entry point
+│   ├── core/                 # Core layer
 │   │   ├── audio_engine.py
 │   │   ├── database.py
 │   │   ├── event_bus.py
 │   │   └── metadata.py
-│   ├── services/             # 服务层
+│   ├── services/             # Service layer
 │   │   ├── config_service.py
 │   │   ├── library_service.py
-│   │   ├── llm_queue_service.py # LLM 增强服务
+│   │   ├── llm_queue_service.py # LLM-enhanced services
 │   │   ├── player_service.py
 │   │   └── playlist_service.py
-│   ├── ui/                   # 界面层
+│   ├── ui/                   # UI layer
 │   │   ├── main_window.py
-│   │   ├── models/           # UI 数据模型 (List Virtualization)
+│   │   ├── models/           # UI data models (List Virtualization)
 │   │   │   ├── track_list_model.py
 │   │   │   └── track_table_model.py
 │   │   └── widgets/
 │   │       ├── library_widget.py
 │   │       ├── player_controls.py
 │   │       └── playlist_widget.py
-│   └── models/               # 领域模型 (Data Layer)
+│   └── models/               # Domain models (Data Layer)
 │       ├── track.py
 │       ├── album.py
 │       └── artist.py
-├── config/                   # 配置文件
+├── config/                   # Configuration files
 │   └── default_config.yaml
-└── tests/                    # 单元测试与集成测试
+└── tests/                    # Unit and integration tests
 ```
 
-### 3.2 模块依赖关系
+### 3.2 Module Dependencies
 
 ```mermaid
 graph LR
@@ -211,34 +212,34 @@ graph LR
 
 ---
 
-## 4. 设计原则
+## 4. Design Principles
 
-### 4.1 SOLID原则应用
+### 4.1 SOLID Principles Application
 
-| 原则 | 应用 |
-|------|------|
-| **单一职责 (SRP)** | 每个模块只负责一项功能，如AudioEngine只负责播放 |
-| **开闭原则 (OCP)** | 通过插件系统和抽象接口支持扩展 |
-| **里氏替换 (LSP)** | 音频后端可替换(pygame/VLC)而不影响上层 |
-| **接口隔离 (ISP)** | 每个服务定义独立接口，避免臃肿 |
-| **依赖倒置 (DIP)** | 上层模块依赖抽象而非具体实现 |
+| Principle | Application |
+|-----------|-------------|
+| **Single Responsibility (SRP)** | Each module is responsible for one function, e.g., AudioEngine for playback only. |
+| **Open/Closed (OCP)** | Supports extension via plugin system and abstract interfaces. |
+| **Liskov Substitution (LSP)** | Audio backends (pygame/VLC) are interchangeable without affecting upper layers. |
+| **Interface Segregation (ISP)** | Each service defines independent interfaces to avoid bloated interfaces. |
+| **Dependency Inversion (DIP)** | Upper modules depend on abstractions rather than concrete implementations. |
 
-### 4.2 设计模式应用
+### 4.2 Design Pattern Application
 
-| 模式 | 应用场景 |
-|------|----------|
-| **单例模式** | AudioEngine、DatabaseManager、EventBus |
-| **观察者模式** | 事件系统，UI响应播放状态变化 |
-| **策略模式** | 音频后端切换、排序策略 |
-| **工厂模式** | 元数据解析器创建 |
-| **命令模式** | 播放控制命令、撤销操作 |
-| **MVC模式** | UI与业务逻辑分离 |
+| Pattern | Scenario |
+|---------|----------|
+| **Singleton** | AudioEngine, DatabaseManager, EventBus |
+| **Observer** | Event system, UI responding to playback state changes |
+| **Strategy** | Audio backend switching, sorting strategies |
+| **Factory** | Metadata parser creation |
+| **Command** | Playback control commands, undo operations |
+| **MVC** | UI and business logic separation |
 
 ---
 
-## 5. 核心接口定义
+## 5. Core Interface Definitions
 
-### 5.1 音频引擎接口
+### 5.1 Audio Engine Interface
 
 ```python
 from abc import ABC, abstractmethod
@@ -246,50 +247,50 @@ from typing import Optional
 from models.track import Track
 
 class IAudioEngine(ABC):
-    """音频引擎抽象接口"""
+    """Audio engine abstract interface"""
     
     @abstractmethod
     def load(self, track: Track) -> bool:
-        """加载音轨"""
+        """Load track"""
         pass
     
     @abstractmethod
     def play(self) -> None:
-        """开始播放"""
+        """Start playback"""
         pass
     
     @abstractmethod
     def pause(self) -> None:
-        """暂停播放"""
+        """Pause playback"""
         pass
     
     @abstractmethod
     def stop(self) -> None:
-        """停止播放"""
+        """Stop playback"""
         pass
     
     @abstractmethod
     def seek(self, position_ms: int) -> None:
-        """跳转到指定位置（毫秒）"""
+        """Seek to position (ms)"""
         pass
     
     @abstractmethod
     def set_volume(self, volume: float) -> None:
-        """设置音量 (0.0 - 1.0)"""
+        """Set volume (0.0 - 1.0)"""
         pass
     
     @abstractmethod
     def get_position(self) -> int:
-        """获取当前播放位置（毫秒）"""
+        """Get current position (ms)"""
         pass
     
     @abstractmethod
     def get_duration(self) -> int:
-        """获取音轨总时长（毫秒）"""
+        """Get total duration (ms)"""
         pass
 ```
 
-### 5.2 播放服务接口
+### 5.2 Player Service Interface
 
 ```python
 from abc import ABC, abstractmethod
@@ -298,46 +299,46 @@ from models.track import Track
 from enum import Enum
 
 class PlayMode(Enum):
-    SEQUENTIAL = "sequential"      # 顺序播放
-    REPEAT_ALL = "repeat_all"      # 列表循环
-    REPEAT_ONE = "repeat_one"      # 单曲循环
-    SHUFFLE = "shuffle"            # 随机播放
+    SEQUENTIAL = "sequential"      # Sequential playback
+    REPEAT_ALL = "repeat_all"      # Repeat list
+    REPEAT_ONE = "repeat_one"      # Repeat one
+    SHUFFLE = "shuffle"            # Shuffle playback
 
 class IPlayerService(ABC):
-    """播放服务抽象接口"""
+    """Player service abstract interface"""
     
     @abstractmethod
     def play_track(self, track: Track) -> None:
-        """播放指定音轨"""
+        """Play specified track"""
         pass
     
     @abstractmethod
     def play_pause(self) -> None:
-        """播放/暂停切换"""
+        """Play/Pause toggle"""
         pass
     
     @abstractmethod
     def next_track(self) -> Optional[Track]:
-        """下一曲"""
+        """Next track"""
         pass
     
     @abstractmethod
     def previous_track(self) -> Optional[Track]:
-        """上一曲"""
+        """Previous track"""
         pass
     
     @abstractmethod
     def set_play_mode(self, mode: PlayMode) -> None:
-        """设置播放模式"""
+        """Set playback mode"""
         pass
     
     @abstractmethod
     def set_queue(self, tracks: List[Track]) -> None:
-        """设置播放队列"""
+        """Set playback queue"""
         pass
 ```
 
-### 5.3 事件系统接口
+### 5.3 Event System Interface
 
 ```python
 from abc import ABC, abstractmethod
@@ -345,7 +346,7 @@ from typing import Callable, Any
 from enum import Enum
 
 class EventType(Enum):
-    # 播放事件
+    # Playback events
     TRACK_STARTED = "track_started"
     TRACK_ENDED = "track_ended"
     TRACK_PAUSED = "track_paused"
@@ -353,35 +354,35 @@ class EventType(Enum):
     POSITION_CHANGED = "position_changed"
     VOLUME_CHANGED = "volume_changed"
     
-    # 播放列表事件
+    # Playlist events
     PLAYLIST_CHANGED = "playlist_changed"
     QUEUE_CHANGED = "queue_changed"
     
-    # 媒体库事件
+    # Media library events
     LIBRARY_SCAN_STARTED = "library_scan_started"
     LIBRARY_SCAN_PROGRESS = "library_scan_progress"
     LIBRARY_SCAN_COMPLETED = "library_scan_completed"
     
-    # 系统事件
+    # System events
     CONFIG_CHANGED = "config_changed"
     ERROR_OCCURRED = "error_occurred"
 
 class IEventBus(ABC):
-    """事件总线抽象接口"""
+    """Event bus abstract interface"""
     
     @abstractmethod
     def subscribe(self, event_type: EventType, callback: Callable[[Any], None]) -> str:
-        """订阅事件，返回订阅ID"""
+        """Subscribe to event, returns subscription ID"""
         pass
     
     @abstractmethod
     def unsubscribe(self, subscription_id: str) -> None:
-        """取消订阅"""
+        """Unsubscribe"""
         pass
     
     @abstractmethod
     def publish(self, event_type: EventType, data: Any = None) -> None:
-        """发布事件"""
+        """Publish event"""
         pass
 ```
 
@@ -473,29 +474,29 @@ erDiagram
     }
 ```
 
-### 6.2 数据流图
+### 6.2 Data Flow Diagram
 
 ```mermaid
 flowchart TD
     subgraph Input
-        AF[音频文件]
-        UI[用户操作]
+        AF[Audio File]
+        UI[User Action]
     end
     
     subgraph Processing
-        MD[元数据解析器]
-        PS[播放服务]
-        LS[媒体库服务]
+        MD[Metadata Parser]
+        PS[Player Service]
+        LS[Media Library Service]
     end
     
     subgraph Storage
-        DB[(数据库)]
-        CACHE[(缓存)]
+        DB[(Database)]
+        CACHE[(Cache)]
     end
     
     subgraph Output
-        AUDIO[音频输出]
-        DISPLAY[界面显示]
+        AUDIO[Audio Output]
+        DISPLAY[UI Display]
     end
     
     AF --> MD
@@ -513,88 +514,122 @@ flowchart TD
 
 ---
 
-## 7. 非功能性需求
+## 7. Non-functional Requirements
 
-### 7.1 性能要求
+### 7.1 Performance Requirements
 
-| 指标 | 要求 |
-|------|------|
-| 启动时间 | < 3秒 |
-| 内存占用 | < 200MB (空闲状态) |
-| 播放延迟 | < 100ms |
-| 媒体库扫描 | 1000首/分钟 |
-| 搜索响应 | < 50ms |
+| Metric | Requirement |
+|--------|-------------|
+| Start-up Time | < 3 seconds |
+| Memory Usage | < 200MB (idle) |
+| Playback Latency | < 100ms |
+| Media Library Scan | 1000 tracks/minute |
+| Search Response | < 50ms |
 
-### 7.2 可靠性要求
+### 7.2 Reliability Requirements
 
-- 崩溃后自动恢复播放状态
-- 数据库事务保证数据一致性
-- 优雅处理损坏的音频文件
+- Automatically restore playback state after crash.
+- Database transactions ensure data consistency.
+- Gracefully handle corrupted audio files.
 
-### 7.3 可扩展性要求
+### 7.3 Extensibility Requirements
 
-- 支持插件热加载
-- 支持主题切换
-- 支持多语言
-
----
-
-## 8. 技术风险与应对
-
-| 风险 | 影响 | 应对措施 |
-|------|------|----------|
-| 音频解码兼容性 | 某些格式无法播放 | 使用VLC后端作为备选 |
-| 大型媒体库性能 | 扫描和搜索变慢 | 增量更新、索引优化 |
-| 跨平台兼容性 | 不同系统表现不一 | 充分测试、平台特定代码隔离 |
-| 内存泄漏 | 长时间运行不稳定 | 使用弱引用、及时释放资源 |
+- Supports hot-loading plugins.
+- Supports theme switching.
+- Supports multi-language.
 
 ---
 
-## 9. 开发计划
+## 8. Technical Risks and Mitigations
 
-### 9.1 里程碑规划
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Audio Decoding Compatibility | Some formats cannot be played | Use VLC backend as fallback |
+| Large Media Library Performance | Scan and search slow down | Incremental updates, index optimization |
+| Cross-platform Compatibility | Different system behavior | Comprehensive testing, platform-specific code isolation |
+| Memory Leak | Unstable over long runs | Use weak references, timely resource release |
+
+---
+
+## 9. Development Plan
+
+### 9.1 Milestone Planning
 
 ```mermaid
 gantt
-    title 音乐播放器开发计划
+    title Music Player Development Plan
     dateFormat  YYYY-MM-DD
     
-    section 阶段1：基础架构
-    项目初始化           :a1, 2024-01-01, 2d
-    核心模块开发         :a2, after a1, 5d
+    section Phase 1: Infrastructure
+    Project Initialization           :a1, 2024-01-01, 2d
+    Core Module Development         :a2, after a1, 5d
     
-    section 阶段2：功能开发
-    播放引擎             :b1, after a2, 3d
-    媒体库管理           :b2, after b1, 4d
-    播放列表             :b3, after b2, 3d
+    section Phase 2: Feature Development
+    Playback Engine             :b1, after a2, 3d
+    Media Library Management           :b2, after b1, 4d
+    Playlist             :b3, after b2, 3d
     
-    section 阶段3：界面开发
-    主窗口框架           :c1, after b3, 3d
-    播放控制             :c2, after c1, 2d
-    媒体库界面           :c3, after c2, 3d
+    section Phase 3: UI Development
+    Main Window Frame           :c1, after b3, 3d
+    Playback Control             :c2, after c1, 2d
+    Media Library Interface           :c3, after c2, 3d
     
-    section 阶段4：完善
-    高级功能             :d1, after c3, 5d
-    测试优化             :d2, after d1, 4d
-    文档完善             :d3, after d2, 2d
+    section Phase 4: Refinement
+    Advanced Features             :d1, after c3, 5d
+    Testing and Optimization             :d2, after d1, 4d
+    Documentation Completion             :d3, after d2, 2d
 ```
 
-### 9.2 版本规划
+### 9.2 Version Planning
 
-| 版本 | 功能范围 |
-|------|----------|
-| v0.1 | 基础播放、简单界面 |
-| v0.2 | 播放列表、媒体库 |
-| v0.3 | 均衡器、歌词 |
-| v1.0 | 完整功能、稳定版本 |
+| Version | Feature Scope |
+|---------|---------------|
+| v0.1 | Basic playback, simple interface |
+| v0.2 | Playlist, media library |
+| v0.3 | Equalizer, lyrics |
+| v1.0 | Full features, stable version |
 
 ---
 
-## 10. 下一步行动
+## 10. Next Actions
 
-1. 创建项目基础结构
-2. 实现核心模块 (EventBus, AudioEngine)
-3. 实现服务层
-4. 开发UI界面
-5. 集成测试
-6. 性能优化
+1. Create project basic structure.
+2. Implement core modules (EventBus, AudioEngine).
+3. Implement service layer.
+4. Develop UI interface.
+5. Integration testing.
+6. Performance optimization.
+
+## 10.5 ģ�黯�ع��ɹ������¸��£�
+
+### �ع�Ŀ��
+
+- ������600�еĴ����ļ����Ϊ��С��ģ�飬��߿�ά����
+- ����ģ������϶ȣ���ǿ����ɲ�����
+- ��ѭ��һְ��ԭ��͸��ھ۵�������ԭ��
+
+### �ع��ɹ�
+
+| ԭģ�� | �ع���ģ�� | ���ģʽ | �������� |
+|--------|------------|----------|----------|
+| LibraryService (683��) | LibraryScanner, LibraryIndexer, LibraryQueryEngine, LibraryStatsManager | ���ģʽ | 66% |
+| LLMQueueService (749��) | LLMQueueParser, LLMQueueExecutor, LLMSemanticSelector | ���ģʽ | 66% |
+| LLMTaggingService (792��) | LLMTaggingJobManager, LLMTaggingEngine, LLMTaggingBatchProcessor | ���ģʽ | 64% |
+| MiniaudioEngine (748��) | DeviceManager, Decoder, StreamProcessor, PlaybackController | ���ģʽ | 64% |
+| MainWindow (674��) | MainWindowMenuManager, MainWindowNavigator, MainWindowLibraryManager, MainWindowSystemTrayManager, MainWindowUIBuilder | Э����ģʽ | 80% |
+
+### �����Ľ�
+
+1. **�̰߳�ȫ��ǿ**��ΪLLMQueueService�ı�ǩ��ѯ����������˫�ؼ������
+2. **ѭ�������޸�**�����LibraryScanner��LibraryService֮���ѭ����������
+3. **������ͬ��**���Ľ�MiniaudioEngine����Ƶ�豸�������Զ�ƥ�����
+4. **ְ����������**��MainWindow���Ϊ5�������Ĺ������࣬��˾��ְ
+
+### ��֤���
+
+- ���Ĺ��ܲ���ȫ��ͨ����test_core.py, test_services.py��
+- LLM���з������ͨ����test_llm_queue_service.py��
+- ý�����񸽼Ӳ���ͨ����test_library_service_additional.py��
+- ��������ȷ���ع��������ϸ��ھ۵����ԭ��
+
+---

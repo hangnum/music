@@ -1,7 +1,7 @@
 """
-数据库迁移模块
+Database Migrations Module
 
-用于向已存在的表添加新列或执行其他迁移操作。
+Used to add new columns to existing tables or perform other migration tasks.
 """
 
 from __future__ import annotations
@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# 迁移定义列表
-# 每个迁移包含: table, column, sql
+# Migration definitions
+# Each migration contains: table, column, sql
 MIGRATIONS = [
-    # Migration 1: 为 tags 表添加 source 列
+    # Migration 1: Add source column to tags table
     {
         "table": "tags",
         "column": "source",
@@ -28,7 +28,7 @@ MIGRATIONS = [
 
 
 def column_exists(db: "DatabaseManager", table: str, column: str) -> bool:
-    """检查表中是否存在某列"""
+    """Check if a column exists in a table"""
     try:
         cursor = db.execute(f"PRAGMA table_info({table})")
         columns = [row[1] for row in cursor.fetchall()]
@@ -39,13 +39,13 @@ def column_exists(db: "DatabaseManager", table: str, column: str) -> bool:
 
 def run_migrations(db: "DatabaseManager") -> None:
     """
-    执行数据库迁移
+    Execute database migrations
     
-    用于向已存在的表添加新列。使用 ALTER TABLE ADD COLUMN，
-    该语句在 SQLite 中如果列已存在会报错，所以需要先检查。
+    Used to add new columns to existing tables. Uses ALTER TABLE ADD COLUMN,
+    which in SQLite throws an error if the column already exists, so checks are needed first.
     
     Args:
-        db: DatabaseManager 实例
+        db: DatabaseManager instance
     """
     for migration in MIGRATIONS:
         if not column_exists(db, migration["table"], migration["column"]):
@@ -53,6 +53,6 @@ def run_migrations(db: "DatabaseManager") -> None:
                 db.execute(migration["sql"])
                 logger.info("Migration applied: %s.%s", migration["table"], migration["column"])
             except Exception as e:
-                # 忽略迁移错误（列可能已存在于某些边缘情况）
+                # Ignore migration errors (column might already exist in some edge cases)
                 if "duplicate column" not in str(e).lower():
-                    logger.exception("数据库迁移失败: %s", migration)
+                    logger.exception("Database migration failed: %s", migration)

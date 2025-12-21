@@ -1,0 +1,57 @@
+﻿diff --git a/src/core/migrations.py b/src/core/migrations.py
+index a9c72d9..8c31df4 100644
+--- a/src/core/migrations.py
++++ b/src/core/migrations.py
+@@ -1,7 +1,7 @@
+ """
+-鏁版嵁搴撹縼绉绘ā鍧?+Database Migrations Module
+ 
+-鐢ㄤ簬鍚戝凡瀛樺湪鐨勮〃娣诲姞鏂板垪鎴栨墽琛屽叾浠栬縼绉绘搷浣溿€?+Used to add new columns to existing tables or perform other migration tasks.
+ """
+ 
+ from __future__ import annotations
+@@ -15,10 +15,10 @@ if TYPE_CHECKING:
+ logger = logging.getLogger(__name__)
+ 
+ 
+-# 杩佺Щ瀹氫箟鍒楄〃
+-# 姣忎釜杩佺Щ鍖呭惈: table, column, sql
++# Migration definitions
++# Each migration contains: table, column, sql
+ MIGRATIONS = [
+-    # Migration 1: 涓?tags 琛ㄦ坊鍔?source 鍒?+    # Migration 1: Add source column to tags table
+     {
+         "table": "tags",
+         "column": "source",
+@@ -28,7 +28,7 @@ MIGRATIONS = [
+ 
+ 
+ def column_exists(db: "DatabaseManager", table: str, column: str) -> bool:
+-    """妫€鏌ヨ〃涓槸鍚﹀瓨鍦ㄦ煇鍒?""
++    """Check if a column exists in a table"""
+     try:
+         cursor = db.execute(f"PRAGMA table_info({table})")
+         columns = [row[1] for row in cursor.fetchall()]
+@@ -39,13 +39,13 @@ def column_exists(db: "DatabaseManager", table: str, column: str) -> bool:
+ 
+ def run_migrations(db: "DatabaseManager") -> None:
+     """
+-    鎵ц鏁版嵁搴撹縼绉?+    Execute database migrations
+     
+-    鐢ㄤ簬鍚戝凡瀛樺湪鐨勮〃娣诲姞鏂板垪銆備娇鐢?ALTER TABLE ADD COLUMN锛?-    璇ヨ鍙ュ湪 SQLite 涓鏋滃垪宸插瓨鍦ㄤ細鎶ラ敊锛屾墍浠ラ渶瑕佸厛妫€鏌ャ€?+    Used to add new columns to existing tables. Uses ALTER TABLE ADD COLUMN,
++    which in SQLite throws an error if the column already exists, so checks are needed first.
+     
+     Args:
+-        db: DatabaseManager 瀹炰緥
++        db: DatabaseManager instance
+     """
+     for migration in MIGRATIONS:
+         if not column_exists(db, migration["table"], migration["column"]):
+@@ -53,6 +53,6 @@ def run_migrations(db: "DatabaseManager") -> None:
+                 db.execute(migration["sql"])
+                 logger.info("Migration applied: %s.%s", migration["table"], migration["column"])
+             except Exception as e:
+-                # 蹇界暐杩佺Щ閿欒锛堝垪鍙兘宸插瓨鍦ㄤ簬鏌愪簺杈圭紭鎯呭喌锛?+                # Ignore migration errors (column might already exist in some edge cases)
+                 if "duplicate column" not in str(e).lower():
+-                    logger.exception("鏁版嵁搴撹縼绉诲け璐? %s", migration)
++                    logger.exception("Database migration failed: %s", migration)

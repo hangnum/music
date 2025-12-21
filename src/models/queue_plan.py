@@ -1,5 +1,5 @@
 """
-LLM 队列管理相关数据模型
+Data models related to LLM queue management
 """
 
 from __future__ import annotations
@@ -9,13 +9,13 @@ from typing import List, Optional
 
 
 class LLMQueueError(RuntimeError):
-    """LLM 队列操作错误"""
+    """LLM queue operation error"""
     pass
 
 
 @dataclass(frozen=True)
 class LibraryQueueRequest:
-    """从音乐库请求曲目的参数"""
+    """Parameters for requesting tracks from the library"""
     mode: str = "replace"  # replace|append
     query: str = ""
     genre: str = ""
@@ -28,7 +28,7 @@ class LibraryQueueRequest:
 
 @dataclass(frozen=True)
 class QueueReorderPlan:
-    """队列重排计划"""
+    """Queue reorder plan"""
     ordered_track_ids: List[str]
     reason: str = ""
     clear_queue: bool = False

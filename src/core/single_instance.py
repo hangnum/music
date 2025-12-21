@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-单实例应用管理器
+Single Instance Application Manager
 
-使用 QLocalServer/QLocalSocket 实现单实例检测和进程间通信。
-当第二个实例启动时，会向主实例发送激活消息，然后退出。
+Uses QLocalServer/QLocalSocket to implement single-instance detection and inter-process communication.
+When a second instance starts, it sends an activation message to the primary instance and then exits.
 
-使用示例:
+Usage Example:
     from core.single_instance import SingleInstanceManager
     
     manager = SingleInstanceManager("MyApp")
@@ -29,43 +29,43 @@ logger = logging.getLogger(__name__)
 
 
 class SingleInstanceManager(QObject):
-    """单实例应用管理器
+    """Single Instance Application Manager
     
-    使用本地套接字实现进程间通信，确保应用只运行一个实例。
+    Uses local sockets for inter-process communication to ensure only one instance of the app runs.
     
     Attributes:
-        activation_requested: 当其他实例请求激活时发射的信号
+        activation_requested: Signal emitted when another instance requests activation.
     """
     
-    # 当其他实例请求激活主窗口时发射
+    # Emitted when another instance requests activation of the main window
     activation_requested = pyqtSignal()
     
-    # 激活消息的内容
+    # Content of the activation message
     _ACTIVATION_MESSAGE = b"ACTIVATE"
     
-    # 连接超时时间（毫秒）
+    # Connection timeout (milliseconds)
     _CONNECTION_TIMEOUT_MS = 1000
     
     def __init__(self, app_key: str, parent: Optional[QObject] = None):
-        """初始化单实例管理器
+        """Initialize the single instance manager
         
         Args:
-            app_key: 应用程序的唯一标识符，用于创建本地服务器名称
-            parent: 父 QObject
+            app_key: Unique identifier for the application, used to create the local server name.
+            parent: Parent QObject
         """
         super().__init__(parent)
         self._app_key = app_key
         self._server: Optional[QLocalServer] = None
         
-        logger.debug("SingleInstanceManager 初始化，app_key=%s", app_key)
+        logger.debug("SingleInstanceManager initialized, app_key=%s", app_key)
     
     def is_running(self) -> bool:
-        """检测是否已有实例在运行
+        """Check if another instance is already running
         
-        通过尝试连接本地服务器来检测。如果连接成功，说明已有实例在运行。
+        Detected by attempting to connect to a local server. A successful connection means an instance is already running.
         
         Returns:
-            True 如果已有实例在运行，False 否则
+            True if another instance is running, False otherwise.
         """
         socket = QLocalSocket()
         socket.connectToServer(self._app_key)
@@ -73,69 +73,69 @@ class SingleInstanceManager(QObject):
         is_connected = socket.waitForConnected(self._CONNECTION_TIMEOUT_MS)
         
         if is_connected:
-            logger.info("检测到已有实例在运行")
+            logger.info("Existing instance detected running")
             socket.disconnectFromServer()
         else:
-            logger.debug("未检测到运行中的实例")
+            logger.debug("No running instance detected")
         
         return is_connected
     
     def send_activation_message(self) -> bool:
-        """向主实例发送激活消息
+        """Send an activation message to the primary instance
         
-        连接到主实例的服务器并发送激活请求。
+        Connects to the primary instance's server and sends an activation request.
         
         Returns:
-            True 如果消息发送成功，False 否则
+            True if the message was sent successfully, False otherwise.
         """
         socket = QLocalSocket()
         socket.connectToServer(self._app_key)
         
         if not socket.waitForConnected(self._CONNECTION_TIMEOUT_MS):
-            logger.error("无法连接到主实例: %s", socket.errorString())
+            logger.error("Could not connect to primary instance: %s", socket.errorString())
             return False
         
-        # 发送激活消息
+        # Send activation message
         socket.write(self._ACTIVATION_MESSAGE)
         socket.flush()
         
         if not socket.waitForBytesWritten(self._CONNECTION_TIMEOUT_MS):
-            logger.error("发送激活消息失败: %s", socket.errorString())
+            logger.error("Failed to send activation message: %s", socket.errorString())
             socket.disconnectFromServer()
             return False
         
-        logger.info("已向主实例发送激活请求")
+        logger.info("Activation request sent to primary instance")
         socket.disconnectFromServer()
         return True
     
     def start_server(self) -> bool:
-        """启动本地服务器
+        """Start the local server
         
-        创建并启动本地服务器，监听来自其他实例的连接。
+        Creates and starts a local server to listen for connections from other instances.
         
         Returns:
-            True 如果服务器启动成功，False 否则
+            True if server started successfully, False otherwise.
         """
         self._server = QLocalServer(self)
         
-        # 移除可能残留的旧服务器（例如上次崩溃后遗留的）
+        # Remove any leftover server file (e.g., from a previous crash)
         QLocalServer.removeServer(self._app_key)
         
         if not self._server.listen(self._app_key):
             logger.error(
-                "无法启动本地服务器: %s", 
+                "Could not start local server: %s", 
                 self._server.errorString()
             )
             return False
         
-        # 连接新连接信号
+        # Connect new connection signal
         self._server.newConnection.connect(self._on_new_connection)
         
-        logger.info("本地服务器已启动，监听: %s", self._app_key)
+        logger.info("Local server started, listening on: %s", self._app_key)
         return True
     
     def _on_new_connection(self) -> None:
-        """处理新的连接请求"""
+        """Handle new connection requests"""
         if self._server is None:
             return
         
@@ -143,24 +143,24 @@ class SingleInstanceManager(QObject):
         if socket is None:
             return
         
-        # 等待接收数据
+        # Wait for data reception
         if socket.waitForReadyRead(self._CONNECTION_TIMEOUT_MS):
             data = socket.readAll().data()
             
             if data == self._ACTIVATION_MESSAGE:
-                logger.info("收到激活请求，发射 activation_requested 信号")
+                logger.info("Activation request received, emitting activation_requested signal")
                 self.activation_requested.emit()
             else:
-                logger.warning("收到未知消息: %s", data)
+                logger.warning("Received unknown message: %s", data)
         
         socket.disconnectFromServer()
     
     def cleanup(self) -> None:
-        """清理资源
+        """Clean up resources
         
-        关闭服务器并移除服务器文件。通常在应用退出时调用。
+        Closes the server and removes the server file. Typically called when the application exits.
         """
         if self._server is not None:
             self._server.close()
             QLocalServer.removeServer(self._app_key)
-            logger.debug("本地服务器已关闭")
+            logger.debug("Local server closed")

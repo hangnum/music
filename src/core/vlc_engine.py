@@ -1,11 +1,11 @@
 """
-VLC 音频引擎实现
+VLC Audio Engine Implementation
 
-基于 python-vlc 库的音频后端，支持:
-- ReplayGain (增益调整)
-- EQ 均衡器 (libvlc audio equalizer)
-- Crossfade (双 MediaPlayer 渐变混合)
-- 广泛的格式支持
+Audio backend based on the python-vlc library, supporting:
+- ReplayGain (Gain adjustment)
+- EQ Equalizer (libvlc audio equalizer)
+- Crossfade (Gradient mixing between two MediaPlayers)
+- Extensive format support
 """
 
 from __future__ import annotations
@@ -19,49 +19,49 @@ from core.audio_engine import AudioEngineBase, PlayerState, PlaybackEndInfo
 
 logger = logging.getLogger(__name__)
 
-# 尝试导入 vlc
+# Try to import vlc
 try:
     import vlc
     VLC_AVAILABLE = True
 except ImportError:
     vlc = None  # type: ignore
     VLC_AVAILABLE = False
-    logger.warning("python-vlc 库未安装，VLCEngine 不可用")
+    logger.warning("The python-vlc library is not installed; VLCEngine is unavailable.")
 
 
 class VLCEngine(AudioEngineBase):
     """
-    基于 VLC 的音频引擎
+    VLC-based Audio Engine
 
-    特性:
-    - 广泛的格式支持
-    - ReplayGain 支持 (通过音量调节)
-    - EQ 均衡器 (libvlc AudioEqualizer)
-    - Crossfade (双 MediaPlayer 音量渐变)
+    Features:
+    - Extensive format support
+    - ReplayGain support (via volume adjustment)
+    - EQ Equalizer (libvlc AudioEqualizer)
+    - Crossfade (Volume gradient between two MediaPlayers)
     """
 
     @staticmethod
     def probe() -> bool:
-        """检测 python-vlc 依赖是否可用"""
+        """Check if python-vlc dependencies are available."""
         return VLC_AVAILABLE
 
     def __init__(self):
         if not VLC_AVAILABLE:
-            raise ImportError("python-vlc 库未安装")
+            raise ImportError("The python-vlc library is not installed.")
 
         super().__init__()
 
-        # VLC 实例
+        # VLC instance
         self._instance: Any = vlc.Instance(
             "--no-video",
             "--audio-filter=scaletempo",
         )
         
-        # 主播放器
+        # Main player
         self._player: Any = self._instance.media_player_new()
         self._media: Optional[Any] = None
 
-        # 用于 Crossfade 的第二播放器
+        # Second player for Crossfade
         self._crossfade_player: Any = self._instance.media_player_new()
         self._crossfade_media: Optional[Any] = None
         self._crossfade_duration_ms: int = 0
@@ -69,7 +69,7 @@ class VLCEngine(AudioEngineBase):
         self._crossfade_thread: Optional[threading.Thread] = None
         self._crossfade_stop_event = threading.Event()
 
-        # EQ 相关
+        # EQ related
         self._eq_enabled: bool = False
         self._eq_bands: List[float] = [0.0] * 10
         self._equalizer: Optional[Any] = None
@@ -78,11 +78,11 @@ class VLCEngine(AudioEngineBase):
         # ReplayGain
         self._replay_gain_db: float = 0.0
 
-        # 播放状态
+        # Playback status
         self._duration_ms: int = 0
         self._playback_started: bool = False
 
-        # 下一曲预加载
+        # Next track preloading
         self._next_file: Optional[str] = None
         self._next_media: Optional[Any] = None
 
@@ -92,10 +92,10 @@ class VLCEngine(AudioEngineBase):
         self._error_event_handler = None
 
 
-        # 线程锁
+        # Thread lock
         self._lock = threading.Lock()
 
-        # 设置事件回调
+        # Setup event callbacks
         self._setup_event_callbacks()
 
     def _setup_event_callbacks(self) -> None:
@@ -122,8 +122,8 @@ class VLCEngine(AudioEngineBase):
         self._event_handlers_bound = True
 
     def _on_playback_finished(self) -> None:
-        """播放结束处理"""
-        # 如果正在 crossfade，由 crossfade 线程处理
+        """Handle playback completion."""
+        # If crossfading, let the crossfade thread handle it.
         if self._crossfade_active:
             return
             
@@ -141,22 +141,22 @@ class VLCEngine(AudioEngineBase):
             )
 
     def load(self, file_path: str) -> bool:
-        """加载音频文件"""
+        """Load an audio file."""
         try:
             with self._lock:
-                # 停止当前播放和 crossfade
+                # Stop current playback and crossfade.
                 self._stop_crossfade()
                 if self._state == PlayerState.PLAYING:
                     self._player.stop()
 
-                # 创建媒体对象
+                # Create media object.
                 self._media = self._instance.media_new(file_path)
                 self._player.set_media(self._media)
 
-                # 解析媒体以获取时长
+                # Parse media to get duration.
                 self._media.parse_with_options(vlc.MediaParseFlag.local, 3000)
                 
-                # 等待解析完成
+                # Wait for parsing to complete.
                 for _ in range(30):
                     if self._media.get_parsed_status() == vlc.MediaParsedStatus.done:
                         break
@@ -173,25 +173,25 @@ class VLCEngine(AudioEngineBase):
 
         except Exception as e:
             self._state = PlayerState.ERROR
-            logger.error("加载文件失败: %s", e)
+            logger.error("Failed to load file: %s", e)
             if self._on_error_callback:
-                self._on_error_callback(f"加载文件失败: {e}")
+                self._on_error_callback(f"Failed to load file: {e}")
             return False
 
     def play(self) -> bool:
-        """开始播放"""
+        """Start playback."""
         try:
             with self._lock:
                 if self._media is None:
                     return False
 
-                # 应用 EQ
+                # Apply EQ
                 if self._eq_enabled and self._equalizer:
                     self._player.set_equalizer(self._equalizer)
                 else:
                     self._player.set_equalizer(None)
 
-                # 应用音量（包含 ReplayGain）
+                # Apply volume (including ReplayGain)
                 self._apply_volume(self._player)
 
                 result = self._player.play()
@@ -199,7 +199,7 @@ class VLCEngine(AudioEngineBase):
                     self._state = PlayerState.PLAYING
                     self._playback_started = True
                     
-                    # 如果有预加载的下一曲且启用了 crossfade，启动监控
+                    # If there's a preloaded next track and crossfade is enabled, start monitoring.
                     if self._next_media and self._crossfade_duration_ms > 0:
                         self._start_crossfade_monitor()
                     
@@ -209,20 +209,20 @@ class VLCEngine(AudioEngineBase):
 
         except Exception as e:
             self._state = PlayerState.ERROR
-            logger.error("播放失败: %s", e)
+            logger.error("Playback failed: %s", e)
             if self._on_error_callback:
-                self._on_error_callback(f"播放失败: {e}")
+                self._on_error_callback(f"Playback failed: {e}")
             return False
 
     def _apply_volume(self, player: Any) -> None:
-        """应用音量设置（包含 ReplayGain 调整）"""
+        """Apply volume settings (including ReplayGain adjustment)."""
         linear_gain = 10 ** (self._replay_gain_db / 20)
         final_volume = int(self._volume * linear_gain * 100)
         final_volume = max(0, min(200, final_volume))
         player.audio_set_volume(final_volume)
 
     def _start_crossfade_monitor(self) -> None:
-        """启动 crossfade 监控线程"""
+        """Start the crossfade monitoring thread."""
         if self._crossfade_thread and self._crossfade_thread.is_alive():
             return
         
@@ -234,7 +234,7 @@ class VLCEngine(AudioEngineBase):
         self._crossfade_thread.start()
 
     def _crossfade_monitor_loop(self) -> None:
-        """监控播放位置，在适当时机启动 crossfade"""
+        """Monitor playback position and start crossfade at the appropriate time."""
         while not self._crossfade_stop_event.is_set():
             try:
                 if self._state != PlayerState.PLAYING:
@@ -250,32 +250,32 @@ class VLCEngine(AudioEngineBase):
                 
                 remaining = duration - current_pos
                 
-                # 当剩余时间小于 crossfade 时长时，开始 crossfade
+                # When remaining time is less than or equal to crossfade duration, start crossfade.
                 if remaining <= self._crossfade_duration_ms and self._next_media:
                     self._execute_crossfade()
-                    return  # crossfade 完成后退出监控
+                    return  # Exit monitoring after crossfade starts.
                 
-                time.sleep(0.05)  # 50ms 检查间隔
+                time.sleep(0.05)  # 50ms check interval
                 
             except Exception as e:
-                logger.debug("Crossfade 监控错误: %s", e)
+                logger.debug("Crossfade monitoring error: %s", e)
                 time.sleep(0.1)
 
     def _execute_crossfade(self) -> None:
-        """执行 crossfade 渐变"""
+        """Perform the crossfade gradient."""
         if self._crossfade_active or not self._next_media:
             return
         
         self._crossfade_active = True
-        logger.debug("开始 crossfade 渐变")
+        logger.debug("Starting crossfade gradient")
         
         try:
-            # 设置 crossfade 播放器
+            # Set crossfade player
             self._crossfade_player.set_media(self._next_media)
             
-            # 应用 EQ
+            # Apply EQ
             if self._eq_enabled and self._equalizer:
-                # 创建新的 equalizer 副本用于 crossfade 播放器
+                # Create a new equalizer copy for the crossfade player.
                 self._crossfade_equalizer = vlc.AudioEqualizer()
                 for i in range(min(10, vlc.libvlc_audio_equalizer_get_band_count())):
                     vlc.libvlc_audio_equalizer_set_amp_at_index(
@@ -283,16 +283,16 @@ class VLCEngine(AudioEngineBase):
                     )
                 self._crossfade_player.set_equalizer(self._crossfade_equalizer)
             
-            # 初始音量：主播放器100%，crossfade播放器0%
+            # Initial volume: Main player 100%, crossfade player 0%
             main_volume = int(self._volume * 100)
             self._player.audio_set_volume(main_volume)
             self._crossfade_player.audio_set_volume(0)
             
-            # 启动 crossfade 播放器
+            # Start crossfade player
             self._crossfade_player.play()
             
-            # 渐变过程
-            steps = 50  # 渐变步数
+            # Gradient process
+            steps = 50  # Number of steps
             step_duration = self._crossfade_duration_ms / steps / 1000.0
             
             for i in range(steps + 1):
@@ -301,7 +301,7 @@ class VLCEngine(AudioEngineBase):
                 
                 t = i / steps  # 0.0 -> 1.0
                 
-                # Equal-power crossfade 曲线
+                # Equal-power crossfade curve
                 import math
                 fade_out = math.cos(t * math.pi / 2)  # 1 -> 0
                 fade_in = math.sin(t * math.pi / 2)   # 0 -> 1
@@ -314,11 +314,11 @@ class VLCEngine(AudioEngineBase):
                 
                 time.sleep(step_duration)
             
-            # Crossfade 完成，切换播放器
+            # Crossfade complete, switch players.
             self._finalize_crossfade()
             
         except Exception as e:
-            logger.error("Crossfade 执行失败: %s", e)
+            logger.error("Crossfade execution failed: %s", e)
             self._crossfade_active = False
 
     def _finalize_crossfade(self) -> None:
@@ -361,7 +361,7 @@ class VLCEngine(AudioEngineBase):
             )
 
     def _stop_crossfade(self) -> None:
-        """停止 crossfade 过程"""
+        """Stop the crossfade process."""
         self._crossfade_stop_event.set()
         self._crossfade_active = False
         if self._crossfade_thread and self._crossfade_thread.is_alive():
@@ -372,7 +372,7 @@ class VLCEngine(AudioEngineBase):
             pass
 
     def pause(self) -> None:
-        """暂停播放"""
+        """Pause playback."""
         with self._lock:
             if self._state == PlayerState.PLAYING:
                 self._player.pause()
@@ -381,16 +381,16 @@ class VLCEngine(AudioEngineBase):
                 self._state = PlayerState.PAUSED
 
     def resume(self) -> None:
-        """恢复播放"""
+        """Resume playback."""
         with self._lock:
             if self._state == PlayerState.PAUSED:
-                self._player.pause()  # VLC 的 pause 是切换操作
+                self._player.pause()  # VLC's pause is a toggle.
                 if self._crossfade_active:
                     self._crossfade_player.pause()
                 self._state = PlayerState.PLAYING
 
     def stop(self) -> None:
-        """停止播放"""
+        """Stop playback."""
         with self._lock:
             self._stop_crossfade()
             self._player.stop()
@@ -398,39 +398,39 @@ class VLCEngine(AudioEngineBase):
             self._playback_started = False
 
     def seek(self, position_ms: int) -> None:
-        """跳转到指定位置"""
+        """Seek to a specified position."""
         with self._lock:
             if self._duration_ms > 0:
                 self._player.set_time(position_ms)
 
     def set_volume(self, volume: float) -> None:
-        """设置音量"""
+        """Set volume."""
         self._volume = max(0.0, min(1.0, volume))
         self._apply_volume(self._player)
         if self._crossfade_active:
             self._apply_volume(self._crossfade_player)
 
     def get_position(self) -> int:
-        """获取当前播放位置（毫秒）"""
+        """Get current playback position (milliseconds)."""
         pos = self._player.get_time()
         return max(0, pos) if pos >= 0 else 0
 
     def get_duration(self) -> int:
-        """获取音频总时长（毫秒）"""
+        """Get total audio duration (milliseconds)."""
         return self._duration_ms
 
     def check_if_ended(self) -> bool:
-        """检查播放是否结束"""
+        """Check if playback has ended."""
         if self._playback_started:
             state = self._player.get_state()
             if state == vlc.State.Ended:
                 return True
         return False
 
-    # ===== 高级特性实现 =====
+    # ===== Advanced Features Implementation =====
 
     def supports_gapless(self) -> bool:
-        # VLC 不支持真正的 gapless，但 crossfade 可以掩盖间隙
+        # VLC doesn't support true gapless, but crossfade can mask gaps.
         return False
 
     def supports_crossfade(self) -> bool:
@@ -464,45 +464,45 @@ class VLCEngine(AudioEngineBase):
             return False
 
     def set_crossfade_duration(self, duration_ms: int) -> None:
-        """设置淡入淡出时长"""
+        """Set crossfade duration."""
         self._crossfade_duration_ms = max(0, duration_ms)
 
     def get_crossfade_duration(self) -> int:
         return self._crossfade_duration_ms
 
     def set_replay_gain(self, gain_db: float, peak: float = 1.0) -> None:
-        """设置 ReplayGain 增益"""
+        """Set ReplayGain gain."""
         self._replay_gain_db = gain_db
         if self._state in (PlayerState.PLAYING, PlayerState.PAUSED):
             self._apply_volume(self._player)
 
     def set_equalizer(self, bands: List[float]) -> None:
-        """设置 EQ 频段增益"""
+        """Set EQ band gains."""
         if len(bands) < 10:
             return
 
         self._eq_bands = list(bands[:10])
 
-        # 创建或更新均衡器
+        # Create or update equalizer.
         if self._equalizer is None:
             self._equalizer = vlc.AudioEqualizer()
 
-        # 获取 VLC 支持的频段数量
+        # Get the number of bands supported by VLC.
         band_count = vlc.libvlc_audio_equalizer_get_band_count()
 
-        # 设置各频段增益
+        # Set gain for each band.
         for i, gain in enumerate(self._eq_bands):
             if i < band_count:
                 vlc.libvlc_audio_equalizer_set_amp_at_index(
                     self._equalizer, gain, i
                 )
 
-        # 如果已启用且正在播放，立即应用
+        # If enabled and playing, apply immediately.
         if self._eq_enabled:
             self._player.set_equalizer(self._equalizer)
 
     def set_equalizer_enabled(self, enabled: bool) -> None:
-        """启用/禁用 EQ"""
+        """Enable/disable EQ."""
         self._eq_enabled = enabled
 
         if enabled and self._equalizer:
@@ -514,7 +514,7 @@ class VLCEngine(AudioEngineBase):
         return "vlc"
 
     def cleanup(self) -> None:
-        """清理资源"""
+        """Clean up resources."""
         with self._lock:
             self._stop_crossfade()
             try:
@@ -530,4 +530,4 @@ class VLCEngine(AudioEngineBase):
                     self._next_media.release()
                 self._instance.release()
             except Exception as e:
-                logger.warning("VLC cleanup 失败: %s", e)
+                logger.warning("VLC cleanup failed: %s", e)

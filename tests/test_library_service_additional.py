@@ -1,5 +1,5 @@
 """
-LibraryService 的额外单元测试（覆盖查询/分页/统计分支）。
+Additional unit tests for LibraryService (covering query, pagination, and statistics).
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def test_iter_tracks_brief_paginates_and_honors_limit(tmp_path: Path):
 
     db = _setup_db(tmp_path)
 
-    # iter_tracks_brief 会将 batch_size 夹到 [50, 800]，用 51 条数据覆盖分页逻辑
+    # iter_tracks_brief clamps batch_size to [50, 800]. Use 51 items to cover pagination logic.
     for i in range(51):
         tid = f"t{i:02d}"
         _insert_track(db, track_id=tid, title=f"Song {i:02d}", file_path=f"{tid}.mp3", artist="A", album="X")

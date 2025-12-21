@@ -1,5 +1,5 @@
 """
-专辑数据模型
+Album data model
 """
 
 from dataclasses import dataclass, field
@@ -11,7 +11,7 @@ import uuid
 @dataclass
 class Album:
     """
-    专辑数据模型
+    Album data model
     """
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -26,17 +26,17 @@ class Album:
     
     @property
     def duration_str(self) -> str:
-        """格式化总时长"""
+        """Formatted total duration"""
         total_seconds = self.total_duration_ms // 1000
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
         
         if hours > 0:
-            return f"{hours}小时{minutes}分钟"
-        return f"{minutes}分钟"
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
     
     def to_dict(self) -> dict:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             'id': self.id,
             'title': self.title,
@@ -51,7 +51,7 @@ class Album:
     
     @classmethod
     def from_dict(cls, data: dict) -> 'Album':
-        """从字典创建Album对象"""
+        """Create Album object from dictionary"""
         created_at = datetime.now()
         if data.get('created_at'):
             try:

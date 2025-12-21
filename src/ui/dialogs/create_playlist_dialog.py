@@ -1,7 +1,7 @@
 """
-新建歌单对话框
+Create Playlist Dialog
 
-用于创建新播放列表，输入名称和描述。
+Used for creating new playlists by entering name and description.
 """
 
 from PyQt6.QtWidgets import (
@@ -13,27 +13,27 @@ from PyQt6.QtCore import Qt
 
 class CreatePlaylistDialog(QDialog):
     """
-    新建歌单对话框
-    
-    提供创建播放列表的表单。
-    
-    使用示例:
+    Create Playlist Dialog
+
+    Provides a form for creating playlists.
+
+    Usage Example:
         dialog = CreatePlaylistDialog(parent)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             name = dialog.get_name()
             description = dialog.get_description()
     """
     
-    def __init__(self, parent=None, edit_mode: bool = False, 
+    def __init__(self, parent=None, edit_mode: bool = False,
                  initial_name: str = "", initial_description: str = ""):
         """
-        初始化对话框
-        
+        Initialize dialog
+
         Args:
-            parent: 父窗口
-            edit_mode: 是否为编辑模式
-            initial_name: 初始名称（编辑模式使用）
-            initial_description: 初始描述（编辑模式使用）
+            parent: Parent window
+            edit_mode: Whether in edit mode
+            initial_name: Initial name (used in edit mode)
+            initial_description: Initial description (used in edit mode)
         """
         super().__init__(parent)
         
@@ -44,68 +44,68 @@ class CreatePlaylistDialog(QDialog):
         self._setup_ui()
     
     def _setup_ui(self):
-        """设置 UI"""
-        title = "编辑歌单" if self._edit_mode else "新建歌单"
+        """Set up UI"""
+        title = "Edit Playlist" if self._edit_mode else "Create New Playlist"
         self.setWindowTitle(title)
         self.setMinimumWidth(400)
         self.setModal(True)
-        
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
-        
-        # 表单
+
+        # Form
         form_layout = QFormLayout()
         form_layout.setSpacing(12)
-        
-        # 名称输入
+
+        # Name input
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("输入歌单名称")
+        self.name_input.setPlaceholderText("Enter playlist name")
         self.name_input.setText(self._initial_name)
-        form_layout.addRow("名称:", self.name_input)
-        
-        # 描述输入
+        form_layout.addRow("Name:", self.name_input)
+
+        # Description input
         self.desc_input = QTextEdit()
-        self.desc_input.setPlaceholderText("添加描述（可选）")
+        self.desc_input.setPlaceholderText("Add description (optional)")
         self.desc_input.setMaximumHeight(100)
         self.desc_input.setPlainText(self._initial_description)
-        form_layout.addRow("描述:", self.desc_input)
+        form_layout.addRow("Description:", self.desc_input)
         
         layout.addLayout(form_layout)
-        
-        # 按钮
+
+        # Buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
-        
-        self.cancel_btn = QPushButton("取消")
+
+        self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(self.cancel_btn)
-        
-        self.confirm_btn = QPushButton("确定")
+
+        self.confirm_btn = QPushButton("Confirm")
         self.confirm_btn.setDefault(True)
         self.confirm_btn.clicked.connect(self._on_confirm)
         button_layout.addWidget(self.confirm_btn)
-        
+
         layout.addLayout(button_layout)
-        
-        # 连接信号
+
+        # Connect signals
         self.name_input.textChanged.connect(self._update_confirm_state)
         self._update_confirm_state()
     
     def _update_confirm_state(self):
-        """更新确认按钮状态"""
+        """Update confirm button state"""
         has_name = bool(self.name_input.text().strip())
         self.confirm_btn.setEnabled(has_name)
     
     def _on_confirm(self):
-        """确认按钮点击"""
+        """Confirm button clicked"""
         if self.name_input.text().strip():
             self.accept()
-    
+
     def get_name(self) -> str:
-        """获取输入的名称"""
+        """Get entered name"""
         return self.name_input.text().strip()
-    
+
     def get_description(self) -> str:
-        """获取输入的描述"""
+        """Get entered description"""
         return self.desc_input.toPlainText().strip()

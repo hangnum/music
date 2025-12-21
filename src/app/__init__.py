@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-应用包 - 依赖注入容器和协议定义
+App Package - Dependency Injection Container and Protocol Definitions
 
-此包提供应用程序的依赖注入基础设施。
+This package provides the dependency injection infrastructure for the application.
 """

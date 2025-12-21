@@ -1,5 +1,5 @@
 """
-音轨数据模型
+Track data model
 """
 
 from dataclasses import dataclass, field
@@ -11,9 +11,9 @@ import uuid
 @dataclass
 class Track:
     """
-    音轨数据模型
+    Track data model
     
-    代表一首音乐的完整信息。
+    Represents complete information of a music track.
     """
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -24,35 +24,35 @@ class Track:
     sample_rate: int = 0
     format: str = ""
     
-    # 关联信息
+    # Association information
     artist_id: Optional[str] = None
     artist_name: str = ""
     album_id: Optional[str] = None
     album_name: str = ""
     
-    # 曲目信息
+    # Track information
     track_number: Optional[int] = None
     disc_number: Optional[int] = None
     genre: str = ""
     year: Optional[int] = None
     
-    # 用户数据
+    # User data
     play_count: int = 0
     last_played: Optional[datetime] = None
     rating: int = 0  # 0-5
     
-    # 封面路径
+    # Cover path
     cover_path: Optional[str] = None
     
-    # 用户标签（存储标签名列表，便于显示）
+    # User tags (stores tag name list for easy display)
     tags: List[str] = field(default_factory=list)
     
-    # 时间戳
+    # Timestamp
     created_at: datetime = field(default_factory=datetime.now)
     
     @property
     def duration_str(self) -> str:
-        """格式化时长字符串 (mm:ss)"""
+        """Formatted duration string (mm:ss)"""
         total_seconds = self.duration_ms // 1000
         minutes = total_seconds // 60
         seconds = total_seconds % 60
@@ -60,7 +60,7 @@ class Track:
     
     @property
     def duration_long_str(self) -> str:
-        """格式化时长字符串 (hh:mm:ss)"""
+        """Formatted duration string (hh:mm:ss)"""
         total_seconds = self.duration_ms // 1000
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
@@ -72,20 +72,20 @@ class Track:
     
     @property
     def display_name(self) -> str:
-        """显示名称"""
+        """Display name"""
         if self.artist_name:
             return f"{self.artist_name} - {self.title}"
         return self.title
     
     @property
     def bitrate_str(self) -> str:
-        """格式化比特率"""
+        """Format bitrate"""
         if self.bitrate > 0:
             return f"{self.bitrate} kbps"
         return ""
     
     def to_dict(self) -> dict:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             'id': self.id,
             'title': self.title,
@@ -112,7 +112,7 @@ class Track:
     
     @classmethod
     def from_dict(cls, data: dict) -> 'Track':
-        """从字典创建Track对象"""
+        """Create Track object from dictionary"""
         last_played = None
         if data.get('last_played'):
             try:
@@ -153,7 +153,7 @@ class Track:
     
     @classmethod
     def from_metadata(cls, metadata) -> 'Track':
-        """从AudioMetadata创建Track对象"""
+        """Create Track object from AudioMetadata"""
         return cls(
             title=metadata.title,
             file_path=metadata.file_path,

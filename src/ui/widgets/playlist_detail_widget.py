@@ -1,8 +1,8 @@
 """
-歌单详情组件
+Playlist Detail Component
 
-显示歌单内的曲目列表，支持播放、移除曲目、拖放排序等操作。
-使用 Model-View 架构实现虚拟化渲染。
+Displays the track list within a playlist, supporting playback, track removal, drag-and-drop sorting, etc.
+Uses the Model-View architecture for virtualized rendering.
 """
 
 from PyQt6.QtWidgets import (
@@ -23,14 +23,14 @@ from ui.styles.theme_manager import ThemeManager
 
 class PlaylistDetailWidget(QWidget):
     """
-    歌单详情组件
+    Playlist Detail Component
     
-    显示某个歌单的曲目列表，支持播放、移除、拖放排序等操作。
-    使用 Model-View 架构实现虚拟化渲染。
+    Displays the track list of a specific playlist, supporting playback, removal, and drag-and-drop sorting.
+    Uses Model-View architecture for virtualized rendering.
     
     Signals:
-        back_requested: 请求返回歌单列表
-        track_double_clicked: 曲目双击事件
+        back_requested: Emitted when back to playlist list is requested
+        track_double_clicked: Emitted when a track is double-clicked
     """
     
     back_requested = pyqtSignal()
@@ -39,12 +39,12 @@ class PlaylistDetailWidget(QWidget):
     def __init__(self, playlist_service: PlaylistService, 
                  player_service: PlayerService, parent=None):
         """
-        初始化组件
+        Initialize the component.
         
         Args:
-            playlist_service: 歌单服务
-            player_service: 播放器服务
-            parent: 父组件
+            playlist_service: Playlist service instance
+            player_service: Player service instance
+            parent: Parent component
         """
         super().__init__(parent)
         self._playlist_service = playlist_service
@@ -54,52 +54,52 @@ class PlaylistDetailWidget(QWidget):
         self._setup_ui()
     
     def _setup_ui(self):
-        """设置 UI"""
+        """Set up the UI."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
         
-        # 标题栏
+        # Header bar
         header = QHBoxLayout()
         
         self.back_btn = QPushButton("←")
         self.back_btn.setFixedSize(32, 32)
-        self.back_btn.setToolTip("返回歌单列表")
+        self.back_btn.setToolTip("Back to Playlist List")
         self.back_btn.clicked.connect(self.back_requested.emit)
         header.addWidget(self.back_btn)
         
-        self.title_label = QLabel("歌单详情")
+        self.title_label = QLabel("Playlist Details")
         self.title_label.setStyleSheet(ThemeManager.get_section_title_style())
         header.addWidget(self.title_label)
         
         header.addStretch()
         
-        self.play_all_btn = QPushButton("▶ 播放全部")
+        self.play_all_btn = QPushButton("▶ Play All")
         self.play_all_btn.clicked.connect(self._play_all)
         header.addWidget(self.play_all_btn)
         
         layout.addLayout(header)
         
-        # 描述
+        # Description
         self.desc_label = QLabel()
         self.desc_label.setStyleSheet(ThemeManager.get_secondary_label_style())
         self.desc_label.setWordWrap(True)
         layout.addWidget(self.desc_label)
         
-        # 曲目列表 - Model-View 架构
+        # Track List - Model-View architecture
         self._model = TrackListModel(enable_drag_drop=True)
         
         self.list_view = QListView()
         self.list_view.setModel(self._model)
         
-        # 启用拖放排序
+        # Enable drag-and-drop sorting
         self.list_view.setDragEnabled(True)
         self.list_view.setAcceptDrops(True)
         self.list_view.setDropIndicatorShown(True)
         self.list_view.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.list_view.setDefaultDropAction(Qt.DropAction.MoveAction)
         
-        # 性能优化：统一项高
+        # Performance optimization: uniform item sizes
         self.list_view.setUniformItemSizes(True)
         
         self.list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -108,28 +108,28 @@ class PlaylistDetailWidget(QWidget):
         
         layout.addWidget(self.list_view)
         
-        # 底部信息
-        self.info_label = QLabel("0 首曲目")
+        # Bottom info
+        self.info_label = QLabel("0 tracks")
         self.info_label.setStyleSheet(ThemeManager.get_info_label_style())
         layout.addWidget(self.info_label)
     
     @property
     def playlist(self) -> Optional[Playlist]:
-        """获取当前显示的歌单"""
+        """Get the currently displayed playlist."""
         return self._current_playlist
     
     def set_playlist(self, playlist: Playlist):
         """
-        设置当前显示的歌单
+        Set the currently displayed playlist.
         
         Args:
-            playlist: 歌单对象
+            playlist: Playlist object
         """
         self._current_playlist = playlist
         self._refresh()
     
     def _refresh(self):
-        """刷新曲目列表"""
+        """Refresh the track list."""
         if not self._current_playlist:
             self._model.setTracks([])
             return
@@ -138,34 +138,34 @@ class PlaylistDetailWidget(QWidget):
         self.desc_label.setText(self._current_playlist.description or "")
         self.desc_label.setVisible(bool(self._current_playlist.description))
         
-        # 获取曲目并设置到模型
+        # Get tracks and set to model
         tracks = self._playlist_service.get_tracks(self._current_playlist.id)
         self._model.setTracks(tracks)
         
-        # 更新统计信息
+        # Update statistics
         count = len(tracks)
         duration = self._current_playlist.duration_str if self._current_playlist.total_duration_ms > 0 else ""
-        info = f"{count} 首曲目"
+        info = f"{count} tracks"
         if duration:
             info += f" · {duration}"
         self.info_label.setText(info)
     
     def _on_item_double_clicked(self, index):
-        """双击播放曲目"""
+        """Double-click to play a track."""
         track = self._model.getTrack(index.row())
         if track:
-            # 将整个歌单添加到播放队列
+            # Add entire playlist to playback queue
             tracks = self._model.getTracks()
             self._player_service.clear_queue()
             for t in tracks:
                 self._player_service.add_to_queue(t)
             
-            # 播放选中的曲目
+            # Play the selected track
             self._player_service.play(track)
             self.track_double_clicked.emit(track)
     
     def _play_all(self):
-        """播放全部"""
+        """Play all tracks."""
         tracks = self._model.getTracks()
         if not tracks:
             return
@@ -177,7 +177,7 @@ class PlaylistDetailWidget(QWidget):
         self._player_service.play(tracks[0])
     
     def _show_context_menu(self, pos):
-        """显示右键菜单"""
+        """Display context menu."""
         index = self.list_view.indexAt(pos)
         if not index.isValid():
             return
@@ -188,29 +188,29 @@ class PlaylistDetailWidget(QWidget):
         
         menu = QMenu(self)
         
-        # 播放
-        play_action = QAction("播放", self)
+        # Play
+        play_action = QAction("Play", self)
         play_action.triggered.connect(lambda: self._player_service.play(track))
         menu.addAction(play_action)
         
-        # 添加到播放队列
-        add_queue_action = QAction("添加到播放队列", self)
+        # Add to queue
+        add_queue_action = QAction("Add to Queue", self)
         add_queue_action.triggered.connect(lambda: self._player_service.add_to_queue(track))
         menu.addAction(add_queue_action)
         
         menu.addSeparator()
         
-        # 从歌单移除
-        remove_action = QAction("从歌单移除", self)
+        # Remove from playlist
+        remove_action = QAction("Remove from Playlist", self)
         remove_action.triggered.connect(lambda: self._remove_track(track))
         menu.addAction(remove_action)
         
         menu.exec(self.list_view.mapToGlobal(pos))
     
     def _remove_track(self, track: Track):
-        """从歌单移除曲目"""
+        """Remove a track from the playlist."""
         if self._current_playlist:
             self._playlist_service.remove_track(self._current_playlist.id, track.id)
-            # 重新获取歌单以更新 track_count
+            # Re-fetch the playlist to update track_count
             self._current_playlist = self._playlist_service.get(self._current_playlist.id)
             self._refresh()

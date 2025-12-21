@@ -1,5 +1,5 @@
 """
-LLM 批量标注服务测试
+LLM Batch Tagging Service Tests
 """
 
 import pytest
@@ -13,7 +13,7 @@ from services.llm_tagging_service import LLMTaggingService, TaggingJobStatus
 
 
 class _FakeClient:
-    """模拟 LLM 客户端"""
+    """Mock LLM client."""
     def __init__(self, response: str):
         self._response = response
         self.call_count = 0
@@ -24,7 +24,7 @@ class _FakeClient:
 
 
 class _FakeLibrary:
-    """模拟 LibraryService"""
+    """Mock LibraryService."""
     def __init__(self, tracks):
         self._tracks = list(tracks)
         self._id_map = {t.id: t for t in tracks}
@@ -34,7 +34,7 @@ class _FakeLibrary:
 
 
 class _MockTrack:
-    """模拟 Track 对象"""
+    """Mock Track object."""
     def __init__(self, id, title="", artist_name="", album_name="", genre=""):
         self.id = id
         self.title = title
@@ -44,13 +44,13 @@ class _MockTrack:
 
 
 class TestLLMTaggingService:
-    """LLM 批量标注服务测试"""
+    """LLM Batch Tagging Service tests."""
     
     def setup_method(self):
         from services.config_service import ConfigService
         ConfigService.reset_instance()
         DatabaseManager.reset_instance()
-        # 使用 tempfile 创建隔离的测试目录
+        # Create an isolated test directory using tempfile
         self._tmpdir = tempfile.mkdtemp(prefix="llm-tagging-test-")
         self._db_path = os.path.join(self._tmpdir, "test_llm_tagging.db")
         self.db = DatabaseManager(self._db_path)
@@ -59,17 +59,17 @@ class TestLLMTaggingService:
     
     def teardown_method(self):
         from services.config_service import ConfigService
-        # 先关闭数据库连接
+        # Close database connection first
         if hasattr(self, 'db') and self.db:
             self.db.close()
         ConfigService.reset_instance()
         DatabaseManager.reset_instance()
-        # 清理临时目录
+        # Clean up temporary directory
         if hasattr(self, '_tmpdir') and os.path.exists(self._tmpdir):
             shutil.rmtree(self._tmpdir, ignore_errors=True)
     
     def _create_tracks(self, count: int):
-        """创建测试曲目"""
+        """Create test tracks."""
         tracks = []
         for i in range(count):
             track_id = f"track-{i}"
@@ -91,7 +91,7 @@ class TestLLMTaggingService:
         return tracks
     
     def test_start_tagging_job_returns_job_id(self):
-        """测试启动标注任务返回任务 ID"""
+        """Test that starting a tagging task returns a job ID."""
         tracks = self._create_tracks(3)
         library = _FakeLibrary(tracks)
         
@@ -107,17 +107,17 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
-        service.wait_for_job(job_id)  # 等待异步任务完成
+        service.wait_for_job(job_id)  # Wait for async task to complete
         
         assert job_id != ""
         assert client.call_count >= 1
     
     def test_tagging_job_creates_tags(self):
-        """测试标注任务创建标签"""
+        """Test that the tagging task creates tags."""
         tracks = self._create_tracks(2)
         library = _FakeLibrary(tracks)
         
-        response = '{"tags": {"track-0": ["流行", "中文"], "track-1": ["摇滚", "英文"]}}'
+        response = '{"tags": {"track-0": ["Pop", "Chinese"], "track-1": ["Rock", "English"]}}'
         client = _FakeClient(response)
         
         service = LLMTaggingService(
@@ -129,45 +129,19 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
-        service.wait_for_job(job_id)  # 等待异步任务完成
+        service.wait_for_job(job_id)  # Wait for async task to complete
         
-        # 验证标签已创建
+        # Verify that tags were created
         tags = self.tag_service.get_all_tags()
         tag_names = [t.name for t in tags]
         
-        assert "流行" in tag_names
-        assert "中文" in tag_names
-        assert "摇滚" in tag_names
-        assert "英文" in tag_names
+        assert "Pop" in tag_names
+        assert "Chinese" in tag_names
+        assert "Rock" in tag_names
+        assert "English" in tag_names
     
     def test_tagging_job_associates_tags_with_tracks(self):
-        """测试标注任务关联标签到曲目"""
-        tracks = self._create_tracks(2)
-        library = _FakeLibrary(tracks)
-        
-        response = '{"tags": {"track-0": ["流行"], "track-1": ["摇滚"]}}'
-        client = _FakeClient(response)
-        
-        service = LLMTaggingService(
-            config=self.config,
-            db=self.db,
-            tag_service=self.tag_service,
-            library_service=library,
-            client=client,
-        )
-        
-        job_id = service.start_tagging_job(batch_size=10)
-        service.wait_for_job(job_id)  # 等待异步任务完成
-        
-        # 验证曲目标签关联
-        track0_tags = self.tag_service.get_track_tag_names("track-0")
-        track1_tags = self.tag_service.get_track_tag_names("track-1")
-        
-        assert "流行" in track0_tags
-        assert "摇滚" in track1_tags
-    
-    def test_get_job_status(self):
-        """测试获取任务状态"""
+        """Test that the tagging task associates tags with tracks."""
         tracks = self._create_tracks(2)
         library = _FakeLibrary(tracks)
         
@@ -183,7 +157,33 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
-        service.wait_for_job(job_id)  # 等待异步任务完成
+        service.wait_for_job(job_id)  # Wait for async task to complete
+        
+        # Verify track-tag associations
+        track0_tags = self.tag_service.get_track_tag_names("track-0")
+        track1_tags = self.tag_service.get_track_tag_names("track-1")
+        
+        assert "Pop" in track0_tags
+        assert "Rock" in track1_tags
+    
+    def test_get_job_status(self):
+        """Test getting the task status."""
+        tracks = self._create_tracks(2)
+        library = _FakeLibrary(tracks)
+        
+        response = '{"tags": {"track-0": ["Pop"], "track-1": ["Rock"]}}'
+        client = _FakeClient(response)
+        
+        service = LLMTaggingService(
+            config=self.config,
+            db=self.db,
+            tag_service=self.tag_service,
+            library_service=library,
+            client=client,
+        )
+        
+        job_id = service.start_tagging_job(batch_size=10)
+        service.wait_for_job(job_id)  # Wait for async task to complete
         status = service.get_job_status(job_id)
         
         assert status is not None
@@ -193,7 +193,7 @@ class TestLLMTaggingService:
         assert status.processed_tracks == 2
     
     def test_tagging_job_marks_tracks_as_tagged(self):
-        """测试标注任务标记曲目为已标注"""
+        """Test that the tagging task marks tracks as tagged."""
         tracks = self._create_tracks(2)
         library = _FakeLibrary(tracks)
         
@@ -209,18 +209,18 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
-        service.wait_for_job(job_id)  # 等待异步任务完成
+        service.wait_for_job(job_id)  # Wait for async task to complete
         
-        # 验证未标注曲目列表为空
+        # Verify that the untagged track list is now empty
         untagged = self.tag_service.get_untagged_tracks(source="llm")
         assert len(untagged) == 0
     
     def test_tagging_skips_already_tagged_tracks(self):
-        """测试跳过已标注曲目"""
+        """Test that already tagged tracks are skipped."""
         tracks = self._create_tracks(3)
         library = _FakeLibrary(tracks)
         
-        # 手动标记一个曲目为已标注
+        # Manually mark one track as tagged
         self.tag_service.mark_track_as_tagged("track-0")
         
         response = '{"tags": {"track-1": ["Rock"], "track-2": ["Pop"]}}'
@@ -235,14 +235,14 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
-        service.wait_for_job(job_id)  # 等待异步任务完成
+        service.wait_for_job(job_id)  # Wait for async task to complete
         status = service.get_job_status(job_id)
         
-        # 应该只处理 2 个曲目
+        # Only 2 tracks should have been processed
         assert status.total_tracks == 2
     
     def test_get_tagging_stats(self):
-        """测试获取标注统计信息"""
+        """Test getting tagging statistics."""
         tracks = self._create_tracks(3)
         library = _FakeLibrary(tracks)
         
@@ -258,7 +258,7 @@ class TestLLMTaggingService:
         )
         
         job_id = service.start_tagging_job(batch_size=10)
-        service.wait_for_job(job_id)  # 等待异步任务完成
+        service.wait_for_job(job_id)  # Wait for async task to complete
         stats = service.get_tagging_stats()
         
         assert stats["tagged_tracks"] == 3
@@ -266,7 +266,7 @@ class TestLLMTaggingService:
         assert stats["llm_tags"] == 3  # Pop, Rock, Jazz
     
     def test_progress_callback_called(self):
-        """测试进度回调被调用"""
+        """Test that the progress callback is triggered."""
         tracks = self._create_tracks(5)
         library = _FakeLibrary(tracks)
         
@@ -286,10 +286,10 @@ class TestLLMTaggingService:
             progress_calls.append((current, total))
         
         job_id = service.start_tagging_job(batch_size=2, progress_callback=progress_callback)
-        service.wait_for_job(job_id)  # 等待异步任务完成
+        service.wait_for_job(job_id)  # Wait for async task to complete
         
         assert len(progress_calls) > 0
-        # 最后一次调用应该是完成
+        # The final call should indicate completion
         assert progress_calls[-1][0] == progress_calls[-1][1]
 
 

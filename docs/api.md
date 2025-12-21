@@ -1,279 +1,289 @@
-# 高质量音乐播放器 - API接口文档
+# High-Quality Music Player - API Interface Document
 
-## 1. 概述
+## 1. Overview
 
-本文档定义了音乐播放器各模块之间的公共接口规范，确保模块间低耦合、高内聚。
-
----
-
-## 2. 核心接口
-
-### 2.1 IAudioEngine - 音频引擎接口
-
-音频播放的核心抽象接口，支持多后端实现。
-
-| 方法 | 参数 | 返回值 | 说明 |
-|------|------|--------|------|
-| `load(file_path)` | `str` | `bool` | 加载音频文件 |
-| `play()` | - | `bool` | 开始播放 |
-| `pause()` | - | `None` | 暂停播放 |
-| `resume()` | - | `None` | 恢复播放 |
-| `stop()` | - | `None` | 停止播放 |
-| `seek(position_ms)` | `int` | `None` | 跳转到指定位置 |
-| `set_volume(volume)` | `float` | `None` | 设置音量(0.0-1.0) |
-| `get_position()` | - | `int` | 获取当前位置(毫秒) |
-| `get_duration()` | - | `int` | 获取总时长(毫秒) |
-| `supports_gapless()` | - | `bool` | 是否支持无缝播放 |
-| `supports_crossfade()` | - | `bool` | 是否支持淡入淡出 |
-| `supports_equalizer()` | - | `bool` | 是否支持EQ |
-| `supports_replay_gain()` | - | `bool` | 是否支持ReplayGain |
-| `set_next_track(path)` | `str` | `bool` | 预加载下一曲 |
-| `set_crossfade_duration(ms)`| `int` | `None` | 设置淡入淡出时长 |
-| `set_replay_gain(db, peak)`| `float, float`| `None` | 设置ReplayGain |
-| `set_equalizer(bands)` | `List[float]` | `None` | 设置10段EQ增益 |
-
-**属性:**
-
-- `state: PlayerState` - 当前播放状态
-- `volume: float` - 当前音量
-
-**回调:**
-
-- `set_on_end(callback)` - 设置播放结束回调
-- `set_on_error(callback)` - 设置错误回调
-
-### 2.1.1 AudioEngineFactory - 音频引擎工厂
-
-用于创建和管理音频引擎实例。
-
-| 方法 (Static) | 参数 | 返回值 | 说明 |
-|------|------|--------|------|
-| `create(backend)` | `str` | `AudioEngineBase` | 创建指定后端的引擎 |
-| `create_best_available()` | - | `AudioEngineBase` | 创建最佳可用引擎 |
-| `get_available_backends()`| - | `List[str]` | 获取可用后端列表 |
-| `get_backend_info(backend)`| `str` | `dict` | 获取后端特性支持 |
+This document defines the public interface specifications between various modules of the music player, ensuring low coupling and high cohesion.
 
 ---
 
-### 2.2 IEventBus - 事件总线接口
+## 2. Core Interfaces
 
-发布-订阅模式的事件系统。
+### 2.1 IAudioEngine - Audio Engine Interface
 
-| 方法 | 参数 | 返回值 | 说明 |
+Core abstract interface for audio playback, supporting multiple backend implementations.
+
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `subscribe(event_type, callback)` | `EventType, Callable` | `str` | 订阅事件，返回订阅ID |
-| `unsubscribe(subscription_id)` | `str` | `bool` | 取消订阅 |
-| `publish(event_type, data)` | `EventType, Any` | `None` | 异步发布事件 |
-| `publish_sync(event_type, data)` | `EventType, Any` | `None` | 同步发布事件 |
+| `load(file_path)` | `str` | `bool` | Load audio file |
+| `play()` | - | `bool` | Start playback |
+| `pause()` | - | `None` | Pause playback |
+| `resume()` | - | `None` | Resume playback |
+| `stop()` | - | `None` | Stop playback |
+| `seek(position_ms)` | `int` | `None` | Seek to specified position |
+| `set_volume(volume)` | `float` | `None` | Set volume (0.0-1.0) |
+| `get_position()` | - | `int` | Get current position (ms) |
+| `get_duration()` | - | `int` | Get total duration (ms) |
+| `supports_gapless()` | - | `bool` | Whether gapless playback is supported |
+| `supports_crossfade()` | - | `bool` | Whether crossfade is supported |
+| `supports_equalizer()` | - | `bool` | Whether EQ is supported |
+| `supports_replay_gain()` | - | `bool` | Whether ReplayGain is supported |
+| `set_next_track(path)` | `str` | `bool` | Preload next track |
+| `set_crossfade_duration(ms)`| `int` | `None` | Set crossfade duration |
+| `set_replay_gain(db, peak)`| `float, float`| `None` | Set ReplayGain |
+| `set_equalizer(bands)` | `List[float]` | `None` | Set 10-band EQ gain |
 
-**事件类型 (EventType):**
+**Properties:**
 
-| 事件 | 数据类型 | 触发时机 |
+- `state: PlayerState` - Current playback state
+- `volume: float` - Current volume
+
+**Callbacks:**
+
+- `set_on_end(callback)` - Set playback end callback
+- `set_on_error(callback)` - Set error callback
+
+### 2.1.1 AudioEngineFactory - Audio Engine Factory
+
+Used to create and manage audio engine instances.
+
+| Method (Static) | Parameters | Return Value | Description |
+|------|------|--------|------|
+| `create(backend)` | `str` | `AudioEngineBase` | Create engine for specified backend |
+| `create_best_available()` | - | `AudioEngineBase` | Create best available engine |
+| `get_available_backends()`| - | `List[str]` | Get list of available backends |
+| `get_backend_info(backend)`| `str` | `dict` | Get backend feature support |
+
+---
+
+### 2.2 IEventBus - Event Bus Interface
+
+Publish-subscribe pattern event system.
+
+| Method | Parameters | Return Value | Description |
+|------|------|--------|------|
+| `subscribe(event_type, callback)` | `EventType, Callable` | `str` | Subscribe to event, returns subscription ID |
+| `unsubscribe(subscription_id)` | `str` | `bool` | Unsubscribe |
+| `publish(event_type, data)` | `EventType, Any` | `None` | Publish event asynchronously |
+| `publish_sync(event_type, data)` | `EventType, Any` | `None` | Publish event synchronously |
+
+**Event Types (EventType):**
+
+| Event | Data Type | Trigger Timing |
 |------|----------|----------|
-| `TRACK_STARTED` | `Track` | 曲目开始播放 |
-| `TRACK_ENDED` | `None` | 曲目播放结束 |
-| `TRACK_PAUSED` | `None` | 播放暂停 |
-| `TRACK_RESUMED` | `None` | 播放恢复 |
-| `POSITION_CHANGED` | `int` | 播放位置改变 |
-| `VOLUME_CHANGED` | `float` | 音量改变 |
-| `QUEUE_CHANGED` | `List[Track]` | 播放队列改变 |
-| `LIBRARY_SCAN_PROGRESS` | `dict` | 扫描进度更新 |
-| `ERROR_OCCURRED` | `dict` | 错误发生 |
+| `TRACK_STARTED` | `Track` | Track starts playing |
+| `TRACK_ENDED` | `None` | Track playback ends |
+| `TRACK_PAUSED` | `None` | Playback paused |
+| `TRACK_RESUMED` | `None` | Playback resumed |
+| `POSITION_CHANGED` | `int` | Playback position changed |
+| `VOLUME_CHANGED` | `float` | Volume changed |
+| `QUEUE_CHANGED` | `List[Track]` | Playback queue changed |
+| `LIBRARY_SCAN_PROGRESS` | `dict` | Scan progress updated |
+| `ERROR_OCCURRED` | `dict` | Error occurred |
 
 ---
 
-### 2.3 IPlayerService - 播放服务接口
+### 2.3 IPlayerService - Player Service Interface
 
-高级播放控制，管理播放队列和播放模式。
+High-level playback control, managing playback queue and playback modes.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `set_queue(tracks, start_index)` | `List[Track], int` | `None` | 设置播放队列 |
-| `play(track)` | `Track?` | `bool` | 播放指定或当前曲目 |
-| `pause()` | - | `None` | 暂停 |
-| `resume()` | - | `None` | 恢复 |
-| `toggle_play()` | - | `None` | 切换播放/暂停 |
-| `stop()` | - | `None` | 停止 |
-| `next_track()` | - | `Track?` | 下一曲 |
-| `previous_track()` | - | `Track?` | 上一曲 |
-| `seek(position_ms)` | `int` | `None` | 跳转位置 |
-| `set_volume(volume)` | `float` | `None` | 设置音量 |
-| `set_play_mode(mode)` | `PlayMode` | `None` | 设置播放模式 |
+| `set_queue(tracks, start_index)` | `List[Track], int` | `None` | Set playback queue |
+| `play(track)` | `Track?` | `bool` | Play specified or current track |
+| `pause()` | - | `None` | Pause |
+| `resume()` | - | `None` | Resume |
+| `toggle_play()` | - | `None` | Toggle play/pause |
+| `stop()` | - | `None` | Stop |
+| `next_track()` | - | `Track?` | Next track |
+| `previous_track()` | - | `Track?` | Previous track |
+| `seek(position_ms)` | `int` | `None` | Seek position |
+| `set_volume(volume)` | `float` | `None` | Set volume |
+| `set_play_mode(mode)` | `PlayMode` | `None` | Set playback mode |
 
-**属性:**
+**Properties:**
 
-- `state: PlaybackState` - 当前播放状态对象
+- `state: PlaybackState` - Current playback state object
 
 ---
 
-### 2.4 IPlaylistService - 播放列表服务接口
+### 2.4 IPlaylistService - Playlist Service Interface
 
-播放列表的CRUD操作。
+CRUD operations for playlists.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `create(name, description)` | `str, str` | `Playlist` | 创建播放列表 |
-| `get(playlist_id)` | `str` | `Playlist?` | 获取播放列表 |
-| `get_all()` | - | `List[Playlist]` | 获取所有播放列表 |
-| `update(playlist)` | `Playlist` | `bool` | 更新播放列表 |
-| `delete(playlist_id)` | `str` | `bool` | 删除播放列表 |
-| `add_track(playlist_id, track)` | `str, Track` | `bool` | 添加曲目 |
-| `remove_track(playlist_id, track_id)` | `str, str` | `bool` | 移除曲目 |
-| `reorder(playlist_id, track_id, new_position)` | `str, str, int` | `bool` | 调整顺序 |
+| `create(name, description)` | `str, str` | `Playlist` | Create playlist |
+| `get(playlist_id)` | `str` | `Playlist?` | Get playlist |
+| `get_all()` | - | `List[Playlist]` | Get all playlists |
+| `update(playlist)` | `Playlist` | `bool` | Update playlist |
+| `delete(playlist_id)` | `str` | `bool` | Delete playlist |
+| `add_track(playlist_id, track)` | `str, Track` | `bool` | Add track |
+| `remove_track(playlist_id, track_id)` | `str, str` | `bool` | Remove track |
+| `reorder(playlist_id, track_id, new_position)` | `str, str, int` | `bool` | Reorder tracks |
 
 ---
 
-### 2.5 ILibraryService - 媒体库服务接口
+### 2.5 ILibraryService - Media Library Service Interface
 
-媒体库的扫描、索引和搜索。
+Scanning, indexing, and searching for the media library.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `scan(directories)` | `List[str]` | `None` | 扫描指定目录 |
-| `scan_async(directories)` | `List[str]` | `None` | 异步扫描 |
-| `get_all_tracks()` | - | `List[Track]` | 获取所有曲目 |
-| `get_track(track_id)` | `str` | `Track?` | 获取曲目 |
-| `get_albums()` | - | `List[Album]` | 获取所有专辑 |
-| `get_artists()` | - | `List[Artist]` | 获取所有艺术家 |
-| `search(query)` | `str` | `SearchResult` | 搜索 |
-| `get_recent(limit)` | `int` | `List[Track]` | 获取最近播放 |
+| `scan(directories)` | `List[str]` | `None` | Scan specified directories |
+| `scan_async(directories)` | `List[str]` | `None` | Scan asynchronously |
+| `get_all_tracks()` | - | `List[Track]` | Get all tracks |
+| `get_track(track_id)` | `str` | `Track?` | Get track |
+| `get_albums()` | - | `List[Album]` | Get all albums |
+| `get_artists()` | - | `List[Artist]` | Get all artists |
+| `search(query)` | `str` | `SearchResult` | Search |
+| `get_recent(limit)` | `int` | `List[Track]` | Get recently played |
 
 ---
 
-### 2.6 IConfigService - 配置服务接口
+### 2.6 IConfigService - Configuration Service Interface
 
-配置管理和持久化。
+Configuration management and persistence.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `get(key, default)` | `str, Any` | `Any` | 获取配置值 |
-| `set(key, value)` | `str, Any` | `None` | 设置配置值 |
-| `save()` | - | `bool` | 保存配置 |
-| `reload()` | - | `bool` | 重新加载 |
-| `reset()` | - | `None` | 重置为默认 |
+| `get(key, default)` | `str, Any` | `Any` | Get configuration value |
+| `set(key, value)` | `str, Any` | `None` | Set configuration value |
+| `save()` | - | `bool` | Save configuration |
+| `reload()` | - | `bool` | Reload configuration |
+| `reset()` | - | `None` | Reset to defaults |
 
 ---
 
-### 2.7 ILLMQueueService - LLM队列管理接口
+### 2.7 ILLMQueueService - LLM Queue Management Interface
 
-基于自然语言指令的智能队列管理。
+Intelligent queue management based on natural language instructions.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `suggest_reorder(instruction, queue)` | `str, List[Track]` | `dict` | 获取重排建议 |
-| `apply_reorder_plan(plan)` | `dict` | `bool` | 应用重排计划 |
-| `get_reason()` | - | `str` | 获取上一次建议的原因 |
+| `suggest_reorder(instruction, queue)` | `str, List[Track]` | `dict` | Get reorder suggestions |
+| `apply_reorder_plan(plan)` | `dict` | `bool` | Apply reorder plan |
+| `get_reason()` | - | `str` | Get the reason for the last suggestion |
 
 ---
 
-### 2.8 ITagService - 标签服务接口
+### 2.8 ITagService - Tag Service Interface
 
-管理音乐标签及其与曲目的关联。
+Manage music tags and their associations with tracks.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `create_tag(name, color, source)` | `str, str, str` | `Tag` | 创建新标签 |
-| `get_all_tags()` | - | `List[Tag]` | 获取所有标签 |
-| `get_all_tag_names(source)` | `str?` | `List[str]` | 获取标签名称列表 |
-| `delete_tag(tag_id)` | `str` | `bool` | 删除标签 |
-| `add_tag_to_track(track_id, tag_id)` | `str, str` | `bool` | 为曲目添加标签 |
-| `batch_add_tags_to_track(track_id, names)` | `str, List[str]` | `int` | 批量添加标签 |
-| `remove_tag_from_track(track_id, tag_id)` | `str, str` | `bool` | 移除曲目的标签 |
-| `get_track_tags(track_id)` | `str` | `List[Tag]` | 获取曲目的所有标签 |
-| `get_tracks_by_tags(names, mode)` | `List[str], str` | `List[str]` | 根据标签获取曲目ID |
-| `get_untagged_tracks(source, limit)` | `str, int` | `List[str]` | 获取未打标曲目 |
+| `create_tag(name, color, source)` | `str, str, str` | `Tag` | Create new tag |
+| `get_all_tags()` | - | `List[Tag]` | Get all tags |
+| `get_all_tag_names(source)` | `str?` | `List[str]` | Get list of tag names |
+| `delete_tag(tag_id)` | `str` | `bool` | Delete tag |
+| `add_tag_to_track(track_id, tag_id)` | `str, str` | `bool` | Add tag to track |
+| `batch_add_tags_to_track(track_id, names)` | `str, List[str]` | `int` | Batch add tags |
+| `remove_tag_from_track(track_id, tag_id)` | `str, str` | `bool` | Remove tag from track |
+| `get_track_tags(track_id)` | `str` | `List[Tag]` | Get all tags for a track |
+| `get_tracks_by_tags(names, mode)` | `List[str], str` | `List[str]` | Get track IDs by tags |
+| `get_untagged_tracks(source, limit)` | `str, int` | `List[str]` | Get untagged tracks |
 
 ---
 
-### 2.10 ILLMTaggingService - 智能打标服务接口
+### 2.10 ILLMTaggingService - Intelligent Tagging Service Interface
 
-批量自动为媒体库曲目生成标签。
+Automatically generate tags for media library tracks in batches.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `start_tagging_job(track_ids)` | `List[str]?` | `str` | 启动打标任务 |
-| `stop_tagging_job(job_id)` | `str` | `bool` | 停止任务 |
-| `get_job_status(job_id)` | `str` | `TaggingJobStatus` | 获取任务状态 |
+| `start_tagging_job(track_ids)` | `List[str]?` | `str` | Start tagging job |
+| `stop_tagging_job(job_id)` | `str` | `bool` | Stop job |
+| `get_job_status(job_id)` | `str` | `TaggingJobStatus` | Get job status |
 
 > [!IMPORTANT]
-> **跨线程安全注意事项**
+> **Cross-thread Safety Notes**
 >
-> `start_tagging_job()` 方法接受一个 `progress_callback` 参数，该回调会在后台工作线程中被调用。
-> 如果需要在回调中更新 UI，**必须**使用 Qt 信号机制将调用安全地转发到主线程。
+> The `start_tagging_job()` method accepts a `progress_callback` parameter, which is called from a background worker thread.
+> If UI updates are needed within the callback, you **MUST** use the Qt signal mechanism to safely forward the call to the main thread.
 >
 > ```python
-> # 定义信号
+> # Define signal
 > progress_updated = pyqtSignal(int, int)
 >
-> # 回调中发射信号（线程安全）
+> # Emit signal in callback (thread-safe)
 > def progress_callback(current: int, total: int):
 >     self.progress_updated.emit(current, total)
 >
-> # 在主线程中处理信号
+> # Handle signal in the main thread
 > self.progress_updated.connect(self._on_progress_updated)
 > ```
 >
-> 参考实现：`LLMTaggingProgressDialog` 使用此模式确保线程安全。
+> Reference implementation: `LLMTaggingProgressDialog` uses this pattern to ensure thread safety.
 
 ---
 
-### 2.11 TagQueryParser - 标签查询解析器
+### 2.11 TagQueryParser - Tag Query Parser
 
-将自然语言指令解析为结构化的标签查询。
+Parses natural language instructions into structured tag queries.
 
-| 方法 | 参数 | 返回值 | 说明 |
+| Method | Parameters | Return Value | Description |
 |------|------|--------|------|
-| `parse(instruction, available_tags)` | `str, List[str]?` | `TagQuery` | 解析查询 |
+| `parse(instruction, available_tags)` | `str, List[str]?` | `TagQuery` | Parse query |
 
 ---
 
-### 2.12 ILLMProvider - LLM 提供商接口
+### 2.12 ILLMProvider - LLM Provider Interface
 
-底层 LLM 客户端的统一样心接口。
+Unified interface for underlying LLM clients.
 
-| 方法/属性 | 类型 | 说明 |
+| Method/Property | Type | Description |
 |------|------|------|
-| `name` | `property (str)` | 提供商名称（如 'gemini'） |
-| `settings` | `property (LLMSettings)` | 获取当前配置 |
-| `chat_completions(messages)` | `method` | 执行聊天补全请求 |
-| `validate_connection()` | `method` | 验证 API 连通性 |
+| `name` | `property (str)` | Provider name (e.g., 'gemini') |
+| `settings` | `property (LLMSettings)` | Get current configuration |
+| `chat_completions(messages)` | `method` | Execute chat completion request |
+| `validate_connection()` | `method` | Validate API connectivity |
 
 ---
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```text
-music/
+src/
+├── app/            # Application Bootstrap & DI Container
+├── core/           # Low-level logic (AudioEngine, EventBus, Database, LLMProvider)
+├── models/         # Data classes (Track, Album, Tag, etc.)
+├── services/       # Business logic (PlayerService, LibraryService, TagService)
+│   └── llm_providers/ # LLM implementations (Gemini, SiliconFlow)
+├── ui/             # PyQt6 Widgets and Windows
+└── main.py         # Application Entry Point
+docs/               # Detailed documentation (Architecture, API)
+tests/              # Unit and Integration tests
 ```
 
 ---
 
-## 3. 数据模型
+## 3. Data Models
 
-### 3.1 Track - 音轨模型
+### 3.1 Track - Track Model
 
 ```python
 @dataclass
 class Track:
-    id: str              # 唯一标识
-    title: str           # 标题
-    file_path: str       # 文件路径
-    duration_ms: int     # 时长(毫秒)
-    bitrate: int         # 比特率
-    sample_rate: int     # 采样率
-    format: str          # 格式
-    artist_id: str       # 艺术家ID
-    artist_name: str     # 艺术家名
-    album_id: str        # 专辑ID
-    album_name: str      # 专辑名
-    track_number: int    # 曲目号
-    genre: str           # 流派
-    year: int            # 年份
-    play_count: int      # 播放次数
-    rating: int          # 评分(0-5)
+    id: str              # Unique identifier
+    title: str           # Title
+    file_path: str       # File path
+    duration_ms: int     # Duration (ms)
+    bitrate: int         # Bitrate
+    sample_rate: int     # Sample rate
+    format: str          # Format
+    artist_id: str       # Artist ID
+    artist_name: str     # Artist name
+    album_id: str        # Album ID
+    album_name: str      # Album name
+    track_number: int    # Track number
+    genre: str           # Genre
+    year: int            # Year
+    play_count: int      # Play count
+    rating: int          # Rating (0-5)
+    is_favorite: bool    # Whether favorite
 ```
 
-### 3.2 Album - 专辑模型
+### 3.2 Album - Album Model
 
 ```python
 @dataclass
@@ -287,7 +297,7 @@ class Album:
     track_count: int
 ```
 
-### 3.3 Artist - 艺术家模型
+### 3.3 Artist - Artist Model
 
 ```python
 @dataclass
@@ -299,7 +309,7 @@ class Artist:
     track_count: int
 ```
 
-### 3.4 Playlist - 播放列表模型
+### 3.4 Playlist - Playlist Model
 
 ```python
 @dataclass
@@ -312,7 +322,7 @@ class Playlist:
     created_at: datetime
     updated_at: datetime
 
-### 3.5 Tag - 标签模型
+### 3.5 Tag - Tag Model
 
 ```python
 @dataclass
@@ -323,7 +333,7 @@ class Tag:
     source: str          # 'user' | 'llm'
     created_at: datetime
 
-### 3.6 TagQuery - 标签查询模型
+### 3.6 TagQuery - Tag Query Model
 
 ```python
 @dataclass
@@ -334,7 +344,7 @@ class TagQuery:
     reason: str
 ```
 
-### 3.7 PlaybackState - 播放状态模型
+### 3.7 PlaybackState - Playback State Model
 
 ```python
 @dataclass
@@ -349,38 +359,36 @@ class PlaybackState:
 
 ---
 
-## 4. 枚举类型
+## 4. Enumerations
 
-### 4.1 PlayerState - 播放器状态
+### 4.1 PlayerState - Player State
 
-| 值 | 说明 |
+| Value | Description |
 |----|------|
-| `IDLE` | 空闲 |
-| `LOADING` | 加载中 |
-| `PLAYING` | 播放中 |
-| `PAUSED` | 已暂停 |
-| `STOPPED` | 已停止 |
-| `ERROR` | 错误 |
+| `IDLE` | Idle |
+| `LOADING` | Loading |
+| `PLAYING` | Playing |
+| `PAUSED` | Paused |
+| `STOPPED` | Stopped |
+| `ERROR` | Error |
 
-### 4.2 PlayMode - 播放模式
+### 4.2 PlayMode - Play Mode
 
-| 值 | 说明 |
+| Value | Description |
 |----|------|
-| `SEQUENTIAL` | 顺序播放 |
-| `REPEAT_ALL` | 列表循环 |
-| `REPEAT_ONE` | 单曲循环 |
-| `SHUFFLE` | 随机播放 |
+| `SEQUENTIAL` | Sequential |
+| `REPEAT_ALL` | Repeat all |
+| `REPEAT_ONE` | Repeat one |
+| `SHUFFLE` | Shuffle |
 
 ---
 
-## 5. 信号/事件规范
+## 5. Signals/Events Specification
 
-### 5.1 UI信号
-
-使用 PyQt6 信号机制在UI组件间通信：
+Using PyQt6 signal mechanism for communication between UI components:
 
 ```python
-# 播放控制信号
+# Playback control signals
 play_clicked = pyqtSignal()
 pause_clicked = pyqtSignal()
 next_clicked = pyqtSignal()
@@ -388,11 +396,11 @@ previous_clicked = pyqtSignal()
 seek_requested = pyqtSignal(int)  # position_ms
 volume_changed = pyqtSignal(float)
 
-# 播放列表信号
+# Playlist signals
 track_selected = pyqtSignal(Track)
 track_double_clicked = pyqtSignal(Track)
 
-# 媒体库信号
+# Media library signals
 album_selected = pyqtSignal(Album)
 artist_selected = pyqtSignal(Artist)
 search_submitted = pyqtSignal(str)
@@ -400,41 +408,41 @@ search_submitted = pyqtSignal(str)
 
 ---
 
-## 6. 错误码
+## 6. Error Codes
 
-| 代码 | 名称 | 说明 |
+| Code | Name | Description |
 |------|------|------|
-| `E001` | FILE_NOT_FOUND | 文件不存在 |
-| `E002` | FORMAT_NOT_SUPPORTED | 格式不支持 |
-| `E003` | DECODE_ERROR | 解码错误 |
-| `E004` | PLAYBACK_ERROR | 播放错误 |
-| `E005` | DATABASE_ERROR | 数据库错误 |
-| `E006` | CONFIG_ERROR | 配置错误 |
-| `E007` | NETWORK_ERROR | 网络错误 |
+| `E001` | FILE_NOT_FOUND | File does not exist |
+| `E002` | FORMAT_NOT_SUPPORTED | Format not supported |
+| `E003` | DECODE_ERROR | Decode error |
+| `E004` | PLAYBACK_ERROR | Playback error |
+| `E005` | DATABASE_ERROR | Database error |
+| `E006` | CONFIG_ERROR | Configuration error |
+| `E007` | NETWORK_ERROR | Network error |
 
 ---
 
-## 7. 使用示例
+## 7. Usage Examples
 
-### 7.1 播放音乐
+### 7.1 Playing Music
 
 ```python
 from services.player_service import PlayerService
 from services.library_service import LibraryService
 
-# 获取服务实例
+# Get service instances
 player = PlayerService()
 library = LibraryService()
 
-# 获取所有曲目
+# Get all tracks
 tracks = library.get_all_tracks()
 
-# 设置播放队列并播放
+# Set playback queue and play
 player.set_queue(tracks, start_index=0)
 player.play()
 ```
 
-### 7.2 订阅事件
+### 7.2 Subscribing to Events
 
 ```python
 from core.event_bus import EventBus, EventType
@@ -442,31 +450,31 @@ from core.event_bus import EventBus, EventType
 event_bus = EventBus()
 
 def on_track_started(track):
-    print(f"正在播放: {track.title}")
+    print(f"Now playing: {track.title}")
 
-# 订阅事件
+# Subscribe to event
 subscription_id = event_bus.subscribe(
     EventType.TRACK_STARTED, 
     on_track_started
 )
 
-# 取消订阅
+# Unsubscribe
 event_bus.unsubscribe(subscription_id)
 ```
 
-### 7.3 管理播放列表
+### 7.3 Managing Playlists
 
 ```python
 from services.playlist_service import PlaylistService
 
 playlist_service = PlaylistService()
 
-# 创建播放列表
-playlist = playlist_service.create("我的收藏", "喜欢的歌曲")
+# Create playlist
+playlist = playlist_service.create("My Favorites", "Songs I like")
 
-# 添加曲目
+# Add track
 playlist_service.add_track(playlist.id, track)
 
-# 获取播放列表
+# Get all playlists
 all_playlists = playlist_service.get_all()
 ```

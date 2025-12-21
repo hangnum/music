@@ -20,42 +20,42 @@ from services.llm_providers import AVAILABLE_PROVIDERS
 
 
 class LLMSettingsDialog(QDialog):
-    """LLM 服务设置对话框
+    """LLM Service Settings Dialog
     
-    支持多个提供商的配置切换。
+    Supports configuration switching for multiple providers.
     """
     
     def __init__(self, config: ConfigService, parent=None):
         super().__init__(parent)
         self._config = config
 
-        self.setWindowTitle("LLM 设置")
+        self.setWindowTitle("LLM Settings")
         self.setMinimumWidth(520)
 
-        # 提供商选择器
+        # Provider selector
         self._provider_combo = QComboBox()
         self._provider_combo.addItems([p.title() for p in AVAILABLE_PROVIDERS])
         self._provider_combo.currentIndexChanged.connect(self._on_provider_changed)
 
-        # 通用设置
+        # Common settings
         provider_layout = QFormLayout()
-        provider_layout.addRow("提供商", self._provider_combo)
+        provider_layout.addRow("Provider", self._provider_combo)
 
-        # 堆叠面板：各提供商配置
+        # Stacked panel for each provider's configuration
         self._stack = QStackedWidget()
         self._siliconflow_widget = self._create_siliconflow_widget()
         self._gemini_widget = self._create_gemini_widget()
         self._stack.addWidget(self._siliconflow_widget)
         self._stack.addWidget(self._gemini_widget)
 
-        # 按钮
+        # Buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self._on_save)
         buttons.rejected.connect(self.reject)
 
-        # 主布局
+        # Main layout
         layout = QVBoxLayout(self)
         layout.addLayout(provider_layout)
         layout.addWidget(self._stack)
@@ -64,8 +64,8 @@ class LLMSettingsDialog(QDialog):
         self._load_from_config()
 
     def _create_siliconflow_widget(self) -> QWidget:
-        """创建 SiliconFlow 配置面板"""
-        widget = QGroupBox("SiliconFlow 配置")
+        """Create SiliconFlow configuration panel"""
+        widget = QGroupBox("SiliconFlow Configuration")
         
         self._sf_base_url_edit = QLineEdit()
         self._sf_model_edit = QLineEdit()
@@ -73,7 +73,7 @@ class LLMSettingsDialog(QDialog):
         self._sf_api_key_env_edit = QLineEdit()
         self._sf_api_key_edit = QLineEdit()
         self._sf_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self._sf_show_key = QCheckBox("显示 API Key")
+        self._sf_show_key = QCheckBox("Show API Key")
         self._sf_show_key.toggled.connect(
             lambda checked: self._sf_api_key_edit.setEchoMode(
                 QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
@@ -91,8 +91,8 @@ class LLMSettingsDialog(QDialog):
         return widget
 
     def _create_gemini_widget(self) -> QWidget:
-        """创建 Gemini 配置面板"""
-        widget = QGroupBox("Google Gemini 配置")
+        """Create Gemini configuration panel"""
+        widget = QGroupBox("Google Gemini Configuration")
         
         self._gm_base_url_edit = QLineEdit()
         self._gm_model_edit = QLineEdit()
@@ -100,7 +100,7 @@ class LLMSettingsDialog(QDialog):
         self._gm_api_key_env_edit = QLineEdit()
         self._gm_api_key_edit = QLineEdit()
         self._gm_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self._gm_show_key = QCheckBox("显示 API Key")
+        self._gm_show_key = QCheckBox("Show API Key")
         self._gm_show_key.toggled.connect(
             lambda checked: self._gm_api_key_edit.setEchoMode(
                 QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
@@ -115,8 +115,8 @@ class LLMSettingsDialog(QDialog):
         form.addRow("API Key", self._gm_api_key_edit)
         form.addRow("", self._gm_show_key)
         
-        # Gemini 特别提示
-        note = QLabel("注意：需要能访问 Google API 的网络环境")
+        # Gemini special note
+        note = QLabel("Note: Network environment that can access Google API is required")
         from ui.resources.design_tokens import tokens
         note.setStyleSheet(f"color: {tokens.NEUTRAL_500}; font-size: {tokens.FONT_SIZE_XS}px;")
         form.addRow("", note)
@@ -124,12 +124,12 @@ class LLMSettingsDialog(QDialog):
         return widget
 
     def _on_provider_changed(self, index: int) -> None:
-        """切换提供商面板"""
+        """Switch provider panel."""
         self._stack.setCurrentIndex(index)
 
     def _load_from_config(self) -> None:
-        """从配置加载当前设置"""
-        # 当前提供商
+        """Load current settings from configuration"""
+        # Current Provider
         provider = str(self._config.get("llm.provider", "siliconflow")).lower()
         try:
             idx = AVAILABLE_PROVIDERS.index(provider)
@@ -138,7 +138,7 @@ class LLMSettingsDialog(QDialog):
         self._provider_combo.setCurrentIndex(idx)
         self._stack.setCurrentIndex(idx)
 
-        # SiliconFlow 配置
+        # SiliconFlow Configuration
         self._sf_base_url_edit.setText(
             str(self._config.get("llm.siliconflow.base_url", "https://api.siliconflow.cn/v1"))
         )
@@ -155,7 +155,7 @@ class LLMSettingsDialog(QDialog):
             str(self._config.get("llm.siliconflow.api_key", ""))
         )
 
-        # Gemini 配置
+        # Gemini Configuration
         self._gm_base_url_edit.setText(
             str(self._config.get("llm.gemini.base_url", "https://generativelanguage.googleapis.com/v1beta"))
         )
@@ -173,12 +173,12 @@ class LLMSettingsDialog(QDialog):
         )
 
     def _on_save(self) -> None:
-        """保存配置"""
-        # 当前选择的提供商
+        """Save configuration"""
+        # Current provider selection
         provider_idx = self._provider_combo.currentIndex()
         provider_name = AVAILABLE_PROVIDERS[provider_idx]
         
-        # 验证并保存 SiliconFlow 配置
+        # Validate and save SiliconFlow configuration
         sf_base_url = self._sf_base_url_edit.text().strip()
         sf_model = self._sf_model_edit.text().strip()
         sf_timeout_raw = self._sf_timeout_edit.text().strip()
@@ -188,13 +188,13 @@ class LLMSettingsDialog(QDialog):
         try:
             sf_timeout = float(sf_timeout_raw) if sf_timeout_raw else 20.0
             if sf_timeout <= 0:
-                QMessageBox.warning(self, "提示", "SiliconFlow Timeout 必须是正数")
+                QMessageBox.warning(self, "Warning", "SiliconFlow Timeout must be a positive number")
                 return
         except ValueError:
-            QMessageBox.warning(self, "提示", "SiliconFlow Timeout 必须是数字")
+            QMessageBox.warning(self, "Warning", "SiliconFlow Timeout must be a number")
             return
 
-        # 验证并保存 Gemini 配置
+        # Validate and save Gemini configuration
         gm_base_url = self._gm_base_url_edit.text().strip()
         gm_model = self._gm_model_edit.text().strip()
         gm_timeout_raw = self._gm_timeout_edit.text().strip()
@@ -204,23 +204,23 @@ class LLMSettingsDialog(QDialog):
         try:
             gm_timeout = float(gm_timeout_raw) if gm_timeout_raw else 30.0
             if gm_timeout <= 0:
-                QMessageBox.warning(self, "提示", "Gemini Timeout 必须是正数")
+                QMessageBox.warning(self, "Warning", "Gemini Timeout must be a positive number")
                 return
         except ValueError:
-            QMessageBox.warning(self, "提示", "Gemini Timeout 必须是数字")
+            QMessageBox.warning(self, "Warning", "Gemini Timeout must be a number")
             return
 
-        # 保存提供商选择
+        # Save provider selection
         self._config.set("llm.provider", provider_name)
 
-        # 保存 SiliconFlow 配置
+        # Save SiliconFlow configuration
         self._config.set("llm.siliconflow.base_url", sf_base_url or "https://api.siliconflow.cn/v1")
         self._config.set("llm.siliconflow.model", sf_model or "Qwen/Qwen2.5-7B-Instruct")
         self._config.set("llm.siliconflow.timeout_seconds", sf_timeout)
         self._config.set("llm.siliconflow.api_key_env", sf_api_key_env or "SILICONFLOW_API_KEY")
         self._config.set("llm.siliconflow.api_key", sf_api_key)
 
-        # 保存 Gemini 配置
+        # Save Gemini configuration
         self._config.set("llm.gemini.base_url", gm_base_url or "https://generativelanguage.googleapis.com/v1beta")
         self._config.set("llm.gemini.model", gm_model or "gemini-2.0-flash")
         self._config.set("llm.gemini.timeout_seconds", gm_timeout)
@@ -228,7 +228,7 @@ class LLMSettingsDialog(QDialog):
         self._config.set("llm.gemini.api_key", gm_api_key)
 
         if not self._config.save():
-            QMessageBox.critical(self, "错误", "保存配置失败")
+            QMessageBox.critical(self, "Error", "Failed to save configuration")
             return
 
         self.accept()

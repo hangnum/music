@@ -1,7 +1,8 @@
 """
-DatabaseManager 事务行为测试。
+DatabaseManager transaction behavior tests.
 
-这些测试用于尽早发现：事务未回滚/未提交、异常链被破坏等问题。
+These tests are used to detect early issues such as transactions failing to 
+rollback/commit, or broken exception chains.
 """
 
 from __future__ import annotations

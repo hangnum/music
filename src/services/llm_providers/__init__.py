@@ -1,7 +1,7 @@
 """
-LLM 提供商模块
+LLM Providers Module
 
-提供多种 LLM 服务商的统一接口实现。
+Provides unified interface implementations for multiple LLM service providers.
 """
 
 from .siliconflow_provider import SiliconFlowProvider, SiliconFlowSettings

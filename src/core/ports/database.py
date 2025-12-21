@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-数据库端口接口
+Database Port Interface
 
-定义数据库操作的抽象接口，使服务层不依赖具体的数据库实现。
+Defines an abstract interface for database operations, ensuring the service layer 
+does not depend on specific database implementations.
 """
 
 from __future__ import annotations
@@ -12,57 +13,57 @@ from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 @runtime_checkable
 class IDatabase(Protocol):
-    """数据库操作接口
+    """Database Operations Interface
     
-    提供基础的 SQL 执行和 CRUD 操作。
-    当前实现：DatabaseManager (SQLite)
+    Provides basic SQL execution and CRUD operations.
+    Current implementation: DatabaseManager (SQLite)
     """
     
     def execute(self, sql: str, params: tuple = ()) -> Any:
-        """执行 SQL 语句
+        """Execute a SQL statement
         
         Args:
-            sql: SQL 语句
-            params: 参数元组
+            sql: SQL statement
+            params: Parameter tuple
             
         Returns:
-            执行结果（如 lastrowid）
+            Execution result (e.g., lastrowid)
         """
         ...
     
     def fetch_one(self, sql: str, params: tuple = ()) -> Optional[Dict[str, Any]]:
-        """获取单条记录
+        """Fetch a single record
         
         Args:
-            sql: SELECT 语句
-            params: 参数元组
+            sql: SELECT statement
+            params: Parameter tuple
             
         Returns:
-            记录字典或 None
+            Record dictionary or None
         """
         ...
     
     def fetch_all(self, sql: str, params: tuple = ()) -> List[Dict[str, Any]]:
-        """获取所有记录
+        """Fetch all records
         
         Args:
-            sql: SELECT 语句
-            params: 参数元组
+            sql: SELECT statement
+            params: Parameter tuple
             
         Returns:
-            记录字典列表
+            List of record dictionaries
         """
         ...
     
     def insert(self, table: str, data: Dict[str, Any]) -> int:
-        """插入记录
+        """Insert a record
         
         Args:
-            table: 表名
-            data: 字段字典
+            table: Table name
+            data: Field dictionary
             
         Returns:
-            新记录 ID
+            The ID of the new record
         """
         ...
     
@@ -73,64 +74,64 @@ class IDatabase(Protocol):
         where: str, 
         where_params: tuple
     ) -> int:
-        """更新记录
+        """Update a record
         
         Args:
-            table: 表名
-            data: 要更新的字段
-            where: WHERE 条件
-            where_params: 条件参数
+            table: Table name
+            data: Fields to update
+            where: WHERE clause
+            where_params: Condition parameters
             
         Returns:
-            受影响行数
+            Number of affected rows
         """
         ...
     
     def delete(self, table: str, where: str, where_params: tuple) -> int:
-        """删除记录
+        """Delete a record
         
         Args:
-            table: 表名
-            where: WHERE 条件
-            where_params: 条件参数
+            table: Table name
+            where: WHERE clause
+            where_params: Condition parameters
             
         Returns:
-            受影响行数
+            Number of affected rows
         """
         ...
     
     def commit(self) -> None:
-        """提交事务"""
+        """Commit the transaction"""
         ...
     
     def close(self) -> None:
-        """关闭连接"""
+        """Close the connection"""
         ...
 
 
 @runtime_checkable
 class ITrackRepository(Protocol):
-    """曲目仓储接口
+    """Track Repository Interface
     
-    提供曲目级别的 CRUD 操作，隐藏底层 SQL 细节。
+    Provides track-level CRUD operations, hiding underlying SQL details.
     """
     
     def get_by_id(self, track_id: str) -> Optional[Any]:
-        """根据 ID 获取曲目"""
+        """Fetch a track by ID"""
         ...
     
     def get_all(self) -> List[Any]:
-        """获取所有曲目"""
+        """Fetch all tracks"""
         ...
     
     def save(self, track: Any) -> str:
-        """保存曲目，返回 ID"""
+        """Save a track and return its ID"""
         ...
     
     def delete(self, track_id: str) -> bool:
-        """删除曲目"""
+        """Delete a track"""
         ...
     
     def search(self, query: str, limit: int = 50) -> List[Any]:
-        """搜索曲目"""
+        """Search for tracks"""
         ...

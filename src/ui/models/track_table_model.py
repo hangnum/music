@@ -1,7 +1,7 @@
 """
-曲目表格模型
+Track Table Model
 
-使用 QAbstractTableModel 实现虚拟化渲染，优化大列表性能。
+Uses QAbstractTableModel to implement virtualized rendering, optimizing performance for large lists.
 """
 
 from typing import List, Optional, Any, Set
@@ -14,45 +14,45 @@ from models.track import Track
 
 class TrackTableModel(QAbstractTableModel):
     """
-    曲目表格模型
+    Track Table Model
     
-    通过 Model-View 架构实现虚拟化渲染，
-    仅渲染可见区域，大幅提升大列表性能。
+    Implements virtualized rendering through the Model-View architecture, 
+    rendering only the visible area to significantly improve large list performance.
     
     Attributes:
-        COLUMNS: 列定义 (标题, 艺术家, 专辑, 时长, 格式)
+        COLUMNS: Column definitions (Title, Artist, Album, Duration, Format, Liked)
     """
     
-    COLUMNS = ["??", "???", "??", "??", "??", "??"]
+    COLUMNS = ["Title", "Artist", "Album", "Duration", "Format", "Liked"]
     
     def __init__(self, parent=None):
-        """初始化模型"""
+        """Initialize the model."""
         super().__init__(parent)
         self._tracks: List[Track] = []
         self._favorite_ids: Set[str] = set()
     
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
-        """返回行数"""
+        """Return the number of rows."""
         if parent.isValid():
             return 0
         return len(self._tracks)
     
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
-        """返回列数"""
+        """Return the number of columns."""
         if parent.isValid():
             return 0
         return len(self.COLUMNS)
     
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         """
-        返回指定索引的数据
+        Return data for a specified index.
         
         Args:
-            index: 模型索引
-            role: 数据角色
+            index: Model index
+            role: Data role
             
         Returns:
-            对应角色的数据
+            Data corresponding to the role
         """
         if not index.isValid():
             return None
@@ -77,14 +77,14 @@ class TrackTableModel(QAbstractTableModel):
             elif col == 4:
                 return track.format
             elif col == 5:
-                return "???" if track.id in self._favorite_ids else ""
+                return "Yes" if track.id in self._favorite_ids else ""
         
         elif role == Qt.ItemDataRole.UserRole:
-            # 返回完整 Track 对象
+            # Return complete Track object
             return track
         
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-            if col in (3, 4):  # 时长和格式居中
+            if col in (3, 4):  # Center align duration and format
                 return Qt.AlignmentFlag.AlignCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         
@@ -92,7 +92,7 @@ class TrackTableModel(QAbstractTableModel):
     
     def headerData(self, section: int, orientation: Qt.Orientation, 
                    role: int = Qt.ItemDataRole.DisplayRole) -> Any:
-        """返回表头数据"""
+        """Return header data."""
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             if 0 <= section < len(self.COLUMNS):
                 return self.COLUMNS[section]
@@ -100,19 +100,19 @@ class TrackTableModel(QAbstractTableModel):
     
     def setTracks(self, tracks: List[Track]) -> None:
         """
-        设置曲目列表
+        Set the track list.
         
-        使用 beginResetModel/endResetModel 通知视图更新。
+        Uses beginResetModel/endResetModel to notify the view of updates.
         
         Args:
-            tracks: 曲目列表
+            tracks: List of tracks
         """
         self.beginResetModel()
         self._tracks = tracks
         self.endResetModel()
     
     def setFavoriteIds(self, favorite_ids: Set[str]) -> None:
-        """??????? ID ???"""
+        """Set the set of favorite track IDs."""
         self._favorite_ids = set(favorite_ids)
         if self._tracks:
             top_left = self.index(0, len(self.COLUMNS) - 1)
@@ -120,18 +120,18 @@ class TrackTableModel(QAbstractTableModel):
             self.dataChanged.emit(top_left, bottom_right)
 
     def getTracks(self) -> List[Track]:
-        """获取所有曲目"""
+        """Get all tracks."""
         return self._tracks
     
     def getTrack(self, row: int) -> Optional[Track]:
         """
-        获取指定行的曲目
+        Get track at specified row.
         
         Args:
-            row: 行索引
+            row: Row index
             
         Returns:
-            Track 对象，无效行返回 None
+            Track object, or None if invalid row
         """
         if 0 <= row < len(self._tracks):
             return self._tracks[row]
@@ -139,11 +139,11 @@ class TrackTableModel(QAbstractTableModel):
     
     def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
         """
-        按列排序
+        Sort by column.
         
         Args:
-            column: 列索引
-            order: 排序顺序
+            column: Column index
+            order: Sort order
         """
         self.beginResetModel()
         
@@ -166,9 +166,9 @@ class TrackTableModel(QAbstractTableModel):
 
 class TrackFilterProxyModel(QSortFilterProxyModel):
     """
-    曲目过滤代理模型
+    Track Filter Proxy Model
     
-    支持按标题、艺术家、专辑进行模糊搜索过滤。
+    Supports fuzzy search filtering by title, artist, or album.
     """
     
     def __init__(self, parent=None):
@@ -177,12 +177,12 @@ class TrackFilterProxyModel(QSortFilterProxyModel):
         self.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
     
     def setFilterText(self, text: str) -> None:
-        """设置过滤文本"""
+        """Set the filter text."""
         self._filter_text = text.lower()
         self.invalidateFilter()
     
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        """判断行是否接受过滤"""
+        """Determine if a row should be accepted by the filter."""
         if not self._filter_text:
             return True
         
@@ -194,7 +194,7 @@ class TrackFilterProxyModel(QSortFilterProxyModel):
         if not track:
             return True
         
-        # 搜索标题、艺术家、专辑
+        # Search title, artist, and album
         return (self._filter_text in track.title.lower() or
                 self._filter_text in (track.artist_name or "").lower() or
                 self._filter_text in (track.album_name or "").lower())

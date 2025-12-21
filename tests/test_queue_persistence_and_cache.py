@@ -1,5 +1,5 @@
 """
-播放队列持久化 + LLM 队列缓存/历史测试
+Tests for playback queue persistence and LLM queue cache/history.
 """
 
 import os
@@ -112,10 +112,10 @@ def test_llm_queue_cache_save_and_load(tmp_path):
     library = LibraryService(db)
     cache = LLMQueueCacheService(db=db, config=config)
 
-    entry_id = cache.save_history("轻音乐", track_ids, start_index=1, label="轻音乐")
+    entry_id = cache.save_history("Relaxing", track_ids, start_index=1, label="Relaxing")
     assert entry_id > 0
 
-    loaded = cache.load_cached_queue("轻音乐", library)
+    loaded = cache.load_cached_queue("Relaxing", library)
     assert loaded is not None
     queue, start_index, entry = loaded
     assert [t.id for t in queue] == track_ids
@@ -124,7 +124,7 @@ def test_llm_queue_cache_save_and_load(tmp_path):
 
     history = cache.list_history(limit=10)
     assert history
-    assert history[0].label == "轻音乐"
+    assert history[0].label == "Relaxing"
 
 
 def test_llm_queue_cache_prunes_to_max_history(tmp_path):

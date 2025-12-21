@@ -409,7 +409,7 @@ class ThemeManager:
 
     @staticmethod
     def get_section_title_style() -> str:
-        """Returns style for section/widget titles (e.g., 播放队列, 我的歌单)."""
+        """Returns style for section/widget titles (e.g., Play Queue, My Playlists)."""
         return f"""
         QLabel {{
             font-size: {tokens.FONT_SIZE_XL}px;
@@ -421,7 +421,7 @@ class ThemeManager:
 
     @staticmethod
     def get_info_label_style() -> str:
-        """Returns style for info/stats labels (e.g., '0 首曲目')."""
+        """Returns style for info/stats labels (e.g., '0 tracks')."""
         return f"""
         QLabel {{
             color: {tokens.NEUTRAL_500};

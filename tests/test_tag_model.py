@@ -1,5 +1,5 @@
 """
-标签模型测试
+Tag Model Tests
 """
 
 import pytest
@@ -7,46 +7,46 @@ import pytest
 
 
 class TestTagModel:
-    """Tag 模型测试"""
+    """Tests for the Tag model."""
     
     def test_tag_creation(self):
-        """测试创建标签"""
+        """Test tag creation."""
         from models.tag import Tag
         
-        tag = Tag(name="喜欢", color="#FF5733")
+        tag = Tag(name="Favorite", color="#FF5733")
         
-        assert tag.name == "喜欢"
+        assert tag.name == "Favorite"
         assert tag.color == "#FF5733"
         assert tag.id is not None
         assert tag.created_at is not None
     
     def test_tag_default_color(self):
-        """测试默认颜色"""
+        """Test default color."""
         from models.tag import Tag
         
-        tag = Tag(name="测试")
+        tag = Tag(name="Test")
         
         assert tag.color == "#808080"
     
     def test_tag_to_dict(self):
-        """测试序列化为字典"""
+        """Test serialization to dictionary."""
         from models.tag import Tag
         
-        tag = Tag(id="test-id", name="摇滚", color="#FF0000")
+        tag = Tag(id="test-id", name="Rock", color="#FF0000")
         data = tag.to_dict()
         
         assert data['id'] == "test-id"
-        assert data['name'] == "摇滚"
+        assert data['name'] == "Rock"
         assert data['color'] == "#FF0000"
         assert 'created_at' in data
     
     def test_tag_from_dict(self):
-        """测试从字典反序列化"""
+        """Test deserialization from dictionary."""
         from models.tag import Tag
         
         data = {
             'id': 'tag-123',
-            'name': '古典',
+            'name': 'Classical',
             'color': '#0000FF',
             'created_at': '2024-01-01T12:00:00'
         }
@@ -54,82 +54,83 @@ class TestTagModel:
         tag = Tag.from_dict(data)
         
         assert tag.id == 'tag-123'
-        assert tag.name == '古典'
+        assert tag.name == 'Classical'
         assert tag.color == '#0000FF'
     
     def test_tag_from_dict_missing_fields(self):
-        """测试从不完整字典反序列化"""
+        """Test deserialization from incomplete dictionary."""
         from models.tag import Tag
         
-        data = {'name': '流行'}
+        data = {'name': 'Pop'}
         tag = Tag.from_dict(data)
         
-        assert tag.name == '流行'
-        assert tag.color == '#808080'  # 默认颜色
-        assert tag.id is not None  # 自动生成 ID
+        assert tag.name == 'Pop'
+        assert tag.color == '#808080'  # Default color
+        assert tag.id is not None  # Auto-generated ID
     
     def test_tag_equality(self):
-        """测试标签相等性"""
+        """Test tag equality."""
         from models.tag import Tag
         
-        tag1 = Tag(id="same-id", name="标签1")
-        tag2 = Tag(id="same-id", name="标签2")  # 相同 ID，不同名称
-        tag3 = Tag(id="diff-id", name="标签1")  # 不同 ID，相同名称
+        tag1 = Tag(id="same-id", name="Tag 1")
+        tag2 = Tag(id="same-id", name="Tag 2")  # Same ID, different name
+        tag3 = Tag(id="diff-id", name="Tag 1")  # Different ID, same name
         
-        assert tag1 == tag2  # 基于 ID 相等
-        assert tag1 != tag3  # ID 不同
+        assert tag1 == tag2  # Equality based on ID
+        assert tag1 != tag3  # Different IDs
+
 
 
 class TestTrackWithTags:
-    """Track 模型标签字段测试"""
+    """Tests for the tags field in the Track model."""
     
     def test_track_default_tags(self):
-        """测试曲目默认无标签"""
+        """Test that tracks have no tags by default."""
         from models.track import Track
         
-        track = Track(title="测试歌曲")
+        track = Track(title="Test Song")
         
         assert track.tags == []
     
     def test_track_with_tags(self):
-        """测试创建带标签的曲目"""
+        """Test creating a track with tags."""
         from models.track import Track
         
-        track = Track(title="测试歌曲", tags=["摇滚", "经典"])
+        track = Track(title="Test Song", tags=["Rock", "Classic"])
         
         assert len(track.tags) == 2
-        assert "摇滚" in track.tags
-        assert "经典" in track.tags
+        assert "Rock" in track.tags
+        assert "Classic" in track.tags
     
     def test_track_to_dict_with_tags(self):
-        """测试带标签的曲目序列化"""
+        """Test serialization of a track with tags."""
         from models.track import Track
         
-        track = Track(title="测试歌曲", tags=["喜欢", "2024"])
+        track = Track(title="Test Song", tags=["Favorite", "2024"])
         data = track.to_dict()
         
         assert 'tags' in data
-        assert data['tags'] == ["喜欢", "2024"]
+        assert data['tags'] == ["Favorite", "2024"]
     
     def test_track_from_dict_with_tags(self):
-        """测试从字典反序列化带标签的曲目"""
+        """Test deserialization of a track with tags from a dictionary."""
         from models.track import Track
         
         data = {
-            'title': '测试歌曲',
-            'tags': ['流行', '华语']
+            'title': 'Test Song',
+            'tags': ['Pop', 'Chinese']
         }
         
         track = Track.from_dict(data)
         
-        assert track.title == '测试歌曲'
-        assert track.tags == ['流行', '华语']
+        assert track.title == 'Test Song'
+        assert track.tags == ['Pop', 'Chinese']
     
     def test_track_from_dict_without_tags(self):
-        """测试从无标签字典反序列化"""
+        """Test deserialization of a track without tags from a dictionary."""
         from models.track import Track
         
-        data = {'title': '测试歌曲'}
+        data = {'title': 'Test Song'}
         track = Track.from_dict(data)
         
         assert track.tags == []

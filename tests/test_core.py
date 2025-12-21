@@ -1,5 +1,5 @@
 """
-核心模块测试
+Core Module Tests
 """
 
 import pytest
@@ -8,20 +8,20 @@ import os
 
 
 class TestEventBus:
-    """事件总线测试"""
+    """Event Bus Tests"""
     
     def setup_method(self):
-        """每个测试前重置单例"""
+        """Reset singleton before each test."""
         from core.event_bus import EventBus
         EventBus.reset_instance()
     
     def teardown_method(self):
-        """每个测试后清理"""
+        """Clean up after each test."""
         from core.event_bus import EventBus
         EventBus.reset_instance()
     
     def test_singleton(self):
-        """测试单例模式"""
+        """Test singleton pattern."""
         from core.event_bus import EventBus
         
         bus1 = EventBus()
@@ -29,7 +29,7 @@ class TestEventBus:
         assert bus1 is bus2
     
     def test_subscribe_and_publish(self):
-        """测试订阅和发布"""
+        """Test subscription and publication."""
         from core.event_bus import EventBus, EventType
         
         bus = EventBus()
@@ -45,7 +45,7 @@ class TestEventBus:
         assert received_data[0]["title"] == "Test Song"
     
     def test_unsubscribe(self):
-        """测试取消订阅"""
+        """Test unsubscription."""
         from core.event_bus import EventBus, EventType
         
         bus = EventBus()
@@ -62,10 +62,10 @@ class TestEventBus:
 
 
 class TestMetadataParser:
-    """元数据解析器测试"""
+    """Metadata Parser Tests"""
     
     def test_supported_formats(self):
-        """测试支持的格式"""
+        """Test supported formats."""
         from core.metadata import MetadataParser
         
         formats = MetadataParser.get_supported_formats()
@@ -74,7 +74,7 @@ class TestMetadataParser:
         assert '.wav' in formats
     
     def test_is_supported(self):
-        """测试格式检查"""
+        """Test format checking."""
         from core.metadata import MetadataParser
         
         assert MetadataParser.is_supported("test.mp3") == True
@@ -82,7 +82,7 @@ class TestMetadataParser:
         assert MetadataParser.is_supported("test.txt") == False
     
     def test_parse_nonexistent_file(self):
-        """测试解析不存在的文件"""
+        """Test parsing a non-existent file."""
         from core.metadata import MetadataParser
         
         result = MetadataParser.parse("nonexistent.mp3")
@@ -90,23 +90,23 @@ class TestMetadataParser:
 
 
 class TestDatabaseManager:
-    """数据库管理器测试"""
+    """Database Manager Tests"""
     
     def setup_method(self):
-        """每个测试前重置"""
+        """Reset before each test."""
         from core.database import DatabaseManager
         DatabaseManager.reset_instance()
     
     def teardown_method(self):
-        """每个测试后清理"""
+        """Clean up after each test."""
         from core.database import DatabaseManager
         DatabaseManager.reset_instance()
-        # 删除测试数据库
+        # Delete test database
         if os.path.exists("test_music.db"):
             os.remove("test_music.db")
     
     def test_singleton(self):
-        """测试单例模式"""
+        """Test singleton pattern."""
         from core.database import DatabaseManager
         
         db1 = DatabaseManager("test_music.db")
@@ -114,20 +114,20 @@ class TestDatabaseManager:
         assert db1 is db2
     
     def test_insert_and_fetch(self):
-        """测试插入和查询"""
+        """Test insert and query."""
         from core.database import DatabaseManager
         import uuid
         
         db = DatabaseManager("test_music.db")
         
-        # 插入艺术家
+        # Insert artist
         artist_id = str(uuid.uuid4())
         db.insert("artists", {
             "id": artist_id,
             "name": "Test Artist"
         })
         
-        # 查询
+        # Query
         result = db.fetch_one(
             "SELECT * FROM artists WHERE id = ?", 
             (artist_id,)
@@ -137,7 +137,7 @@ class TestDatabaseManager:
         assert result["name"] == "Test Artist"
     
     def test_update(self):
-        """测试更新"""
+        """Test update."""
         from core.database import DatabaseManager
         import uuid
         
@@ -152,7 +152,7 @@ class TestDatabaseManager:
         assert result["name"] == "New Name"
     
     def test_delete(self):
-        """测试删除"""
+        """Test deletion."""
         from core.database import DatabaseManager
         import uuid
         
@@ -168,17 +168,17 @@ class TestDatabaseManager:
 
 
 class TestTrackModel:
-    """Track模型测试"""
+    """Track Model Tests"""
     
     def test_duration_str(self):
-        """测试时长格式化"""
+        """Test duration formatting."""
         from models.track import Track
         
         track = Track(duration_ms=185000)  # 3:05
         assert track.duration_str == "3:05"
     
     def test_display_name(self):
-        """测试显示名称"""
+        """Test display name."""
         from models.track import Track
         
         track1 = Track(title="Song", artist_name="Artist")
@@ -188,7 +188,7 @@ class TestTrackModel:
         assert track2.display_name == "Song"
     
     def test_to_dict_and_from_dict(self):
-        """测试序列化和反序列化"""
+        """Test serialization and deserialization."""
         from models.track import Track
         
         track = Track(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 import json
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, Qt
@@ -22,30 +22,32 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QKeyEvent
 
 from models.track import Track
-from services.config_service import ConfigService
 from services.llm_queue_cache_service import LLMQueueCacheService
 from services.llm_queue_service import LLMQueueError, LLMQueueService, QueueReorderPlan
-from services.library_service import LibraryService
-from services.player_service import PlayerService
 
 from ui.dialogs.llm_settings_dialog import LLMSettingsDialog
 from ui.resources.design_tokens import tokens
 
+if TYPE_CHECKING:
+    from services.music_app_facade import MusicAppFacade
+    from services.config_service import ConfigService
+    from services.library_service import LibraryService
+
 
 class ChatInputWidget(QPlainTextEdit):
-    """支持回车发送的输入框"""
+    """Input box supporting Enter to send"""
     
     submit_requested = pyqtSignal()
     
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        # Enter 发送，Ctrl+Enter/Shift+Enter 换行
+        # Enter to send, Ctrl+Enter/Shift+Enter for new line
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             modifiers = event.modifiers()
             if modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier):
-                # 插入换行
+                # Insert new line
                 super().keyPressEvent(event)
             else:
-                # 发送
+                # Send
                 self.submit_requested.emit()
                 return
         super().keyPressEvent(event)
@@ -68,11 +70,11 @@ class _SuggestWorker(QObject):
 
     def __init__(
         self,
-        config: ConfigService,
+        config: "ConfigService",
         instruction: str,
         snapshot: _QueueSnapshot,
         library_context: dict,
-        library: LibraryService,
+        library: "LibraryService",
     ):
         super().__init__()
         self._config = config
@@ -102,15 +104,19 @@ class _SuggestWorker(QObject):
 
 
 class LLMQueueChatDialog(QDialog):
-    def __init__(self, player: PlayerService, library: LibraryService, config: ConfigService, parent=None):
+    def __init__(self, facade: "MusicAppFacade", parent=None):
+        """Initialize queue assistant dialog
+        
+        Args:
+            facade: Application facade providing access to all services
+            parent: Parent component
+        """
         super().__init__(parent)
-        self._player = player
-        self._library = library
-        self._config = config
-        self._cache = LLMQueueCacheService(config=self._config)
+        self._facade = facade
+        self._cache = LLMQueueCacheService(config=self._facade._config)
         self._pending_instruction: Optional[str] = None
 
-        self.setWindowTitle("队列助手（LLM）")
+        self.setWindowTitle("Queue Assistant (LLM)")
         self.setMinimumSize(780, 580)
         
         self._setup_styles()
@@ -119,11 +125,11 @@ class LLMQueueChatDialog(QDialog):
         self._thread: Optional[QThread] = None
         self._worker: Optional[_SuggestWorker] = None
 
-        self._append_system("你可以用自然语言描述想要的队列操作，我会调用 LLM 给出重排计划并应用到当前队列。")
+        self._append_system("You can describe the desired queue operation in natural language, and I will call LLM to provide a reorder plan and apply it to the current queue.")
         self._refresh_history()
     
     def _setup_styles(self):
-        """设置现代化样式"""
+        """Set modern styles"""
         self.setStyleSheet("""
             LLMQueueChatDialog {
                 background-color: #121722;
@@ -213,7 +219,7 @@ class LLMQueueChatDialog(QDialog):
         """)
     
     def _setup_ui(self):
-        """设置 UI 布局"""
+        """Set up UI layout"""
         self._chat = QTextEdit()
         self._chat.setObjectName("chatArea")
         self._chat.setReadOnly(True)
@@ -225,38 +231,38 @@ class LLMQueueChatDialog(QDialog):
 
         self._history_filter = QLineEdit()
         self._history_filter.setObjectName("historyFilter")
-        self._history_filter.setPlaceholderText("🔍 过滤历史…")
+        self._history_filter.setPlaceholderText("🔍 Filter history...")
         self._history_filter.textChanged.connect(self._apply_history_filter)
 
-        # 使用自定义输入框支持回车发送
+        # Use custom input box to support Enter to send
         self._input = ChatInputWidget()
         self._input.setObjectName("inputArea")
-        self._input.setPlaceholderText("例如：把节奏慢的放后面；去掉重复的；清空队列；把当前类似风格的放前面…")
+        self._input.setPlaceholderText("e.g.: Put slower tracks at the end; remove duplicates; clear queue; put similar tracks first...")
         self._input.setFixedHeight(80)
         self._input.submit_requested.connect(self._on_send)
 
-        self._send_btn = QPushButton("发送")
+        self._send_btn = QPushButton("Send")
         self._send_btn.setObjectName("sendBtn")
         self._send_btn.clicked.connect(self._on_send)
         self._send_btn.setFixedSize(80, 80)
 
-        self._settings_btn = QPushButton("⚙ LLM 设置")
+        self._settings_btn = QPushButton("⚙ LLM Settings")
         self._settings_btn.setObjectName("settingsBtn")
         self._settings_btn.clicked.connect(self._open_settings)
 
         self._status = QLabel("")
         self._status.setObjectName("statusLabel")
         
-        self._hint = QLabel("Enter 发送 · Ctrl+Enter 换行")
+        self._hint = QLabel("Enter to Send · Ctrl+Enter for new line")
         self._hint.setObjectName("hintLabel")
 
-        # 顶部工具栏
+        # Top toolbar
         top = QHBoxLayout()
         top.addWidget(self._settings_btn)
         top.addStretch()
         top.addWidget(self._status)
 
-        # 底部输入区
+        # Bottom input area
         input_layout = QHBoxLayout()
         input_layout.setSpacing(12)
         input_layout.addWidget(self._input, 1)
@@ -271,13 +277,13 @@ class LLMQueueChatDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.addLayout(top)
 
-        # 中部内容区
+        # Center content area
         center = QHBoxLayout()
         center.setSpacing(12)
         center.addWidget(self._chat, 3)
 
         history_box = QVBoxLayout()
-        history_label = QLabel("📜 历史（双击加载）")
+        history_label = QLabel("📜 History (double-click to load)")
         history_label.setStyleSheet(f"color: {tokens.NEUTRAL_600}; font-size: {tokens.FONT_SIZE_XS}px; margin-bottom: 4px;")
         history_box.addWidget(history_label)
         history_box.addWidget(self._history_filter)
@@ -288,35 +294,35 @@ class LLMQueueChatDialog(QDialog):
         layout.addLayout(bottom)
 
     def _append_system(self, text: str) -> None:
-        self._chat.append(f"[系统] {text}")
+        self._chat.append(f"[System] {text}")
 
     def _append_user(self, text: str) -> None:
-        self._chat.append(f"[你] {text}")
+        self._chat.append(f"[You] {text}")
 
     def _append_assistant(self, text: str) -> None:
         self._chat.append(f"[LLM] {text}")
 
     def _open_settings(self) -> None:
-        dlg = LLMSettingsDialog(self._config, self)
+        dlg = LLMSettingsDialog(self._facade._config, self)
         dlg.exec()
 
     def _set_busy(self, busy: bool) -> None:
         self._send_btn.setEnabled(not busy)
         self._settings_btn.setEnabled(not busy)
-        self._status.setText("处理中…" if busy else "")
+        self._status.setText("Processing..." if busy else "")
 
     def _make_snapshot(self) -> _QueueSnapshot:
-        queue = self._player.queue
-        current = self._player.current_track
+        queue = self._facade.queue
+        current = self._facade.current_track
         return _QueueSnapshot(queue=queue, current_track_id=(current.id if current else None))
 
     def _build_library_context(self) -> dict:
         try:
-            genres = self._library.get_top_genres(limit=30)
+            genres = self._facade._library.get_top_genres(limit=30)
         except Exception:
             genres = []
         try:
-            track_count = int(self._library.get_track_count())
+            track_count = int(self._facade.get_track_count())
         except Exception:
             track_count = None
 
@@ -337,24 +343,24 @@ class LLMQueueChatDialog(QDialog):
         self._pending_instruction = instruction
         snapshot = self._make_snapshot()
         if not snapshot.queue:
-            self._append_system("当前队列为空，将尝试按你的指令从音乐库调取/生成队列。")
+            self._append_system("Current queue is empty, will try to fetch/generate queue from library according to your instruction.")
 
         self._append_user(instruction)
         self._input.clear()
 
-        # 缓存命中：直接加载历史队列，避免重复调用 LLM
+        # Cache hit: Load history queue directly to avoid repeating LLM call
         try:
-            cached = self._cache.load_cached_queue(instruction, self._library) if self._cache.enabled() else None
+            cached = self._cache.load_cached_queue(instruction, self._facade._library) if self._cache.enabled() else None
         except Exception:
             cached = None
 
         if cached is not None:
             queue, start_index, entry = cached
             try:
-                self._player.set_queue(queue, start_index if queue else -1)
-                self._append_assistant(f"命中缓存：{entry.label}（{len(queue)}首，{entry.created_at}）")
+                self._facade.set_queue(queue, start_index if queue else -1)
+                self._append_assistant(f"Cache hit: {entry.label} ({len(queue)} tracks, {entry.created_at})")
             except Exception as e:
-                QMessageBox.critical(self, "错误", str(e))
+                QMessageBox.critical(self, "Error", str(e))
                 return
             finally:
                 self._pending_instruction = None
@@ -364,7 +370,10 @@ class LLMQueueChatDialog(QDialog):
         self._set_busy(True)
 
         self._thread = QThread(self)
-        self._worker = _SuggestWorker(self._config, instruction, snapshot, self._build_library_context(), self._library)
+        self._worker = _SuggestWorker(
+            self._facade._config, instruction, snapshot, 
+            self._build_library_context(), self._facade._library
+        )
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._worker.run)
@@ -382,10 +391,10 @@ class LLMQueueChatDialog(QDialog):
         self._thread = None
 
     def closeEvent(self, event) -> None:
-        """对话框关闭时安全停止工作线程"""
+        """Safely stop worker thread when dialog closes"""
         if self._thread and self._thread.isRunning():
             self._thread.quit()
-            # 等待5秒，不强制终止以避免资源泄漏
+            # Wait 5 seconds, not forced termination to avoid resource leaks
             self._thread.wait(5000)
         self._cleanup_thread()
         event.accept()
@@ -397,29 +406,29 @@ class LLMQueueChatDialog(QDialog):
             if isinstance(error, LLMQueueError):
                 res = QMessageBox.question(
                     self,
-                    "LLM 调用失败",
-                    f"{error}\n\n是否现在去设置 API Key？",
+                    "LLM call failed",
+                    f"{error}\n\nDo you want to set up API Key now?",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
                 if res == QMessageBox.StandardButton.Yes:
                     self._open_settings()
             else:
-                QMessageBox.critical(self, "错误", str(error))
+                QMessageBox.critical(self, "Error", str(error))
             return
 
         if not result:
-            QMessageBox.critical(self, "错误", "未获取到 LLM 结果")
+            QMessageBox.critical(self, "Error", "No LLM result received")
             return
 
         try:
-            if result.plan.clear_queue and hasattr(self._player, "clear_queue"):
-                self._player.clear_queue()
-            self._player.set_queue(result.queue, result.start_index if result.queue else -1)
+            if result.plan.clear_queue and hasattr(self._facade._player, "clear_queue"):
+                self._facade._player.clear_queue()
+            self._facade.set_queue(result.queue, result.start_index if result.queue else -1)
         except Exception as e:
-            QMessageBox.critical(self, "错误", str(e))
+            QMessageBox.critical(self, "Error", str(e))
             return
 
-        # 保存到查询历史（也作为后续缓存来源）
+        # Save to query history (also as future cache source)
         try:
             instruction = result.plan.instruction or (self._pending_instruction or "")
             if instruction and result.queue:
@@ -439,21 +448,21 @@ class LLMQueueChatDialog(QDialog):
 
         plan = result.plan
         if plan.clear_queue and plan.library_request is None and not plan.ordered_track_ids:
-            self._append_assistant("已清空队列。")
+            self._append_assistant("Queue cleared.")
             return
 
         if plan.library_request is not None:
             mode = plan.library_request.mode
-            q = plan.library_request.genre or plan.library_request.query or "（未指定条件）"
-            self._append_assistant(plan.reason or f"已从音乐库{('替换' if mode=='replace' else '追加')}队列：{q}")
+            q = plan.library_request.genre or plan.library_request.query or "(No condition specified)"
+            self._append_assistant(plan.reason or f"Queue {('replaced' if mode=='replace' else 'appended')} from library: {q}")
             return
 
-        self._append_assistant(plan.reason or "已应用队列变更。")
+        self._append_assistant(plan.reason or "Queue changes applied.")
 
     def _refresh_history(self) -> None:
         self._history_list.clear()
         if not self._cache.enabled():
-            item = QListWidgetItem("（缓存已关闭）")
+            item = QListWidgetItem("(Cache disabled)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self._history_list.addItem(item)
             return
@@ -464,13 +473,13 @@ class LLMQueueChatDialog(QDialog):
             entries = []
 
         if not entries:
-            item = QListWidgetItem("（暂无）")
+            item = QListWidgetItem("(No entries)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self._history_list.addItem(item)
             return
 
         for entry in entries:
-            text = f"{entry.label} · {len(entry.track_ids)}首"
+            text = f"{entry.label} · {len(entry.track_ids)} tracks"
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, entry.id)
             self._history_list.addItem(item)
@@ -493,20 +502,20 @@ class LLMQueueChatDialog(QDialog):
             return
 
         try:
-            loaded = self._cache.load_entry_queue(int(entry_id), self._library)
+            loaded = self._cache.load_entry_queue(int(entry_id), self._facade._library)
         except Exception as e:
-            QMessageBox.critical(self, "错误", str(e))
+            QMessageBox.critical(self, "Error", str(e))
             return
 
         if not loaded:
-            QMessageBox.information(self, "提示", "该历史队列已不可用（曲目可能已被移除）。")
+            QMessageBox.information(self, "Information", "This historical queue is no longer available (tracks may have been removed).")
             return
 
         queue, start_index = loaded
         try:
-            self._player.set_queue(queue, start_index if queue else -1)
+            self._facade.set_queue(queue, start_index if queue else -1)
         except Exception as e:
-            QMessageBox.critical(self, "错误", str(e))
+            QMessageBox.critical(self, "Error", str(e))
             return
 
-        self._append_assistant(f"已从历史加载：{item.text()}")
+        self._append_assistant(f"Loaded from history: {item.text()}")

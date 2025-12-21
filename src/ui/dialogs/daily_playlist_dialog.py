@@ -1,12 +1,12 @@
 """
-每日歌单对话框
+Daily Playlist Dialog
 
-用于生成基于标签的今日歌单。
+Used for generating today's playlist based on tags.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 from PyQt6.QtWidgets import (
@@ -29,18 +29,15 @@ from PyQt6.QtWidgets import (
 )
 
 from models.track import Track
-from services.config_service import ConfigService
 from services.daily_playlist_service import DailyPlaylistResult, DailyPlaylistService
-from services.library_service import LibraryService
-from services.player_service import PlayerService
-from services.playlist_service import PlaylistService
-from services.tag_service import TagService
-from services.llm_providers import create_llm_provider
 from ui.resources.design_tokens import tokens
+
+if TYPE_CHECKING:
+    from services.music_app_facade import MusicAppFacade
 
 
 class _GenerateWorker(QObject):
-    """后台生成歌单的工作线程"""
+    """Background worker thread for generating playlist"""
     
     finished = pyqtSignal(object, object)  # result, error
     
@@ -65,35 +62,33 @@ class _GenerateWorker(QObject):
 
 class DailyPlaylistDialog(QDialog):
     """
-    每日歌单对话框
-    
-    允许用户选择标签或输入描述，生成今日歌单。
+    Daily Playlist Dialog
+
+    Allows users to select tags or enter descriptions to generate today's playlist.
     """
     
     playlist_generated = pyqtSignal(list)  # List[Track]
     
     def __init__(
         self,
-        tag_service: TagService,
-        library_service: LibraryService,
-        config_service: ConfigService,
-        player_service: Optional[PlayerService] = None,
-        playlist_service: Optional[PlaylistService] = None,
+        facade: "MusicAppFacade",
         parent=None,
     ):
+        """Initialize daily playlist dialog
+
+        Args:
+            facade: Application facade providing access to all services
+            parent: Parent component
+        """
         super().__init__(parent)
         
-        self._tag_service = tag_service
-        self._library_service = library_service
-        self._config_service = config_service
-        self._player_service = player_service
-        self._playlist_service = playlist_service
+        self._facade = facade
         
         self._result: Optional[DailyPlaylistResult] = None
         self._thread: Optional[QThread] = None
         self._worker: Optional[_GenerateWorker] = None
         
-        self.setWindowTitle("每日歌单")
+        self.setWindowTitle("Daily Playlist")
         self.setMinimumSize(700, 600)
         
         self._setup_styles()
@@ -101,7 +96,7 @@ class DailyPlaylistDialog(QDialog):
         self._load_tags()
     
     def _setup_styles(self):
-        """设置现代化样式，使用 DesignTokens"""
+        """Set up modern styles using DesignTokens"""
         self.setStyleSheet(f"""
             DailyPlaylistDialog {{
                 background-color: {tokens.NEUTRAL_900};
@@ -239,34 +234,34 @@ class DailyPlaylistDialog(QDialog):
         """)
     
     def _setup_ui(self):
-        """设置 UI 布局"""
+        """Set up UI layout"""
         layout = QVBoxLayout(self)
         layout.setSpacing(tokens.SPACING_4)
         layout.setContentsMargins(tokens.SPACING_6, tokens.SPACING_6, 
                                    tokens.SPACING_6, tokens.SPACING_6)
         
-        # 标题区
-        title = QLabel("🎵 今天想听什么？")
+        # Title area
+        title = QLabel("🎵 What do you want to listen to today?")
         title.setObjectName("titleLabel")
-        
-        subtitle = QLabel("选择标签或输入描述，生成专属今日歌单")
+
+        subtitle = QLabel("Select tags or enter a description to generate your personalized daily playlist")
         subtitle.setObjectName("subtitleLabel")
         
         layout.addWidget(title)
         layout.addWidget(subtitle)
         layout.addSpacing(tokens.SPACING_2)
         
-        # 标签输入区
-        tag_group = QGroupBox("选择标签")
+        # Tag input area
+        tag_group = QGroupBox("Select Tags")
         tag_layout = QVBoxLayout(tag_group)
         
-        # 搜索过滤
+        # Search filter
         self._tag_filter = QLineEdit()
-        self._tag_filter.setPlaceholderText("🔍 搜索标签...")
+        self._tag_filter.setPlaceholderText("🔍 Search tags...")
         self._tag_filter.textChanged.connect(self._filter_tags)
         tag_layout.addWidget(self._tag_filter)
-        
-        # 标签滚动区域
+
+        # Tag scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setMaximumHeight(180)
@@ -278,25 +273,25 @@ class DailyPlaylistDialog(QDialog):
         
         tag_layout.addWidget(scroll)
         
-        # 手动输入标签
-        manual_label = QLabel("或手动输入标签（逗号分隔）:")
+        # Manual tag input
+        manual_label = QLabel("Or manually enter tags (comma-separated):")
         manual_label.setStyleSheet(f"font-size: {tokens.FONT_SIZE_XS}px;")
         self._manual_tags = QLineEdit()
-        self._manual_tags.setPlaceholderText("例如: 流行, 轻松, 周杰伦")
+        self._manual_tags.setPlaceholderText("e.g.: Pop, Relax, Jay Chou")
         
         tag_layout.addWidget(manual_label)
         tag_layout.addWidget(self._manual_tags)
         
         layout.addWidget(tag_group)
         
-        # 选项区
+        # Options area
         options_layout = QHBoxLayout()
-        
-        limit_label = QLabel("歌单数量:")
+
+        limit_label = QLabel("Playlist size:")
         self._limit_spin = QSpinBox()
         self._limit_spin.setRange(10, 100)
         self._limit_spin.setValue(50)
-        self._limit_spin.setSuffix(" 首")
+        self._limit_spin.setSuffix(" tracks")
         
         options_layout.addWidget(limit_label)
         options_layout.addWidget(self._limit_spin)
@@ -304,21 +299,21 @@ class DailyPlaylistDialog(QDialog):
         
         layout.addLayout(options_layout)
         
-        # 生成按钮
-        self._generate_btn = QPushButton("✨ 生成歌单")
+        # Generate button
+        self._generate_btn = QPushButton("✨ Generate Playlist")
         self._generate_btn.setObjectName("generateBtn")
         self._generate_btn.clicked.connect(self._on_generate)
         layout.addWidget(self._generate_btn, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        # 进度条
+        # Progress bar
         self._progress = QProgressBar()
         self._progress.setFixedHeight(6)
-        self._progress.setRange(0, 0)  # 不确定进度
+        self._progress.setRange(0, 0)  # Indeterminate progress
         self._progress.hide()
         layout.addWidget(self._progress)
         
-        # 结果区
-        self._result_group = QGroupBox("生成结果")
+        # Result area
+        self._result_group = QGroupBox("Generation Results")
         result_layout = QVBoxLayout(self._result_group)
         
         self._summary_label = QLabel("")
@@ -329,15 +324,15 @@ class DailyPlaylistDialog(QDialog):
         self._track_list.setMinimumHeight(150)
         result_layout.addWidget(self._track_list)
         
-        # 操作按钮
+        # Action buttons
         btn_layout = QHBoxLayout()
-        
-        self._play_btn = QPushButton("▶ 立即播放")
+
+        self._play_btn = QPushButton("▶ Play Now")
         self._play_btn.setObjectName("actionBtn")
         self._play_btn.clicked.connect(self._on_play)
         self._play_btn.setEnabled(False)
         
-        self._save_btn = QPushButton("💾 保存为播放列表")
+        self._save_btn = QPushButton("💾 Save as Playlist")
         self._save_btn.setObjectName("actionBtn")
         self._save_btn.clicked.connect(self._on_save)
         self._save_btn.setEnabled(False)
@@ -351,19 +346,19 @@ class DailyPlaylistDialog(QDialog):
         self._result_group.hide()
         layout.addWidget(self._result_group)
         
-        # 存储标签复选框
+        # Store tag checkboxes
         self._tag_checkboxes: List[QCheckBox] = []
-    
+
     def _load_tags(self):
-        """加载所有标签"""
-        tags = self._tag_service.get_all_tags()
-        
-        # 清除旧的复选框
+        """Load all tags"""
+        tags = self._facade.get_all_tags()
+
+        # Clear old checkboxes
         for cb in self._tag_checkboxes:
             cb.deleteLater()
         self._tag_checkboxes.clear()
         
-        # 创建新的复选框
+        # Create new checkboxes
         row, col = 0, 0
         cols_per_row = 4
         
@@ -379,29 +374,29 @@ class DailyPlaylistDialog(QDialog):
                 row += 1
         
         if not tags:
-            no_tag_label = QLabel("暂无标签，请先为音乐添加标签")
+            no_tag_label = QLabel("No tags available, please add tags to your music first")
             no_tag_label.setStyleSheet(f"color: {tokens.NEUTRAL_300};")
             self._tag_grid.addWidget(no_tag_label, 0, 0)
     
     def _filter_tags(self, text: str):
-        """过滤标签"""
+        """Filter tags"""
         needle = text.strip().lower()
         for cb in self._tag_checkboxes:
             tag_name = cb.property("tag_name") or ""
             cb.setVisible(not needle or needle in tag_name.lower())
     
     def _get_selected_tags(self) -> List[str]:
-        """获取选中的标签"""
+        """Get selected tags"""
         selected = []
-        
-        # 从复选框获取
+
+        # Get from checkboxes
         for cb in self._tag_checkboxes:
             if cb.isChecked():
                 tag_name = cb.property("tag_name")
                 if tag_name:
                     selected.append(tag_name)
         
-        # 从手动输入获取
+        # Get from manual input
         manual = self._manual_tags.text().strip()
         if manual:
             parts = [p.strip() for p in manual.replace("，", ",").split(",")]
@@ -410,7 +405,7 @@ class DailyPlaylistDialog(QDialog):
         return selected
     
     def _on_generate(self):
-        """生成歌单"""
+        """Generate playlist"""
         if self._thread and self._thread.isRunning():
             return
         
@@ -420,27 +415,31 @@ class DailyPlaylistDialog(QDialog):
         if not tags:
             QMessageBox.warning(
                 self,
-                "提示",
-                "请至少选择一个标签或输入标签描述"
+                "Tip",
+                "Please select at least one tag or enter a tag description"
             )
             return
         
         self._set_busy(True)
         
-        # 创建 LLM Provider
+        # Use facade to generate playlist (execute in background thread)
+        from services.daily_playlist_service import DailyPlaylistService
+        from services.llm_providers import create_llm_provider
+        
+        # Create LLM Provider
         try:
-            llm_provider = create_llm_provider(self._config_service)
+            llm_provider = create_llm_provider(self._facade.config)
         except Exception:
             llm_provider = None
         
-        # 创建服务
+        # Create service
         service = DailyPlaylistService(
-            tag_service=self._tag_service,
-            library_service=self._library_service,
+            tag_service=self._facade.tag_service,
+            library_service=self._facade.library_service,
             llm_provider=llm_provider,
         )
         
-        # 启动后台线程
+        # Start background thread
         self._thread = QThread(self)
         self._worker = _GenerateWorker(service, tags, limit)
         self._worker.moveToThread(self._thread)
@@ -452,14 +451,14 @@ class DailyPlaylistDialog(QDialog):
         self._thread.start()
     
     def _set_busy(self, busy: bool):
-        """设置忙碌状态"""
+        """Set busy state"""
         self._generate_btn.setEnabled(not busy)
         self._progress.setVisible(busy)
         if busy:
             self._result_group.hide()
     
     def _cleanup_thread(self):
-        """清理线程"""
+        """Clean up thread"""
         if self._worker:
             self._worker.deleteLater()
         if self._thread:
@@ -472,18 +471,18 @@ class DailyPlaylistDialog(QDialog):
         result: Optional[DailyPlaylistResult],
         error: Optional[BaseException],
     ):
-        """生成完成回调"""
+        """Generation complete callback"""
         self._set_busy(False)
-        
+
         if error:
-            QMessageBox.critical(self, "生成失败", str(error))
+            QMessageBox.critical(self, "Generation Failed", str(error))
             return
         
         if not result or not result.tracks:
             QMessageBox.information(
                 self,
-                "提示",
-                "未能找到匹配的音乐，请尝试其他标签或确保音乐库中有足够的带标签曲目。"
+                "Tip",
+                "Could not find matching music. Please try other tags or ensure there are enough tagged tracks in your music library."
             )
             return
         
@@ -491,70 +490,61 @@ class DailyPlaylistDialog(QDialog):
         self._display_result(result)
     
     def _display_result(self, result: DailyPlaylistResult):
-        """显示生成结果"""
-        self._summary_label.setText(f"共 {result.total} 首 · {result.summary}")
-        
+        """Display generation result"""
+        self._summary_label.setText(f"Total {result.total} tracks · {result.summary}")
+
         self._track_list.clear()
         for i, track in enumerate(result.tracks, 1):
-            artist = getattr(track, 'artist', '') or '未知艺术家'
+            artist = getattr(track, 'artist', '') or 'Unknown Artist'
             text = f"{i}. {track.title} - {artist}"
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, track.id)
             self._track_list.addItem(item)
         
         self._play_btn.setEnabled(True)
-        self._save_btn.setEnabled(self._playlist_service is not None)
+        self._save_btn.setEnabled(True)  # Always enable, facade provides playlist service
         self._result_group.show()
-        
-        # 发送信号
+
+        # Emit signal
         self.playlist_generated.emit(result.tracks)
     
     def _on_play(self):
-        """立即播放"""
+        """Play now"""
         if not self._result or not self._result.tracks:
             return
-        
-        if not self._player_service:
-            QMessageBox.warning(self, "提示", "播放服务不可用")
-            return
-        
+
         try:
-            self._player_service.set_queue(self._result.tracks, 0)
-            self._player_service.play()
-            self.accept()  # 关闭对话框
+            self._facade.set_queue(self._result.tracks, 0)
+            self._facade.play()
+            self.accept()  # Close dialog
         except Exception as e:
-            QMessageBox.critical(self, "播放失败", str(e))
+            QMessageBox.critical(self, "Playback Failed", str(e))
     
     def _on_save(self):
-        """保存为播放列表"""
+        """Save as playlist"""
         if not self._result or not self._result.tracks:
             return
-        
-        if not self._playlist_service:
-            QMessageBox.warning(self, "提示", "播放列表服务不可用")
-            return
-        
-        # 生成播放列表名称
+
+        # Generate playlist name
         from datetime import datetime
-        name = f"每日歌单 {datetime.now().strftime('%Y-%m-%d')}"
+        name = f"Daily Playlist {datetime.now().strftime('%Y-%m-%d')}"
         
         try:
-            playlist = self._playlist_service.create(name)
+            playlist = self._facade.create_playlist(name)
             if playlist:
-                # TODO: 优化为批量插入以提高性能
                 for track in self._result.tracks:
-                    self._playlist_service.add_track(playlist.id, track)
+                    self._facade.add_track_to_playlist(playlist.id, track.id)
                 
                 QMessageBox.information(
-                    self, 
-                    "保存成功", 
-                    f"播放列表 \"{name}\" 已创建，包含 {len(self._result.tracks)} 首歌曲"
+                    self,
+                    "Save Successful",
+                    f"Playlist \"{name}\" has been created with {len(self._result.tracks)} tracks"
                 )
         except Exception as e:
-            QMessageBox.critical(self, "保存失败", str(e))
-    
+            QMessageBox.critical(self, "Save Failed", str(e))
+
     def closeEvent(self, event):
-        """关闭时清理"""
+        """Clean up on close"""
         if self._thread and self._thread.isRunning():
             self._thread.quit()
             self._thread.wait(5000)

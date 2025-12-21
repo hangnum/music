@@ -1,8 +1,8 @@
 """
-音频引擎模块 - 音频播放核心
+Audio Engine Module - Core for Audio Playback
 
-提供音频文件的加载、播放、暂停、停止等功能。
-支持多后端实现（默认使用pygame）。
+Provides functions for loading, playing, pausing, and stopping audio files.
+Supports multiple backend implementations (defaults to pygame).
 """
 
 from abc import ABC, abstractmethod
@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 class PlayerState(Enum):
-    """播放器状态"""
-    IDLE = "idle"           # 空闲
-    LOADING = "loading"     # 加载中
-    PLAYING = "playing"     # 播放中
-    PAUSED = "paused"       # 已暂停
-    STOPPED = "stopped"     # 已停止
-    ERROR = "error"         # 错误
+    """Player Status"""
+    IDLE = "idle"           # Idle
+    LOADING = "loading"     # Loading
+    PLAYING = "playing"     # Playing
+    PAUSED = "paused"       # Paused
+    STOPPED = "stopped"     # Stopped
+    ERROR = "error"         # Error
 
 
 @dataclass(frozen=True)
@@ -35,9 +35,9 @@ class PlaybackEndInfo:
 
 class AudioEngineBase(ABC):
     """
-    音频引擎抽象基类
+    Abstract Base Class for Audio Engines
     
-    定义音频播放的标准接口，具体实现由子类完成。
+    Defines the standard interface for audio playback, with concrete implementations provided by subclasses.
     """
     
     def __init__(self):
@@ -51,213 +51,213 @@ class AudioEngineBase(ABC):
     @staticmethod
     def probe() -> bool:
         """
-        检测引擎依赖是否可用（不触碰播放状态）
+        Check if engine dependencies are available (without touching playback state)
         
-        子类应重写此方法，仅检查必要的依赖是否可导入，
-        不应初始化任何全局状态或播放设备。
+        Subclasses should override this method to only check if necessary dependencies can be imported,
+        and should not initialize any global state or playback devices.
         
         Returns:
-            bool: True 表示依赖可用
+            bool: True if dependencies are available
         """
         return False
 
     @property
     def state(self) -> PlayerState:
-        """获取当前播放状态"""
+        """Get the current playback state"""
         return self._state
     
     @property
     def volume(self) -> float:
-        """获取当前音量"""
+        """Get the current volume"""
         return self._volume
     
     @property
     def current_file(self) -> Optional[str]:
-        """获取当前加载的文件路径"""
+        """Get the path of the currently loaded file"""
         return self._current_file
     
     @abstractmethod
     def load(self, file_path: str) -> bool:
         """
-        加载音频文件
+        Load an audio file
         
         Args:
-            file_path: 音频文件路径
+            file_path: Path to the audio file
             
         Returns:
-            bool: 是否加载成功
+            bool: True if loading was successful
         """
         pass
     
     @abstractmethod
     def play(self) -> bool:
         """
-        开始播放
+        Start playback
         
         Returns:
-            bool: 是否成功开始播放
+            bool: True if playback started successfully
         """
         pass
     
     @abstractmethod
     def pause(self) -> None:
-        """暂停播放"""
+        """Pause playback"""
         pass
     
     @abstractmethod
     def resume(self) -> None:
-        """恢复播放"""
+        """Resume playback"""
         pass
     
     @abstractmethod
     def stop(self) -> None:
-        """停止播放"""
+        """Stop playback"""
         pass
     
     @abstractmethod
     def seek(self, position_ms: int) -> None:
         """
-        跳转到指定位置
+        Seek to a specified position
         
         Args:
-            position_ms: 目标位置（毫秒）
+            position_ms: Target position in milliseconds
         """
         pass
     
     @abstractmethod
     def set_volume(self, volume: float) -> None:
         """
-        设置音量
+        Set the volume
         
         Args:
-            volume: 音量值 (0.0 - 1.0)
+            volume: Volume value (0.0 - 1.0)
         """
         pass
     
     @abstractmethod
     def get_position(self) -> int:
         """
-        获取当前播放位置
+        Get the current playback position
         
         Returns:
-            int: 当前位置（毫秒）
+            int: Current position in milliseconds
         """
         pass
     
     @abstractmethod
     def get_duration(self) -> int:
         """
-        获取音频总时长
+        Get the total duration of the audio
         
         Returns:
-            int: 总时长（毫秒）
+            int: Total duration in milliseconds
         """
         pass
     
     @abstractmethod
     def check_if_ended(self) -> bool:
         """
-        检查播放是否结束（由主线程定期调用）
+        Check if playback has ended (called periodically by the main thread)
         
         Returns:
-            bool: 是否播放结束
+            bool: True if playback has ended
         """
         pass
     
     def set_on_end(self, callback: Callable[[PlaybackEndInfo], None]) -> None:
-        """设置播放结束回调"""
+        """Set the playback end callback"""
         self._on_end_callback = callback
     
     def set_on_error(self, callback: Callable[[str], None]) -> None:
-        """设置错误回调"""
+        """Set the error callback"""
         self._on_error_callback = callback
 
-    # ===== 高级音频特性接口 =====
+    # ===== Advanced Audio Features Interface =====
 
     def supports_gapless(self) -> bool:
         """
-        是否支持无缝播放
+        Whether gapless playback is supported
 
         Returns:
-            bool: True 表示支持 Gapless Playback
+            bool: True if Gapless Playback is supported
         """
         return False
 
     def supports_crossfade(self) -> bool:
         """
-        是否支持淡入淡出
+        Whether crossfade is supported
 
         Returns:
-            bool: True 表示支持 Crossfade
+            bool: True if Crossfade is supported
         """
         return False
 
     def supports_equalizer(self) -> bool:
         """
-        是否支持 EQ 均衡器
+        Whether an equalizer is supported
 
         Returns:
-            bool: True 表示支持 EQ
+            bool: True if EQ is supported
         """
         return False
 
     def supports_replay_gain(self) -> bool:
         """
-        是否支持 ReplayGain
+        Whether ReplayGain is supported
 
         Returns:
-            bool: True 表示支持 ReplayGain
+            bool: True if ReplayGain is supported
         """
         return False
 
     def set_next_track(self, file_path: Optional[str]) -> bool:
         """
-        预加载下一曲（用于 Gapless Playback）
+        Preload the next track (for Gapless Playback)
 
-        子类可覆盖此方法实现无缝过渡。
+        Subclasses can override this method to implement seamless transitions.
 
         Args:
-            file_path: 下一曲的文件路径
+            file_path: Path to the next track
 
         Returns:
-            bool: 是否成功预加载
+            bool: True if preloading was successful
         """
         return False
 
     def set_crossfade_duration(self, duration_ms: int) -> None:
         """
-        设置淡入淡出时长
+        Set crossfade duration
 
         Args:
-            duration_ms: 淡入淡出时长（毫秒）
+            duration_ms: Crossfade duration in milliseconds
         """
         pass
 
     def get_crossfade_duration(self) -> int:
         """
-        获取当前淡入淡出时长
+        Get current crossfade duration
 
         Returns:
-            int: 淡入淡出时长（毫秒），不支持时返回 0
+            int: Crossfade duration in milliseconds, returns 0 if not supported
         """
         return 0
 
     def set_replay_gain(self, gain_db: float, peak: float = 1.0) -> None:
         """
-        设置 ReplayGain 增益
+        Set ReplayGain gain
 
         Args:
-            gain_db: 增益值（dB），正值增大音量，负值减小
-            peak: 峰值信息，用于防止削波
+            gain_db: Gain value (dB), positive to increase volume, negative to decrease
+            peak: Peak information, used to prevent clipping
         """
         pass
 
     def set_equalizer(self, bands: List[float]) -> None:
         """
-        设置 EQ 频段增益
+        Set equalizer band gains
 
         Args:
-            bands: 10 频段增益列表 (dB)，从低频到高频:
+            bands: List of 10 band gains (dB), from low to high frequency:
                    [31Hz, 62Hz, 125Hz, 250Hz, 500Hz,
                     1kHz, 2kHz, 4kHz, 8kHz, 16kHz]
         """
@@ -265,28 +265,28 @@ class AudioEngineBase(ABC):
 
     def set_equalizer_enabled(self, enabled: bool) -> None:
         """
-        启用/禁用 EQ
+        Enable/disable equalizer
 
         Args:
-            enabled: True 启用，False 禁用
+            enabled: True to enable, False to disable
         """
         pass
 
     def get_engine_name(self) -> str:
         """
-        获取引擎名称
+        Get the engine name
 
         Returns:
-            str: 引擎标识名称
+            str: Engine identifier name
         """
         return "base"
 
 
 class PygameAudioEngine(AudioEngineBase):
     """
-    基于Pygame的音频引擎实现
+    Audio engine implementation based on Pygame
     
-    使用pygame.mixer进行音频播放，支持大多数常见音频格式。
+    Uses pygame.mixer for audio playback, supporting most common audio formats.
     """
     
     _initialized = False
@@ -295,7 +295,7 @@ class PygameAudioEngine(AudioEngineBase):
     
     @staticmethod
     def probe() -> bool:
-        """检测 pygame 依赖是否可用（不初始化 mixer）"""
+        """Check if pygame dependency is available (without initializing mixer)"""
         try:
             import pygame
             return hasattr(pygame, 'mixer')
@@ -308,11 +308,11 @@ class PygameAudioEngine(AudioEngineBase):
         self._playback_started = False
         self._cleaned_up = False
         
-        # 初始化pygame mixer
+        # Initialize pygame mixer
         self._acquire_mixer()
     
     def _acquire_mixer(self) -> None:
-        """初始化全局 pygame mixer，并用引用计数避免误关。"""
+        """Initialize global pygame mixer and use reference counting to avoid accidental shutdown."""
         with PygameAudioEngine._lock:
             if not PygameAudioEngine._initialized:
                 try:
@@ -320,28 +320,28 @@ class PygameAudioEngine(AudioEngineBase):
                     pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
                     PygameAudioEngine._initialized = True
                 except Exception as e:
-                    logger.error("pygame初始化失败: %s", e)
+                    logger.error("Pygame initialization failed: %s", e)
                     self._state = PlayerState.ERROR
                     return
 
             PygameAudioEngine._mixer_refcount += 1
     
     def load(self, file_path: str) -> bool:
-        """加载音频文件"""
+        """Load an audio file"""
         try:
             import pygame
             
-            # 停止当前播放
+            # Stop current playback
             if self._state == PlayerState.PLAYING:
                 self.stop()
             
-            # 加载新文件
+            # Load new file
             pygame.mixer.music.load(file_path)
             self._current_file = file_path
             self._state = PlayerState.STOPPED
             self._playback_started = False
             
-            # 获取时长
+            # Get duration
             self._duration_ms = self._get_duration_from_file(file_path)
             
             return True
@@ -349,11 +349,11 @@ class PygameAudioEngine(AudioEngineBase):
         except Exception as e:
             self._state = PlayerState.ERROR
             if self._on_error_callback:
-                self._on_error_callback(f"加载文件失败: {e}")
+                self._on_error_callback(f"Failed to load file: {e}")
             return False
     
     def _get_duration_from_file(self, file_path: str) -> int:
-        """从文件获取时长"""
+        """Get duration from file"""
         try:
             from mutagen import File
             audio = File(file_path)
@@ -364,7 +364,7 @@ class PygameAudioEngine(AudioEngineBase):
         return 0
     
     def play(self) -> bool:
-        """开始播放"""
+        """Start playback"""
         try:
             import pygame
             
@@ -379,11 +379,11 @@ class PygameAudioEngine(AudioEngineBase):
         except Exception as e:
             self._state = PlayerState.ERROR
             if self._on_error_callback:
-                self._on_error_callback(f"播放失败: {e}")
+                self._on_error_callback(f"Playback failed: {e}")
             return False
     
     def pause(self) -> None:
-        """暂停播放"""
+        """Pause playback"""
         import pygame
         
         if self._state == PlayerState.PLAYING:
@@ -391,7 +391,7 @@ class PygameAudioEngine(AudioEngineBase):
             self._state = PlayerState.PAUSED
     
     def resume(self) -> None:
-        """恢复播放"""
+        """Resume playback"""
         import pygame
         
         if self._state == PlayerState.PAUSED:
@@ -399,7 +399,7 @@ class PygameAudioEngine(AudioEngineBase):
             self._state = PlayerState.PLAYING
     
     def stop(self) -> None:
-        """停止播放"""
+        """Stop playback"""
         import pygame
         
         pygame.mixer.music.stop()
@@ -407,40 +407,40 @@ class PygameAudioEngine(AudioEngineBase):
         self._playback_started = False
     
     def seek(self, position_ms: int) -> None:
-        """跳转到指定位置"""
+        """Seek to a specified position"""
         import pygame
         
         try:
-            # pygame的set_pos接受秒为单位
+            # pygame's set_pos accepts seconds
             pygame.mixer.music.set_pos(position_ms / 1000.0)
         except Exception as e:
-            logger.warning("跳转失败: %s", e)
+            logger.warning("Seek failed: %s", e)
     
     def set_volume(self, volume: float) -> None:
-        """设置音量"""
+        """Set the volume"""
         import pygame
         
         self._volume = max(0.0, min(1.0, volume))
         pygame.mixer.music.set_volume(self._volume)
     
     def get_position(self) -> int:
-        """获取当前播放位置"""
+        """Get the current playback position"""
         import pygame
         
         if self._state in (PlayerState.PLAYING, PlayerState.PAUSED):
             pos = pygame.mixer.music.get_pos()
-            return max(0, pos)  # 返回非负值
+            return max(0, pos)  # Return non-negative value
         return 0
     
     def get_duration(self) -> int:
-        """获取音频总时长"""
+        """Get total audio duration"""
         return self._duration_ms
     
     def check_if_ended(self) -> bool:
         """
-        检查播放是否结束
+        Check if playback has ended
         
-        由主线程定期调用，确保线程安全。
+        Called periodically by the main thread, ensuring thread safety.
         """
         import pygame
         
@@ -448,7 +448,7 @@ class PygameAudioEngine(AudioEngineBase):
             try:
                 busy = pygame.mixer.music.get_busy()
             except Exception as e:
-                logger.warning("pygame mixer 未初始化，无法检查播放状态: %s", e)
+                logger.warning("Pygame mixer not initialized, cannot check playback status: %s", e)
                 self._state = PlayerState.ERROR
                 self._playback_started = False
                 return False
@@ -468,7 +468,7 @@ class PygameAudioEngine(AudioEngineBase):
         return False
     
     def cleanup(self) -> None:
-        """清理资源"""
+        """Clean up resources"""
         import pygame
 
         with PygameAudioEngine._lock:
@@ -490,12 +490,12 @@ class PygameAudioEngine(AudioEngineBase):
             try:
                 pygame.mixer.quit()
             except Exception as e:
-                logger.warning("pygame cleanup 失败: %s", e)
+                logger.warning("Pygame cleanup failed: %s", e)
             finally:
                 with PygameAudioEngine._lock:
                     PygameAudioEngine._initialized = False
 
     def get_engine_name(self) -> str:
-        """获取引擎名称"""
+        """Get the engine name"""
         return "pygame"
 

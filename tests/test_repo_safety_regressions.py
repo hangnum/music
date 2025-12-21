@@ -1,7 +1,7 @@
 """
-仓库安全/一致性回归测试。
+Repository safety and consistency regression tests.
 
-用于尽早发现“误提交密钥/敏感配置”等问题。
+Used to detect early issues such as "accidental submission of keys or sensitive configurations".
 """
 
 from __future__ import annotations

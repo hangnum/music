@@ -1,7 +1,7 @@
 """
-网络搜索服务
+Web Search Service
 
-使用 DuckDuckGo 提供免费的网络搜索功能，辅助 LLM 打标签。
+Uses DuckDuckGo to provide free web search functionality, assisting LLM in tagging.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
-    """搜索结果"""
+    """Search Result"""
     title: str
     body: str
     url: str
@@ -26,18 +26,18 @@ class SearchResult:
 
 class WebSearchService:
     """
-    网络搜索服务
+    Web Search Service
     
-    使用 DuckDuckGo 搜索引擎获取音乐相关信息，
-    用于增强 LLM 标签标注的准确性。
+    Uses the DuckDuckGo search engine to retrieve music-related information,
+    enhancing the accuracy of LLM tagging.
     
-    使用示例:
+    Usage Example:
         service = WebSearchService()
-        context = service.get_music_context("周杰伦", "七里香", "七里香")
-        # -> "风格: R&B/流行 | 特点: 中国风元素 | ..."
+        context = service.get_music_context("Jay Chou", "Qi Li Xiang", "Common Jasmine Orange")
+        # -> "Style: R&B/Pop | Features: Chinese elements | ..."
     """
     
-    # 高质量音乐信息站点
+    # High-quality music information sites
     TRUSTED_SITES = [
         "music.163.com",
         "baike.baidu.com", 
@@ -45,26 +45,26 @@ class WebSearchService:
         "qq.com",
     ]
     
-    # 过滤无关内容的关键词
+    # Keywords to filter out irrelevant content
     NOISE_PATTERNS = [
-        r"登录|注册|下载|安装|广告",
-        r"404|页面不存在|访问出错",
-        r"点击.*查看|立即.*体验",
+        r"Login|Register|Download|Install|Ads",
+        r"404|Page not found|Access error",
+        r"Click.*View|Experience.*Now",
     ]
     
     def __init__(self, timeout: float = None, config=None):
         """
-        初始化搜索服务
+        Initialize the search service.
         
         Args:
-            timeout: 请求超时时间（秒），如果为None则从配置读取
-            config: ConfigService实例，可选。如果提供则从配置读取参数
+            timeout: Request timeout (seconds); if None, read from configuration.
+            config: ConfigService instance (optional).
         """
-        # 从配置或参数获取超时时间
+        # Get timeout from config or parameter
         if timeout is not None:
             self._timeout = timeout
         else:
-            # 尝试从配置读取，否则使用默认值
+            # Attempt to read from config, else use default
             try:
                 from services.config_service import ConfigService
                 config_obj = config or ConfigService()
@@ -72,7 +72,7 @@ class WebSearchService:
             except ImportError:
                 self._timeout = 10.0
         
-        # 是否启用网络搜索
+        # Whether web search is enabled
         try:
             from services.config_service import ConfigService
             config_obj = config or ConfigService()
@@ -82,11 +82,11 @@ class WebSearchService:
         
         self._ddgs = None
         self._noise_re = re.compile("|".join(self.NOISE_PATTERNS))
-        # 缓存：使用OrderedDict实现LRU缓存
+        # Cache: Use OrderedDict to implement LRU cache
         self._cache = OrderedDict()
-        # 线程锁保护缓存访问
+        # Thread lock to protect cache access
         self._cache_lock = threading.RLock()
-        # 最大缓存条目数，从配置读取或使用默认值
+        # Maximum cache size, from config or default
         try:
             from services.config_service import ConfigService
             config_obj = config or ConfigService()
@@ -95,40 +95,40 @@ class WebSearchService:
             self._max_cache_size = 100
     
     def _get_ddgs(self):
-        """懒加载 DDGS 客户端"""
+        """Lazy load DDGS client."""
         if self._ddgs is None:
             try:
                 from ddgs import DDGS
                 self._ddgs = DDGS(timeout=self._timeout)
             except ImportError:
-                logger.warning("ddgs 未安装，请运行: pip install ddgs")
+                logger.warning("ddgs not installed, please run: pip install ddgs")
                 return None
         return self._ddgs
     
     def _clean_text(self, text: str) -> str:
-        """清理文本，移除噪音内容"""
+        """Clean text, removing noise content."""
         if not text:
             return ""
-        # 移除多余空白
+        # Remove extra whitespace
         text = re.sub(r'\s+', ' ', text).strip()
-        # 检查是否包含噪音
+        # Check for noise
         if self._noise_re.search(text):
             return ""
         return text
     
     def _is_relevant(self, body: str, keywords: List[str]) -> bool:
-        """检查结果是否与关键词相关"""
+        """Check if the result is relevant to the keywords."""
         if not body or not keywords:
-            return True  # 无关键词时不过滤
+            return True  # Do not filter if no keywords provided
         body_lower = body.lower()
         return any(kw.lower() in body_lower for kw in keywords if kw)
     
     def _deduplicate(self, texts: List[str]) -> List[str]:
-        """去重，保留顺序"""
+        """Deduplicate while preserving order."""
         seen: Set[str] = set()
         result = []
         for t in texts:
-            # 使用前50字符作为去重key
+            # Use first 50 characters as deduplication key
             key = t[:50].lower() if len(t) >= 50 else t.lower()
             if key not in seen:
                 seen.add(key)
@@ -142,17 +142,17 @@ class WebSearchService:
         max_results: int = 5,
     ) -> List[str]:
         """
-        搜索歌曲相关信息（改进版）
+        Search for song information (improved version).
         
-        使用多查询策略，优先从高质量站点获取结果。
+        Uses a multi-query strategy, prioritizing results from high-quality sites.
         
         Args:
-            artist: 艺术家名称
-            title: 歌曲标题
-            max_results: 最大返回结果数
+            artist: Artist name
+            title: Song title
+            max_results: Maximum number of results to return
             
         Returns:
-            搜索结果摘要列表（已过滤和去重）
+            List of search result summaries (filtered and deduplicated).
         """
         if not artist and not title:
             return []
@@ -160,20 +160,20 @@ class WebSearchService:
         all_results = []
         keywords = [k for k in [artist, title] if k]
         
-        # 策略1: 精确搜索（带引号）
+        # Strategy 1: Exact search (with quotes)
         if artist and title:
-            query = f'"{artist}" "{title}" 音乐风格'
+            query = f'"{artist}" "{title}" music style'
             results = self._do_search(query, max_results=3)
             all_results.extend(results)
         
-        # 策略2: 通用搜索
+        # Strategy 2: Generic search
         if len(all_results) < max_results:
-            query_parts = keywords + ["歌曲", "风格"]
+            query_parts = keywords + ["song", "style"]
             query = " ".join(query_parts)
             results = self._do_search(query, max_results=3)
             all_results.extend(results)
         
-        # 过滤和去重
+        # Filter and deduplicate
         filtered = [r for r in all_results if self._is_relevant(r, keywords)]
         return self._deduplicate(filtered)[:max_results]
     
@@ -183,23 +183,23 @@ class WebSearchService:
         max_results: int = 3,
     ) -> List[str]:
         """
-        搜索艺术家信息
+        Search for artist information.
         
         Args:
-            artist: 艺术家名称
-            max_results: 最大返回结果数
+            artist: Artist name
+            max_results: Maximum number of results to return
             
         Returns:
-            搜索结果摘要列表
+            List of search result summaries.
         """
         if not artist:
             return []
         
-        # 使用更精确的查询
-        query = f'"{artist}" 歌手 音乐风格 代表作'
+        # Use more precise query
+        query = f'"{artist}" singer music style masterpiece'
         results = self._do_search(query, max_results=max_results + 2)
         
-        # 过滤包含艺术家名的结果
+        # Filter results containing the artist's name
         filtered = [r for r in results if artist.lower() in r.lower()]
         return filtered[:max_results] if filtered else results[:max_results]
     
@@ -210,38 +210,38 @@ class WebSearchService:
         max_results: int = 3,
     ) -> List[str]:
         """
-        搜索专辑信息
+        Search for album information.
         
         Args:
-            artist: 艺术家名称
-            album: 专辑名称
-            max_results: 最大返回结果数
+            artist: Artist name
+            album: Album name
+            max_results: Maximum number of results to return
             
         Returns:
-            搜索结果摘要列表
+            List of search result summaries.
         """
         if not album:
             return []
         
-        # 精确搜索专辑
+        # Exact search for album
         if artist:
-            query = f'"{artist}" "{album}" 专辑 风格'
+            query = f'"{artist}" "{album}" album style'
         else:
-            query = f'"{album}" 专辑 音乐风格'
+            query = f'"{album}" album music style'
         
         results = self._do_search(query, max_results=max_results + 2)
         
-        # 过滤包含专辑名的结果
+        # Filter results containing the album's name
         filtered = [r for r in results if album.lower() in r.lower()]
         return filtered[:max_results] if filtered else results[:max_results]
     
     def _manage_cache_size(self):
-        """管理缓存大小，如果超过限制则清理最旧的条目（LRU）"""
+        """Manage cache size, cleaning up the oldest entries (LRU) if it exceeds the limit."""
         with self._cache_lock:
             while len(self._cache) > self._max_cache_size:
-                # 删除最旧的条目（OrderedDict的第一个键）
+                # Remove the oldest entry (the first key in OrderedDict)
                 self._cache.popitem(last=False)
-            logger.debug("缓存清理: 保留 %d 个条目", len(self._cache))
+            logger.debug("Cache cleaned: retaining %d entries", len(self._cache))
     
     def _do_search(
         self,
@@ -249,27 +249,27 @@ class WebSearchService:
         max_results: int,
     ) -> List[str]:
         """
-        执行搜索
+        Perform the search.
         
         Args:
-            query: 搜索查询
-            max_results: 最大结果数
+            query: Search query
+            max_results: Maximum results
             
         Returns:
-            结果摘要列表
+            List of result summaries.
         """
-        # 检查服务是否启用
+        # Check if the service is enabled
         if not self._enabled:
-            logger.debug("网络搜索服务已禁用，跳过搜索: %s", query)
+            logger.debug("Web search service disabled, skipping: %s", query)
             return []
         
         cache_key = (query, max_results)
         
-        # 检查缓存（线程安全，LRU更新）
+        # Check cache (thread-safe, LRU update)
         with self._cache_lock:
             if cache_key in self._cache:
-                logger.debug("缓存命中: %s", query)
-                # 移动键到末尾表示最近使用
+                logger.debug("Cache hit: %s", query)
+                # Move key to end to represent most recent use
                 self._cache.move_to_end(cache_key)
                 return self._cache[cache_key]
         
@@ -290,9 +290,9 @@ class WebSearchService:
                 if not body:
                     continue
                 
-                # 限制每条结果的长度，确保在句子边界截断
+                # Limit result length, ensuring truncation at sentence boundaries
                 if len(body) > 150:
-                    # 尝试在句号处截断
+                    # Attempt to truncate at a period
                     cut_pos = body.rfind("。", 0, 150)
                     if cut_pos > 50:
                         body = body[:cut_pos + 1]
@@ -301,19 +301,19 @@ class WebSearchService:
                 
                 summaries.append(body)
             
-            logger.debug("搜索 '%s' 返回 %d 条有效结果", query, len(summaries))
+            logger.debug("Search for '%s' returned %d valid results", query, len(summaries))
             
-            # 缓存成功的结果（线程安全）
+            # Cache successful results (thread-safe)
             with self._cache_lock:
                 self._cache[cache_key] = summaries
-                # 移动新键到末尾
+                # Move new key to end
                 self._cache.move_to_end(cache_key)
                 self._manage_cache_size()
             
             return summaries
             
         except Exception as e:
-            logger.warning("搜索失败: %s", e)
+            logger.warning("Search failed: %s", e)
             return []
     
     def get_music_context(
@@ -324,53 +324,53 @@ class WebSearchService:
         max_total_chars: int = 500,
     ) -> str:
         """
-        获取综合的音乐上下文信息（改进版）
+        Get comprehensive music context information (improved version).
         
-        生成结构化的上下文，便于 LLM 解析。
+        Generates structured context for easier LLM parsing.
         
         Args:
-            artist: 艺术家名称
-            title: 歌曲标题
-            album: 专辑名称
-            max_total_chars: 最大总字符数
+            artist: Artist name
+            title: Song title
+            album: Album name
+            max_total_chars: Maximum total characters
             
         Returns:
-            结构化的上下文字符串
+            Structured context string.
         """
         context_parts = []
         chars_used = 0
         
-        # 1. 优先搜索歌曲信息
+        # 1. Prioritize song information search
         if title:
             song_info = self.search_music_info(artist or "", title, max_results=2)
             for info in song_info:
                 if chars_used + len(info) < max_total_chars * 0.6:
-                    context_parts.append(f"[歌曲] {info}")
+                    context_parts.append(f"[Song] {info}")
                     chars_used += len(info)
         
-        # 2. 补充艺术家信息
+        # 2. Supplement with artist information
         if artist and chars_used < max_total_chars * 0.8:
             artist_info = self.search_artist_info(artist, max_results=1)
             for info in artist_info:
                 if chars_used + len(info) < max_total_chars * 0.9:
-                    context_parts.append(f"[艺术家] {info}")
+                    context_parts.append(f"[Artist] {info}")
                     chars_used += len(info)
         
-        # 3. 补充专辑信息（如果还有空间）
+        # 3. Supplement with album information (if space permits)
         if album and chars_used < max_total_chars * 0.9:
             album_info = self.search_album_info(artist or "", album, max_results=1)
             for info in album_info:
                 if chars_used + len(info) < max_total_chars:
-                    context_parts.append(f"[专辑] {info}")
+                    context_parts.append(f"[Album] {info}")
                     chars_used += len(info)
         
         if not context_parts:
             return ""
         
-        # 使用换行分隔，更易于 LLM 解析
+        # Separate by newlines for easier LLM parsing
         context = "\n".join(context_parts)
         
-        # 最终长度控制
+        # Final length control
         if len(context) > max_total_chars:
             context = context[:max_total_chars - 3] + "..."
         

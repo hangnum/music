@@ -1,171 +1,171 @@
 # 🎵 Python Music Player
 
-一个采用模块化架构设计的高质量本地音乐播放器。
+A high-quality local music player designed with modular architecture.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.0+-green.svg)](https://pypi.org/project/PyQt6/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## ✨ 功能特性
+## ✨ Features
 
-### 已实现
+### Implemented
 
-- 🎶 **音乐播放** - 支持 MP3、FLAC、WAV、OGG、M4A、AAC 等格式
-- 🎧 **高级音频** - 支持无缝播放 (Gapless)、淡入淡出 (Crossfade)、ReplayGain 音量平衡
-- 🎚️ **均衡器** - 10 段专业均衡器，内置多种预设 (Rock, Pop, Jazz, etc.)
-- 📚 **媒体库管理** - 自动扫描并索引本地音乐文件
-- 🔍 **智能搜索** - 支持按曲目、艺术家、专辑搜索
-- 📋 **播放队列** - 灵活的播放队列管理
-- 🔀 **播放模式** - 顺序播放、随机播放、单曲循环、列表循环
-- 🏷️ **标签管理** - 手动为曲目添加自定义标签
-- 🏷️ **智能标签** - 基于 LLM 自动分析歌曲风格、情感并批量打标
-- 🤖 **智能队列** - 基于 LLM (SiliconFlow/Gemini) 的自然语言队列重排，支持标签语义过滤
-- 🎨 **深色主题** - 现代化 Spotify 风格界面
-- 📊 **元数据解析** - 自动读取音乐文件标签信息
+- 🎶 **Music Playback** - Support for MP3, FLAC, WAV, OGG, M4A, AAC and more formats
+- 🎧 **Advanced Audio** - Gapless playback, crossfade, ReplayGain volume normalization
+- 🎚️ **Equalizer** - 10-band professional equalizer with built-in presets (Rock, Pop, Jazz, etc.)
+- 📚 **Library Management** - Automatically scan and index local music files
+- 🔍 **Smart Search** - Search by track, artist, or album
+- 📋 **Queue Management** - Flexible playback queue management
+- 🔀 **Playback Modes** - Sequential, shuffle, single track repeat, list repeat
+- 🏷️ **Tag Management** - Manually add custom tags to tracks
+- 🏷️ **Smart Tagging** - LLM-powered automatic analysis of music style and mood for batch tagging
+- 🤖 **Smart Queue** - Natural language queue reordering based on LLM (SiliconFlow/Gemini), supports semantic tag filtering
+- 🎨 **Dark Theme** - Modern Spotify-inspired interface
+- 📊 **Metadata Parsing** - Automatically read music file tag information
 
-### 开发中
+### In Development
 
-- 📝 歌词显示
-- 🔔 系统托盘
-- ⌨️ 全局快捷键
+- 📝 Lyrics display
+- 🔔 System tray integration
+- ⌨️ Global hotkeys
 
-## 🛠️ 技术栈
+## 🛠️ Technology Stack
 
-| 组件 | 技术 | 说明 |
-|------|------|------|
-| GUI框架 | PyQt6 | 跨平台图形界面 |
-| 音频引擎 | miniaudio / vlc / pygame | 多后端音频引擎支持，默认 miniaudio |
-| 元数据解析 | mutagen | 多格式音频标签读取 |
-| 数据库 | SQLite | 本地数据存储 |
-| 配置管理 | PyYAML | YAML格式配置文件 |
-| LLM 服务 | SiliconFlow / Gemini | 智能特性支持 (队列重排、自动打标) |
+| Component | Technology | Description |
+|-----------|------------|-------------|
+| GUI Framework | PyQt6 | Cross-platform graphical interface |
+| Audio Engine | miniaudio / vlc / pygame | Multiple backend audio engine support, default miniaudio |
+| Metadata Parsing | mutagen | Multi-format audio tag reading |
+| Database | SQLite | Local data storage |
+| Configuration | PyYAML | YAML format configuration files |
+| LLM Service | SiliconFlow / Gemini | Smart features support (queue reordering, auto-tagging) |
 
-## 📦 安装
+## 📦 Installation
 
-### 环境要求
+### Requirements
 
 - Python 3.11+
-- Conda (推荐) 或 pip
-- (可选) VLC Player (如果使用 VLC 后端)
+- Conda (recommended) or pip
+- (Optional) VLC Player (if using VLC backend)
 
-### 使用 Conda
+### Using Conda
 
 ```bash
-# 创建虚拟环境
+# Create virtual environment
 conda create -n music python=3.11
 conda activate music
 
-# 安装依赖
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 使用 pip
+### Using pip
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 🚀 运行
+## 🚀 Running
 
 ```bash
 python src/main.py
 ```
 
-## ⌨️ 快捷键
+## ⌨️ Keyboard Shortcuts
 
-| 快捷键 | 功能 |
-|--------|------|
-| `Space` | 播放/暂停 |
-| `Ctrl+Right` | 下一曲 |
-| `Ctrl+Left` | 上一曲 |
-| `Ctrl+Up` | 音量增加 |
-| `Ctrl+Down` | 音量减少 |
+| Shortcut | Function |
+|----------|----------|
+| `Space` | Play/Pause |
+| `Ctrl+Right` | Next Track |
+| `Ctrl+Left` | Previous Track |
+| `Ctrl+Up` | Volume Up |
+| `Ctrl+Down` | Volume Down |
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```text
 music/
-├── docs/                    # 设计文档
-│   ├── architecture.md      # 系统架构
-│   ├── technical_design.md  # 技术设计
-│   └── api.md               # API接口
-├── src/                     # 源代码
-│   ├── core/                # 核心模块
-│   │   ├── audio_engine.py      # 音频引擎基类
-│   │   ├── engine_factory.py    # 音频引擎工厂
-│   │   ├── miniaudio_engine.py  # Miniaudio 后端 (High Quality)
-│   │   ├── vlc_engine.py        # VLC 后端
-│   │   ├── event_bus.py         # 事件总线
-│   │   ├── metadata.py          # 元数据解析
-│   │   ├── database.py          # 数据库管理
-│   │   └── llm_provider.py      # LLM 提供商抽象
-│   ├── models/              # 数据模型
-│   │   ├── track.py         # 曲目
-│   │   ├── album.py         # 专辑
-│   │   ├── artist.py        # 艺术家
-│   │   ├── playlist.py      # 播放列表
-│   │   └── eq_preset.py     # 均衡器预设
-│   ├── services/            # 服务层
-│   │   ├── player_service.py      # 播放服务
-│   │   ├── library_service.py     # 媒体库服务
-│   │   ├── playlist_service.py    # 播放列表服务
-│   │   ├── config_service.py      # 配置服务
-│   │   ├── tag_service.py         # 标签服务
-│   │   ├── llm_queue_service.py   # 智能队列服务
-│   │   ├── llm_tagging_service.py # 智能打标服务
-│   │   ├── tag_query_parser.py    # 标签查询解析
-│   │   └── llm_providers/         # LLM 适配器 (Gemini/SiliconFlow)
-│   ├── ui/                  # 界面层
-│   │   ├── main_window.py       # 主窗口
-│   │   ├── widgets/             # UI组件
-│   │   ├── dialogs/             # 对话框
-│   │   │   ├── audio_settings_dialog.py # 音频设置
+├── docs/                    # Design documents
+│   ├── architecture.md      # System architecture
+│   ├── technical_design.md  # Technical design
+│   └── api.md               # API interface
+├── src/                     # Source code
+│   ├── core/                # Core modules
+│   │   ├── audio_engine.py      # Audio engine base class
+│   │   ├── engine_factory.py    # Audio engine factory
+│   │   ├── miniaudio_engine.py  # Miniaudio backend (High Quality)
+│   │   ├── vlc_engine.py        # VLC backend
+│   │   ├── event_bus.py         # Event bus
+│   │   ├── metadata.py          # Metadata parsing
+│   │   ├── database.py          # Database management
+│   │   └── llm_provider.py      # LLM provider abstraction
+│   ├── models/              # Data models
+│   │   ├── track.py         # Track
+│   │   ├── album.py         # Album
+│   │   ├── artist.py        # Artist
+│   │   ├── playlist.py      # Playlist
+│   │   └── eq_preset.py     # Equalizer presets
+│   ├── services/            # Service layer
+│   │   ├── player_service.py      # Playback service
+│   │   ├── library_service.py     # Library service
+│   │   ├── playlist_service.py    # Playlist service
+│   │   ├── config_service.py      # Configuration service
+│   │   ├── tag_service.py         # Tag service
+│   │   ├── llm_queue_service.py   # Smart queue service
+│   │   ├── llm_tagging_service.py # Smart tagging service
+│   │   ├── tag_query_parser.py    # Tag query parser
+│   │   └── llm_providers/         # LLM adapters (Gemini/SiliconFlow)
+│   ├── ui/                  # UI layer
+│   │   ├── main_window.py       # Main window
+│   │   ├── widgets/             # UI components
+│   │   ├── dialogs/             # Dialogs
+│   │   │   ├── audio_settings_dialog.py # Audio settings
 │   │   │   └── ...
-│   │   └── styles/              # 样式表
-│   └── main.py              # 程序入口
-├── tests/                   # 单元测试
-├── config/                  # 配置文件
-│   └── default_config.yaml  # 默认配置
-└── requirements.txt         # 依赖列表
+│   │   └── styles/              # Stylesheets
+│   └── main.py              # Program entry
+├── tests/                   # Unit tests
+├── config/                  # Configuration files
+│   └── default_config.yaml  # Default configuration
+└── requirements.txt         # Dependencies list
 ```
 
-## 🏗️ 架构设计
+## 🏗️ Architecture Design
 
-采用分层架构设计，遵循 SOLID 原则：
+Adopts layered architecture design, following SOLID principles:
 
 ```text
 ┌─────────────────────────────────────┐
-│            UI Layer                 │  PyQt6 界面
+│            UI Layer                 │  PyQt6 Interface
 ├─────────────────────────────────────┤
-│          Service Layer              │  业务逻辑 (Play, Library, LLM...)
+│          Service Layer              │  Business Logic (Play, Library, LLM...)
 ├─────────────────────────────────────┤
-│           Core Layer                │  核心功能 (Audio, DB, EventBus)
+│           Core Layer                │  Core Features (Audio, DB, EventBus)
 ├─────────────────────────────────────┤
-│           Data Layer                │  数据存储 (SQLite, Config)
+│           Data Layer                │  Data Storage (SQLite, Config)
 └─────────────────────────────────────┘
 ```
 
-## 🧪 测试
+## 🧪 Testing
 
 ```bash
-# 运行所有测试
+# Run all tests
 python -m pytest tests/ -v
 
-# 运行核心模块测试
+# Run core module tests
 python -m pytest tests/test_core.py -v
 
-# 运行服务层测试
+# Run service layer tests
 python -m pytest tests/test_services.py -v
 ```
 
-## 📄 配置
+## 📄 Configuration
 
-配置文件位于 `config/default_config.yaml`：
+Configuration file is located at `config/default_config.yaml`:
 
 ```yaml
 library:
   directories:
-    - "D:\\User\\music\\music"  # 音乐库路径
+    - "D:\\User\\music\\music"  # Music library path
   supported_formats:
     - mp3
     - flac
@@ -174,20 +174,20 @@ library:
 
 playback:
   default_volume: 0.8
-  
+
 ui:
   theme: dark
   window_width: 1200
   window_height: 800
 ```
 
-## 📚 文档
+## 📚 Documentation
 
-详细设计文档请查看 `docs/` 目录：
+For detailed design documents, please check the `docs/` directory:
 
-- [系统架构](docs/architecture.md) - 整体架构设计
-- [技术设计](docs/technical_design.md) - 模块技术细节
-- [API接口](docs/api.md) - 接口规范
+- [System Architecture](docs/architecture.md) - Overall architecture design
+- [Technical Design](docs/technical_design.md) - Module technical details
+- [API Interface](docs/api.md) - Interface specifications
 
 ## 📝 License
 
