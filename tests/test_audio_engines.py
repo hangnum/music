@@ -145,22 +145,31 @@ class TestEQPresets:
 class TestPlayerServiceWithFactory:
     """Integration tests for PlayerService with the factory pattern."""
     
-    def test_player_service_uses_factory(self):
-        """Test that PlayerService uses the factory to create an engine."""
+    def test_player_service_fallback_emits_warning(self):
+        """Test that PlayerService emits a FutureWarning when using fallback."""
         from services.player_service import PlayerService
+        import warnings
         
-        # Should use factory if no engine is provided
-        player = PlayerService()
+        # Should emit FutureWarning if no engine is provided
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            player = PlayerService()
+            
+            # Check that a FutureWarning was issued
+            assert len(w) == 1
+            assert issubclass(w[0].category, FutureWarning)
+            assert "deprecated" in str(w[0].message).lower()
+        
+        # Engine should still be created via fallback
         assert player._engine is not None
-        
-        # Engine name should be one of the known backends
         assert player._engine.get_engine_name() in ["pygame", "miniaudio", "vlc"]
     
     def test_player_service_accepts_custom_engine(self):
-        """Test that PlayerService accepts a custom engine."""
+        """Test that PlayerService accepts a custom engine (proper DI)."""
         from services.player_service import PlayerService
         
         custom_engine = PygameAudioEngine()
         player = PlayerService(audio_engine=custom_engine)
         
         assert player._engine is custom_engine
+

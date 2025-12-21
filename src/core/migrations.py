@@ -24,6 +24,12 @@ MIGRATIONS = [
         "column": "source",
         "sql": "ALTER TABLE tags ADD COLUMN source TEXT DEFAULT 'user'",
     },
+    # Migration 2: Add name column to llm_tagging_jobs table
+    {
+        "table": "llm_tagging_jobs",
+        "column": "name",
+        "sql": "ALTER TABLE llm_tagging_jobs ADD COLUMN name TEXT DEFAULT ''",
+    },
 ]
 
 

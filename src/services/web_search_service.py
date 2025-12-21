@@ -81,7 +81,7 @@ class WebSearchService:
             self._enabled = True
         
         self._ddgs = None
-        self._noise_re = re.compile("|".join(self.NOISE_PATTERNS))
+        self._noise_re = re.compile("|".join(self.NOISE_PATTERNS), re.IGNORECASE)
         # Cache: Use OrderedDict to implement LRU cache
         self._cache = OrderedDict()
         # Thread lock to protect cache access

@@ -56,7 +56,7 @@ class TestCreatePlaylistDialog:
     
     def test_create_mode_title(self, dialog):
         """The title should be correct in creation mode."""
-        assert dialog.windowTitle() == "New Playlist"
+        assert dialog.windowTitle() == "Create New Playlist"
     
     def test_edit_mode_prefilled(self, qapp):
         """Data should be pre-filled in edit mode."""
@@ -303,6 +303,7 @@ class TestLLMQueueChatDialogUI:
     @pytest.fixture
     def dialog(self, mock_services):
         """Create an instance of LLMQueueChatDialog"""
+        from ui.dialogs.llm_queue_chat_dialog import LLMQueueChatDialog
         container, _ = mock_services
         return LLMQueueChatDialog(facade=container.facade)
     

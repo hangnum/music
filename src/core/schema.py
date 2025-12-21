@@ -132,6 +132,7 @@ TABLE_STATEMENTS = [
     """
     CREATE TABLE IF NOT EXISTS llm_tagging_jobs (
         id TEXT PRIMARY KEY,
+        name TEXT DEFAULT '',
         started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP,
         total_tracks INTEGER NOT NULL DEFAULT 0,
