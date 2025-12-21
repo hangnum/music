@@ -8,6 +8,9 @@ import pytest
 from unittest.mock import MagicMock
 
 
+class TestPlayerControls:
+    """PlayerControls General Tests"""
+
     @pytest.fixture
     def player_controls(self, qapp):
         """Create PlayerControls instance"""

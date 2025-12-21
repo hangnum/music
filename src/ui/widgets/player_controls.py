@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, 
     QPushButton, QSlider, QSizePolicy
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QSize
 from PyQt6.QtGui import QIcon, QPixmap
 
 from services.player_service import PlayerService, PlayMode
@@ -136,7 +136,9 @@ class PlayerControls(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Previous button
-        self.prev_btn = QPushButton("⏮")
+        self.prev_btn = QPushButton()
+        self.prev_btn.setIcon(ThemeManager.get_icon("previous"))
+        self.prev_btn.setIconSize(QSize(24, 24))
         self.prev_btn.setObjectName("controlButton")
         self.prev_btn.setToolTip("Previous")
         self.prev_btn.setFixedSize(36, 36)
@@ -145,7 +147,9 @@ class PlayerControls(QWidget):
         layout.addWidget(self.prev_btn)
 
         # Play/Pause button (Hero Button)
-        self.play_btn = QPushButton("▶")
+        self.play_btn = QPushButton()
+        self.play_btn.setIcon(ThemeManager.get_icon("play"))
+        self.play_btn.setIconSize(QSize(32, 32))
         self.play_btn.setObjectName("PlayPauseButton")
         self.play_btn.setToolTip("Play")
         self.play_btn.setFixedSize(48, 48)
@@ -154,7 +158,9 @@ class PlayerControls(QWidget):
         layout.addWidget(self.play_btn)
 
         # Next button
-        self.next_btn = QPushButton("⏭")
+        self.next_btn = QPushButton()
+        self.next_btn.setIcon(ThemeManager.get_icon("next"))
+        self.next_btn.setIconSize(QSize(24, 24))
         self.next_btn.setObjectName("controlButton")
         self.next_btn.setToolTip("Next")
         self.next_btn.setFixedSize(36, 36)
@@ -180,7 +186,9 @@ class PlayerControls(QWidget):
         layout.addWidget(self.time_label)
 
         # Shuffle button
-        self.shuffle_btn = QPushButton("🔀")
+        self.shuffle_btn = QPushButton()
+        self.shuffle_btn.setIcon(ThemeManager.get_icon("shuffle"))
+        self.shuffle_btn.setIconSize(QSize(20, 20))
         self.shuffle_btn.setObjectName("controlButton")
         self.shuffle_btn.setToolTip("Shuffle")
         self.shuffle_btn.setFixedSize(28, 28)
@@ -190,7 +198,9 @@ class PlayerControls(QWidget):
         layout.addWidget(self.shuffle_btn)
 
         # Repeat button
-        self.repeat_btn = QPushButton("🔁")
+        self.repeat_btn = QPushButton()
+        self.repeat_btn.setIcon(ThemeManager.get_icon("repeat"))
+        self.repeat_btn.setIconSize(QSize(20, 20))
         self.repeat_btn.setObjectName("controlButton")
         self.repeat_btn.setToolTip("Repeat")
         self.repeat_btn.setFixedSize(28, 28)
@@ -200,7 +210,9 @@ class PlayerControls(QWidget):
         layout.addWidget(self.repeat_btn)
         
         # Volume button
-        self.volume_btn = QPushButton("🔊")
+        self.volume_btn = QPushButton()
+        self.volume_btn.setIcon(ThemeManager.get_icon("volume_high"))
+        self.volume_btn.setIconSize(QSize(20, 20))
         self.volume_btn.setObjectName("controlButton")
         self.volume_btn.setFixedSize(28, 28)
         self.volume_btn.setStyleSheet(ThemeManager.get_control_button_style())
@@ -307,11 +319,11 @@ class PlayerControls(QWidget):
         mode = self.player.get_play_mode()
         if mode == PlayMode.REPEAT_ONE:
             self.player.set_play_mode(PlayMode.SEQUENTIAL)
-            self.repeat_btn.setText("🔁")
+            self.repeat_btn.setIcon(ThemeManager.get_icon("repeat"))
             self.repeat_btn.setChecked(False)
         elif mode == PlayMode.REPEAT_ALL:
             self.player.set_play_mode(PlayMode.REPEAT_ONE)
-            self.repeat_btn.setText("🔂")
+            self.repeat_btn.setIcon(ThemeManager.get_icon("repeat_1"))
             self.repeat_btn.setChecked(True)
         else:
             self.player.set_play_mode(PlayMode.REPEAT_ALL)
@@ -336,11 +348,11 @@ class PlayerControls(QWidget):
         
         # Update volume icon
         if value == 0:
-            self.volume_btn.setText("🔇")
+            self.volume_btn.setIcon(ThemeManager.get_icon("volume_mute"))
         elif value < 50:
-            self.volume_btn.setText("🔉")
+            self.volume_btn.setIcon(ThemeManager.get_icon("volume_high"))
         else:
-            self.volume_btn.setText("🔊")
+            self.volume_btn.setIcon(ThemeManager.get_icon("volume_high"))
     
     def _on_mute_clicked(self):
         """Handle mute button click."""
@@ -379,8 +391,8 @@ class PlayerControls(QWidget):
     def _update_play_button(self):
         """Update play button state and tooltip."""
         if self.player.is_playing:
-            self.play_btn.setText("⏸")
+            self.play_btn.setIcon(ThemeManager.get_icon("pause"))
             self.play_btn.setToolTip("Pause")
         else:
-            self.play_btn.setText("▶")
+            self.play_btn.setIcon(ThemeManager.get_icon("play"))
             self.play_btn.setToolTip("Play")

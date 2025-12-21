@@ -1,8 +1,31 @@
+from PyQt6.QtGui import QIcon
+import os
+
 from ui.resources.design_tokens import tokens
 
 
 class ThemeManager:
     """Manages application themes and generates stylesheets based on DesignTokens."""
+
+    @staticmethod
+    def get_icon(name: str) -> QIcon:
+        """
+        Returns a QIcon for the given icon name.
+        Assumes icons are located in src/ui/resources/icons/{name}.svg
+        """
+        # Determine the absolute path to the icon
+        # Assuming run from src/main.py, so src/ is the root or similar.
+        # Better to use relative path from this file or a known base.
+        # construct path relative to this file: ../resources/icons/
+        base_path = os.path.dirname(os.path.dirname(__file__)) # src/ui
+        icon_path = os.path.join(base_path, "resources", "icons", f"{name}.svg")
+        
+        if not os.path.exists(icon_path):
+             # Fallback or log warning? For now just return empty icon or let it fail gracefully
+             print(f"Warning: Icon not found at {icon_path}")
+             return QIcon()
+             
+        return QIcon(icon_path)
 
     @staticmethod
     def get_global_stylesheet() -> str:

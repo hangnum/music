@@ -120,7 +120,7 @@ class MainWindowNavigator:
         else:
             # If not exists, open generation dialog
             self.main_window.nav_daily_playlist.setChecked(False)
-            self.main_window._open_daily_playlist()
+            self.main_window.menu_manager._open_daily_playlist()
     
     def _open_favorites_playlist(self):
         """Open 'My Favorites' playlist."""
